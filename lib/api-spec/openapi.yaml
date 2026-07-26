@@ -3,20 +3,34 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Appliance Service Center Management API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: customers
+    description: Customer management
+  - name: appliances
+    description: Appliance management
+  - name: jobs
+    description: Service job management
+  - name: reminders
+    description: Reminders and alarms
+  - name: users
+    description: User roles and permissions
+  - name: settings
+    description: App settings and customization
+  - name: dashboard
+    description: Dashboard and reports
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +38,1037 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Customers ──────────────────────────────────────────────
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: paymentStatus
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Delete a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /customers/{id}/history:
+    get:
+      operationId: getCustomerHistory
+      tags: [customers]
+      summary: Get full customer history (jobs, payments, appliances)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Customer history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerHistory"
+
+  /customers/{id}/whatsapp-form:
+    get:
+      operationId: getCustomerWhatsappForm
+      tags: [customers]
+      summary: Get WhatsApp form link/data for customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: WhatsApp form data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsappForm"
+
+  # ── Appliances ──────────────────────────────────────────────
+  /appliances:
+    get:
+      operationId: listAppliances
+      tags: [appliances]
+      summary: List all appliances
+      parameters:
+        - name: customerId
+          in: query
+          schema: { type: integer }
+        - name: type
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of appliances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Appliance"
+    post:
+      operationId: createAppliance
+      tags: [appliances]
+      summary: Add an appliance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplianceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appliance"
+
+  /appliances/{id}:
+    get:
+      operationId: getAppliance
+      tags: [appliances]
+      summary: Get appliance by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Appliance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appliance"
+    patch:
+      operationId: updateAppliance
+      tags: [appliances]
+      summary: Update an appliance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplianceUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appliance"
+    delete:
+      operationId: deleteAppliance
+      tags: [appliances]
+      summary: Delete an appliance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Service Jobs ──────────────────────────────────────────────
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List service jobs
+      parameters:
+        - name: customerId
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: paymentStatus
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceJob"
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Create a service job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceJobInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceJob"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceJob"
+    patch:
+      operationId: updateJob
+      tags: [jobs]
+      summary: Update a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceJobUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceJob"
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      summary: Delete a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /jobs/{id}/payment:
+    patch:
+      operationId: updateJobPayment
+      tags: [jobs]
+      summary: Update payment status of a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentUpdate"
+      responses:
+        "200":
+          description: Updated payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceJob"
+
+  /jobs/recent:
+    get:
+      operationId: listRecentJobs
+      tags: [jobs]
+      summary: Get recent jobs (dashboard feed)
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Recent jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceJob"
+
+  # ── Highlights ──────────────────────────────────────────────
+  /highlights:
+    get:
+      operationId: listHighlights
+      tags: [jobs]
+      summary: List highlights for a job or customer
+      parameters:
+        - name: jobId
+          in: query
+          schema: { type: integer }
+        - name: customerId
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: List of highlights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Highlight"
+    post:
+      operationId: createHighlight
+      tags: [jobs]
+      summary: Create a highlight
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HighlightInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Highlight"
+
+  /highlights/{id}:
+    patch:
+      operationId: updateHighlight
+      tags: [jobs]
+      summary: Update a highlight (tick, size, label)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HighlightUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Highlight"
+    delete:
+      operationId: deleteHighlight
+      tags: [jobs]
+      summary: Delete a highlight
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Reminders ──────────────────────────────────────────────
+  /reminders:
+    get:
+      operationId: listReminders
+      tags: [reminders]
+      summary: List reminders
+      parameters:
+        - name: customerId
+          in: query
+          schema: { type: integer }
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: List of reminders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reminder"
+    post:
+      operationId: createReminder
+      tags: [reminders]
+      summary: Create a reminder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+
+  /reminders/{id}:
+    patch:
+      operationId: updateReminder
+      tags: [reminders]
+      summary: Update a reminder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+    delete:
+      operationId: deleteReminder
+      tags: [reminders]
+      summary: Delete a reminder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Users ──────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppUser"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppUserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppUser"
+
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppUserUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppUser"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Settings ──────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get app settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update app settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+
+  # ── Dashboard ──────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /reports/stats:
+    get:
+      operationId: getReportStats
+      tags: [dashboard]
+      summary: Get detailed reporting statistics
+      parameters:
+        - name: period
+          in: query
+          schema: { type: string, enum: [week, month, year, all] }
+      responses:
+        "200":
+          description: Report statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportStats"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
+        status: { type: string }
+
+    # ── Customer ──────────────────────────────────────────────
+    Customer:
+      type: object
+      required: [id, serialNumber, name, phone, createdAt]
+      properties:
+        id: { type: integer }
+        serialNumber: { type: integer }
+        name: { type: string }
+        phone: { type: string }
+        whatsappPhone: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        dpUrl: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        totalJobs: { type: integer }
+        unpaidAmount: { type: number }
+        lastJobDate: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    CustomerInput:
+      type: object
+      required: [name, phone]
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: string, minLength: 1 }
+        whatsappPhone: { type: string }
+        address: { type: string }
+        dpUrl: { type: string }
+        notes: { type: string }
+
+    CustomerUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        phone: { type: string }
+        whatsappPhone: { type: string }
+        address: { type: string }
+        dpUrl: { type: string }
+        notes: { type: string }
+
+    CustomerHistory:
+      type: object
+      required: [customer, jobs, appliances, totalPaid, totalDue]
+      properties:
+        customer:
+          $ref: "#/components/schemas/Customer"
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceJob"
+        appliances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Appliance"
+        totalPaid: { type: number }
+        totalDue: { type: number }
+
+    WhatsappForm:
+      type: object
+      required: [whatsappLink, messageTemplate]
+      properties:
+        whatsappLink: { type: string }
+        messageTemplate: { type: string }
+        customerName: { type: string }
+        phone: { type: string }
+
+    # ── Appliance ──────────────────────────────────────────────
+    Appliance:
+      type: object
+      required: [id, customerId, type, createdAt]
+      properties:
+        id: { type: integer }
+        customerId: { type: integer }
+        customerName: { type: ["string", "null"] }
+        type: { type: string }
+        brand: { type: ["string", "null"] }
+        model: { type: ["string", "null"] }
+        serialNo: { type: ["string", "null"] }
+        purchaseDate: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    ApplianceInput:
+      type: object
+      required: [customerId, type]
+      properties:
+        customerId: { type: integer }
+        type: { type: string }
+        brand: { type: string }
+        model: { type: string }
+        serialNo: { type: string }
+        purchaseDate: { type: string }
+        notes: { type: string }
+
+    ApplianceUpdate:
+      type: object
+      properties:
+        type: { type: string }
+        brand: { type: string }
+        model: { type: string }
+        serialNo: { type: string }
+        purchaseDate: { type: string }
+        notes: { type: string }
+
+    # ── ServiceJob ──────────────────────────────────────────────
+    ServiceJob:
+      type: object
+      required: [id, jobNumber, customerId, status, paymentStatus, createdAt]
+      properties:
+        id: { type: integer }
+        jobNumber: { type: string }
+        customerId: { type: integer }
+        customerName: { type: ["string", "null"] }
+        customerPhone: { type: ["string", "null"] }
+        applianceId: { type: ["integer", "null"] }
+        applianceType: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
         status:
           type: string
-      required:
-        - status
+          enum: [pending, in_progress, completed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [unpaid, partial, paid]
+        amount: { type: number }
+        paidAmount: { type: number }
+        technicianName: { type: ["string", "null"] }
+        scheduledDate: { type: ["string", "null"] }
+        completedDate: { type: ["string", "null"] }
+        isHighlighted: { type: boolean }
+        isNumberHighlighted: { type: boolean }
+        highlights:
+          type: array
+          items:
+            $ref: "#/components/schemas/Highlight"
+        createdAt: { type: string }
+        updatedAt: { type: string }
 
+    ServiceJobInput:
+      type: object
+      required: [customerId]
+      properties:
+        customerId: { type: integer }
+        applianceId: { type: integer }
+        description: { type: string }
+        status: { type: string }
+        paymentStatus: { type: string }
+        amount: { type: number }
+        paidAmount: { type: number }
+        technicianName: { type: string }
+        scheduledDate: { type: string }
+        isHighlighted: { type: boolean }
+        isNumberHighlighted: { type: boolean }
+
+    ServiceJobUpdate:
+      type: object
+      properties:
+        applianceId: { type: integer }
+        description: { type: string }
+        status: { type: string }
+        paymentStatus: { type: string }
+        amount: { type: number }
+        paidAmount: { type: number }
+        technicianName: { type: string }
+        scheduledDate: { type: string }
+        completedDate: { type: string }
+        isHighlighted: { type: boolean }
+        isNumberHighlighted: { type: boolean }
+
+    PaymentUpdate:
+      type: object
+      required: [paymentStatus]
+      properties:
+        paymentStatus:
+          type: string
+          enum: [unpaid, partial, paid]
+        paidAmount: { type: number }
+
+    # ── Highlight ──────────────────────────────────────────────
+    Highlight:
+      type: object
+      required: [id, label, color, createdAt]
+      properties:
+        id: { type: integer }
+        jobId: { type: ["integer", "null"] }
+        customerId: { type: ["integer", "null"] }
+        label: { type: string }
+        color: { type: string }
+        captionSize: { type: number }
+        isNumbered: { type: boolean }
+        isTicked: { type: boolean }
+        zoomLevel: { type: number }
+        createdAt: { type: string }
+
+    HighlightInput:
+      type: object
+      required: [label, color]
+      properties:
+        jobId: { type: integer }
+        customerId: { type: integer }
+        label: { type: string }
+        color: { type: string }
+        captionSize: { type: number }
+        isNumbered: { type: boolean }
+        isTicked: { type: boolean }
+        zoomLevel: { type: number }
+
+    HighlightUpdate:
+      type: object
+      properties:
+        label: { type: string }
+        color: { type: string }
+        captionSize: { type: number }
+        isNumbered: { type: boolean }
+        isTicked: { type: boolean }
+        zoomLevel: { type: number }
+
+    # ── Reminder ──────────────────────────────────────────────
+    Reminder:
+      type: object
+      required: [id, title, reminderAt, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        customerId: { type: ["integer", "null"] }
+        customerName: { type: ["string", "null"] }
+        jobId: { type: ["integer", "null"] }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        reminderAt: { type: string }
+        isActive: { type: boolean }
+        isTriggered: { type: boolean }
+        createdAt: { type: string }
+
+    ReminderInput:
+      type: object
+      required: [title, reminderAt]
+      properties:
+        customerId: { type: integer }
+        jobId: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        reminderAt: { type: string }
+        isActive: { type: boolean }
+
+    ReminderUpdate:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        reminderAt: { type: string }
+        isActive: { type: boolean }
+        isTriggered: { type: boolean }
+
+    # ── AppUser ──────────────────────────────────────────────
+    AppUser:
+      type: object
+      required: [id, name, role, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        role:
+          type: string
+          enum: [admin, technician, viewer]
+        permissions:
+          type: array
+          items: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+
+    AppUserInput:
+      type: object
+      required: [name, role]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        role: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+
+    AppUserUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string }
+        role: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+        isActive: { type: boolean }
+
+    # ── AppSettings ──────────────────────────────────────────────
+    AppSettings:
+      type: object
+      required: [id]
+      properties:
+        id: { type: integer }
+        globalWallpaper: { type: ["string", "null"] }
+        personalWallpaper: { type: ["string", "null"] }
+        captionSize: { type: number }
+        zoomLevel: { type: number }
+        theme:
+          type: string
+          enum: [light, dark, system]
+        language:
+          type: string
+          enum: [hi, en, both]
+        homeLayout: { type: ["string", "null"] }
+        notificationsEnabled: { type: boolean }
+
+    AppSettingsUpdate:
+      type: object
+      properties:
+        globalWallpaper: { type: string }
+        personalWallpaper: { type: string }
+        captionSize: { type: number }
+        zoomLevel: { type: number }
+        theme: { type: string }
+        language: { type: string }
+        homeLayout: { type: string }
+        notificationsEnabled: { type: boolean }
+
+    # ── Dashboard ──────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      required: [totalCustomers, totalJobs, pendingJobs, completedJobs, totalRevenue, pendingPayments, todayReminders, overduePayments]
+      properties:
+        totalCustomers: { type: integer }
+        totalJobs: { type: integer }
+        pendingJobs: { type: integer }
+        inProgressJobs: { type: integer }
+        completedJobs: { type: integer }
+        totalRevenue: { type: number }
+        pendingPayments: { type: number }
+        todayReminders: { type: integer }
+        overduePayments: { type: number }
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceJob"
+
+    ReportStats:
+      type: object
+      required: [period, jobsByStatus, jobsByPayment, revenueData, topAppliances]
+      properties:
+        period: { type: string }
+        jobsByStatus:
+          type: array
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status: { type: string }
+              count: { type: integer }
+        jobsByPayment:
+          type: array
+          items:
+            type: object
+            required: [paymentStatus, count, amount]
+            properties:
+              paymentStatus: { type: string }
+              count: { type: integer }
+              amount: { type: number }
+        revenueData:
+          type: array
+          items:
+            type: object
+            required: [date, revenue, jobs]
+            properties:
+              date: { type: string }
+              revenue: { type: number }
+              jobs: { type: integer }
+        topAppliances:
+          type: array
+          items:
+            type: object
+            required: [type, count]
+            properties:
+              type: { type: string }
+              count: { type: integer }

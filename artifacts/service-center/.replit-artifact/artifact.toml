@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "सर्विस सेंटर मैनेजर"
+version = "1.0.0"
+id = "artifacts/service-center"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24492
+
+[services.development]
+run = "pnpm --filter @workspace/service-center run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/service-center", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/service-center/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24492"
+BASE_PATH = "/"

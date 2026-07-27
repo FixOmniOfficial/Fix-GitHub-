@@ -20,6 +20,7 @@ import {
   Monitor,
   Info,
   CheckCircle2,
+  Languages,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetSettingsQueryKey } from '@workspace/api-client-react';
@@ -60,13 +61,14 @@ export default function Settings() {
   const updateSettings = useUpdateSettings();
 
   const { register, handleSubmit, setValue, watch, reset } = useForm<AppSettingsUpdate>({
-    defaultValues: { theme: 'light', globalWallpaper: '', captionSize: 1, notificationsEnabled: true },
+    defaultValues: { theme: 'light', language: 'both', globalWallpaper: '', captionSize: 1, notificationsEnabled: true },
   });
 
   useEffect(() => {
     if (settings) {
       reset({
         theme: settings.theme ?? 'light',
+        language: (settings.language as 'hi' | 'en' | 'both') ?? 'both',
         globalWallpaper: settings.globalWallpaper ?? '',
         captionSize: settings.captionSize ?? 1,
         notificationsEnabled: settings.notificationsEnabled ?? true,
@@ -76,6 +78,7 @@ export default function Settings() {
 
   const captionSize = watch('captionSize') ?? 1;
   const theme = watch('theme');
+  const language = watch('language') ?? 'both';
 
   const onSubmit = (data: AppSettingsUpdate) => {
     updateSettings.mutate(
@@ -172,6 +175,47 @@ export default function Settings() {
                             <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
                           )}
                         </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Language */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Languages className="w-4 h-4 text-primary" />
+                  Language
+                </CardTitle>
+                <CardDescription>Choose the display language for labels</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { value: 'en', label: 'English', sub: 'English only' },
+                    { value: 'hi', label: 'हिन्दी', sub: 'Hindi only' },
+                    { value: 'both', label: 'Both', sub: 'Hindi + English' },
+                  ].map((opt) => {
+                    const selected = language === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setValue('language', opt.value as 'hi' | 'en' | 'both')}
+                        className={cn(
+                          'rounded-xl border-2 px-3 py-3 text-left transition-all focus:outline-none',
+                          selected
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                            : 'border-border hover:border-muted-foreground/40'
+                        )}
+                      >
+                        <div className="font-semibold text-sm">{opt.label}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">{opt.sub}</div>
+                        {selected && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-primary mt-1" />
+                        )}
                       </button>
                     );
                   })}

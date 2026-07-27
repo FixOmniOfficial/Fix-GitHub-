@@ -52,6 +52,8 @@ router.get("/customers", async (req, res): Promise<void> => {
 
       return {
         ...c,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
         totalJobs,
         unpaidAmount,
         lastJobDate: lastJob ? lastJob.createdAt.toISOString() : null,

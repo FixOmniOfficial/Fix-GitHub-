@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useRoute, Link } from 'wouter';
+import React, { useState, useEffect } from 'react';
+import { useRoute, useLocation, Link } from 'wouter';
 import { 
   useGetCustomer, 
   useGetCustomerHistory, 
@@ -56,7 +56,7 @@ const customerSchema = z.object({
 export default function CustomerDetail() {
   const [, params] = useRoute('/customers/:id');
   const id = parseInt(params?.id || '0');
-  const [, setLocation] = useRoute('/');
+  const [, navigate] = useLocation();
   
   const queryClient = useQueryClient();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -70,14 +70,21 @@ export default function CustomerDetail() {
 
   const form = useForm<z.infer<typeof customerSchema>>({
     resolver: zodResolver(customerSchema),
-    values: customer ? {
-      name: customer.name,
-      phone: customer.phone,
-      whatsappPhone: customer.whatsappPhone || '',
-      address: customer.address || '',
-      notes: customer.notes || ''
-    } : undefined
+    defaultValues: { name: '', phone: '', whatsappPhone: '', address: '', notes: '' }
   });
+
+  // Populate form only when dialog opens — avoid re-syncing while user types
+  useEffect(() => {
+    if (isEditOpen && customer) {
+      form.reset({
+        name: customer.name,
+        phone: customer.phone,
+        whatsappPhone: customer.whatsappPhone || '',
+        address: customer.address || '',
+        notes: customer.notes || '',
+      });
+    }
+  }, [isEditOpen]);
 
   const onUpdate = (data: z.infer<typeof customerSchema>) => {
     updateCustomer.mutate({ id, data }, {
@@ -94,10 +101,10 @@ export default function CustomerDetail() {
   const onDelete = () => {
     deleteCustomer.mutate({ id }, {
       onSuccess: () => {
-        toast.success('ग्राहक हटा दिया गया (Customer deleted)');
-        setLocation('/customers');
+        toast.success('Customer deleted successfully');
+        navigate('/customers');
       },
-      onError: () => toast.error('हटाना विफल रहा (Deletion failed)')
+      onError: () => toast.error('Failed to delete customer')
     });
   };
 

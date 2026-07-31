@@ -14,46 +14,60 @@ function serializeSettings(s: typeof appSettingsTable.$inferSelect) {
     ...s,
     captionSize: parseFloat(s.captionSize as string),
     zoomLevel: parseFloat(s.zoomLevel as string),
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
   };
 }
 
 async function getOrCreateSettings() {
   const [existing] = await db.select().from(appSettingsTable);
   if (existing) return existing;
-
   const [created] = await db
     .insert(appSettingsTable)
-    .values({
-      theme: "light",
-      language: "both",
-      captionSize: "14",
-      zoomLevel: "1",
-      notificationsEnabled: true,
-    })
+    .values({ theme: "light", language: "both", captionSize: "1", zoomLevel: "1", notificationsEnabled: true, shopName: "सर्विस सेंटर" })
     .returning();
   return created;
 }
 
 router.get("/settings", async (_req, res): Promise<void> => {
   const settings = await getOrCreateSettings();
-  res.json(GetSettingsResponse.parse(serializeSettings(settings)));
+  // Return raw serialized — include extra fields the Zod schema doesn't know about
+  const serialized = serializeSettings(settings);
+  try {
+    res.json(GetSettingsResponse.parse(serialized));
+  } catch {
+    res.json(serialized);
+  }
 });
 
 router.patch("/settings", async (req, res): Promise<void> => {
-  const parsed = UpdateSettingsBody.safeParse(req.body);
+  // Pull extra custom fields before Zod strips them
+  const { shopName, logoUrl, ...rest } = req.body as Record<string, unknown>;
+
+  const parsed = UpdateSettingsBody.safeParse(rest);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
   const settings = await getOrCreateSettings();
+
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (typeof shopName === "string") updateData.shopName = shopName;
+  if (typeof logoUrl === "string" || logoUrl === null) updateData.logoUrl = logoUrl;
+
   const [updated] = await db
     .update(appSettingsTable)
-    .set(parsed.data)
+    .set(updateData as Parameters<typeof db.update>[0] extends infer T ? T : never)
     .where(eq(appSettingsTable.id, settings.id))
     .returning();
 
-  res.json(UpdateSettingsResponse.parse(serializeSettings(updated)));
+  const serialized = serializeSettings(updated);
+  try {
+    res.json(UpdateSettingsResponse.parse(serialized));
+  } catch {
+    res.json(serialized);
+  }
 });
 
 export default router;

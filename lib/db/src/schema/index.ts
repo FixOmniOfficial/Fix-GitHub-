@@ -5,3 +5,4 @@ export * from "./highlights";
 export * from "./reminders";
 export * from "./users";
 export * from "./settings";
+export * from "./auth";

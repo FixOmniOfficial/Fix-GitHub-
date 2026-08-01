@@ -1,5 +1,7 @@
+import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
+import { Toaster as SonnerToaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
@@ -15,14 +17,13 @@ import Reports from '@/pages/reports';
 import Users from '@/pages/users';
 import Settings from '@/pages/settings';
 import Login from '@/pages/login';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useAuth } from '@/lib/use-auth';
 import { Loader2 } from 'lucide-react';
-import { Toaster as SonnerToaster } from 'sonner';
 
 const queryClient = new QueryClient();
 
-function AuthGate({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated } = useAuth();
+function AuthGate() {
+  const { isLoading, isAuthenticated, refetch } = useAuth();
 
   if (isLoading) {
     return (
@@ -33,31 +34,25 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Login />;
+    return <Login onLogin={refetch} />;
   }
 
-  return <>{children}</>;
-}
-
-function Router() {
   return (
-    <AuthGate>
-      <AppShell>
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/customers" component={Customers} />
-          <Route path="/customers/:id" component={CustomerDetail} />
-          <Route path="/jobs" component={Jobs} />
-          <Route path="/jobs/:id" component={JobDetail} />
-          <Route path="/reminders" component={Reminders} />
-          <Route path="/calculator" component={Calculator} />
-          <Route path="/reports" component={Reports} />
-          <Route path="/users" component={Users} />
-          <Route path="/settings" component={Settings} />
-          <Route component={NotFound} />
-        </Switch>
-      </AppShell>
-    </AuthGate>
+    <AppShell onLogout={refetch}>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/customers" component={Customers} />
+        <Route path="/customers/:id" component={CustomerDetail} />
+        <Route path="/jobs" component={Jobs} />
+        <Route path="/jobs/:id" component={JobDetail} />
+        <Route path="/reminders" component={Reminders} />
+        <Route path="/calculator" component={Calculator} />
+        <Route path="/reports" component={Reports} />
+        <Route path="/users" component={Users} />
+        <Route path="/settings" component={Settings} />
+        <Route component={NotFound} />
+      </Switch>
+    </AppShell>
   );
 }
 
@@ -66,7 +61,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
+          <AuthGate />
         </WouterRouter>
         <Toaster />
         <SonnerToaster richColors position="top-right" />

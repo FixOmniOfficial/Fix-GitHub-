@@ -1,0 +1,2 @@
+- [Custom Auth System](custom-auth.md) — password+OTP auth replaces Replit Auth; sessions in PostgreSQL sessions table; default admin seeded on startup.
+- [Settings Extra Fields](settings-extra-fields.md) — shopName/logoUrl are NOT in OpenAPI spec/Zod; handled manually in the route by extracting from req.body before Zod parse.

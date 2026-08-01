@@ -1,194 +1,179 @@
-import { GetCurrentAuthUserResponse } from '@workspace/api-zod';
-import { db, usersTable } from '@workspace/db';
+import { db, appUsersTable } from '@workspace/db';
+import { eq, or } from 'drizzle-orm';
 import { Router, type IRouter, type Request, type Response } from 'express';
-import * as oidc from 'openid-client';
-
 import {
-  clearSession,
+  hashPassword,
+  verifyPassword,
+  saveOtp,
+  verifyOtp,
   createSession,
-  getOidcConfig,
+  clearSession,
   getSessionId,
-  SESSION_COOKIE,
-  SESSION_TTL,
-  type SessionData,
-} from '../lib/auth';
-
-const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+  setSessionCookie,
+  ensureDefaultAdmin,
+  type CustomSessionUser,
+} from '../lib/custom-auth';
 
 const router: IRouter = Router();
 
-function getOrigin(req: Request): string {
-  const proto = req.headers['x-forwarded-proto'] || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers['host'] || 'localhost';
-  return `${proto}://${host}`;
+// Seed default admin on startup
+ensureDefaultAdmin().catch(console.error);
+
+function toSessionUser(u: typeof appUsersTable.$inferSelect): CustomSessionUser {
+  return { id: u.id, name: u.name, username: u.username, email: u.email, phone: u.phone, role: u.role };
 }
 
-function setSessionCookie(res: Response, sid: string) {
-  res.cookie(SESSION_COOKIE, sid, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: SESSION_TTL,
-  });
-}
-
-function setOidcCookie(res: Response, name: string, value: string) {
-  res.cookie(name, value, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: OIDC_COOKIE_TTL,
-  });
-}
-
-function getSafeReturnTo(value: unknown): string {
-  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
-    return '/';
-  }
-  return value;
-}
-
-async function upsertUser(claims: Record<string, unknown>) {
-  const userData = {
-    id: claims.sub as string,
-    email: (claims.email as string) || null,
-    firstName: (claims.first_name as string) || null,
-    lastName: (claims.last_name as string) || null,
-    profileImageUrl: (claims.profile_image_url || claims.picture) as string | null,
-  };
-
-  const [user] = await db
-    .insert(usersTable)
-    .values(userData)
-    .onConflictDoUpdate({
-      target: usersTable.id,
-      set: { ...userData, updatedAt: new Date() },
-    })
-    .returning();
-  return user;
-}
-
-// GET /api/auth/user — current auth state
+// GET /api/auth/me
 router.get('/auth/user', (req: Request, res: Response) => {
-  res.json(
-    GetCurrentAuthUserResponse.parse({
-      user: req.isAuthenticated() ? req.user : null,
-    }),
-  );
+  if (!req.isAuthenticated()) {
+    res.json({ user: null });
+    return;
+  }
+  res.json({ user: req.user });
 });
 
-// GET /api/login — start OIDC login
-router.get('/login', async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
-  const returnTo = getSafeReturnTo(req.query.returnTo);
-
-  const state = oidc.randomState();
-  const nonce = oidc.randomNonce();
-  const codeVerifier = oidc.randomPKCECodeVerifier();
-  const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
-
-  const redirectTo = oidc.buildAuthorizationUrl(config, {
-    redirect_uri: callbackUrl,
-    scope: 'openid email profile offline_access',
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    prompt: 'login consent',
-    state,
-    nonce,
-  });
-
-  setOidcCookie(res, 'code_verifier', codeVerifier);
-  setOidcCookie(res, 'nonce', nonce);
-  setOidcCookie(res, 'state', state);
-  setOidcCookie(res, 'return_to', returnTo);
-
-  res.redirect(redirectTo.href);
-});
-
-// GET /api/callback — OIDC callback
-router.get('/callback', async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
-
-  const codeVerifier = req.cookies?.code_verifier;
-  const nonce = req.cookies?.nonce;
-  const expectedState = req.cookies?.state;
-
-  if (!codeVerifier || !expectedState) {
-    res.redirect('/api/login');
+// POST /api/auth/login  { login, password }
+router.post('/auth/login', async (req: Request, res: Response) => {
+  const { login, password } = req.body as { login?: string; password?: string };
+  if (!login || !password) {
+    res.status(400).json({ error: 'Login और password दोनों जरूरी हैं' });
     return;
   }
 
-  const currentUrl = new URL(
-    `${callbackUrl}?${new URL(req.url, `http://${req.headers.host}`).searchParams}`,
-  );
+  const [user] = await db.select().from(appUsersTable)
+    .where(or(eq(appUsersTable.username, login), eq(appUsersTable.email, login)))
+    .limit(1);
 
-  let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
-  try {
-    tokens = await oidc.authorizationCodeGrant(config, currentUrl, {
-      pkceCodeVerifier: codeVerifier,
-      expectedNonce: nonce,
-      expectedState,
-      idTokenExpected: true,
-    });
-  } catch {
-    res.redirect('/api/login');
+  if (!user || !user.isActive) {
+    res.status(401).json({ error: 'User नहीं मिला या account बंद है' });
+    return;
+  }
+  if (!user.passwordHash) {
+    res.status(401).json({ error: 'Password set नहीं है। Admin से संपर्क करें।' });
     return;
   }
 
-  const returnTo = getSafeReturnTo(req.cookies?.return_to);
-
-  res.clearCookie('code_verifier', { path: '/' });
-  res.clearCookie('nonce', { path: '/' });
-  res.clearCookie('state', { path: '/' });
-  res.clearCookie('return_to', { path: '/' });
-
-  const claims = tokens.claims();
-  if (!claims) {
-    res.redirect('/api/login');
+  const ok = await verifyPassword(password, user.passwordHash);
+  if (!ok) {
+    res.status(401).json({ error: 'Password गलत है' });
     return;
   }
 
-  const dbUser = await upsertUser(claims as unknown as Record<string, unknown>);
+  // Update last login
+  await db.update(appUsersTable).set({ lastLoginAt: new Date() }).where(eq(appUsersTable.id, user.id));
 
-  const now = Math.floor(Date.now() / 1000);
-  const sessionData: SessionData = {
-    user: {
-      id: dbUser.id,
-      email: dbUser.email,
-      firstName: dbUser.firstName,
-      lastName: dbUser.lastName,
-      profileImageUrl: dbUser.profileImageUrl,
-    },
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
-  };
-
-  const sid = await createSession(sessionData);
+  const sid = await createSession({ user: toSessionUser(user) });
   setSessionCookie(res, sid);
-  res.redirect(returnTo);
+  res.json({ user: toSessionUser(user) });
 });
 
-// GET /api/logout
-router.get('/logout', async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const origin = getOrigin(req);
-  const returnTo = getSafeReturnTo(req.query.returnTo);
-  const postLogoutRedirectUrl = new URL(returnTo, `${origin}/`).href;
-
+// POST /api/auth/logout
+router.post('/auth/logout', async (req: Request, res: Response) => {
   const sid = getSessionId(req);
   await clearSession(res, sid);
+  res.json({ success: true });
+});
 
-  const endSessionUrl = oidc.buildEndSessionUrl(config, {
-    client_id: process.env.REPL_ID!,
-    post_logout_redirect_uri: postLogoutRedirectUrl,
+// GET /api/logout (redirect-based for replit-auth-web compatibility)
+router.get('/logout', async (req: Request, res: Response) => {
+  const sid = getSessionId(req);
+  await clearSession(res, sid);
+  res.redirect('/');
+});
+
+// POST /api/auth/send-otp  { login }  — forgot password
+router.post('/auth/send-otp', async (req: Request, res: Response) => {
+  const { login } = req.body as { login?: string };
+  if (!login) {
+    res.status(400).json({ error: 'Username या email दर्ज करें' });
+    return;
+  }
+
+  const [user] = await db.select().from(appUsersTable)
+    .where(or(eq(appUsersTable.username, login), eq(appUsersTable.email, login), eq(appUsersTable.phone, login)))
+    .limit(1);
+
+  if (!user || !user.isActive) {
+    // Don't reveal if user exists
+    res.json({ success: true, message: 'OTP भेजा गया (यदि account मिला)' });
+    return;
+  }
+
+  const otp = await saveOtp(user.id, 'reset');
+
+  // In production: send via SMS/WhatsApp/email
+  // For now: return in response so admin/user can see it
+  console.log(`[OTP] User "${user.username}" ka OTP: ${otp}`);
+
+  res.json({
+    success: true,
+    userId: user.id,
+    // In dev mode, expose OTP so it can be shown in UI
+    otp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+    message: `OTP generate हुआ${user.phone ? ` (${user.phone} पर भेजा जाएगा)` : ''}`,
   });
+});
 
-  res.redirect(endSessionUrl.href);
+// POST /api/auth/verify-otp  { userId, otp }
+router.post('/auth/verify-otp', async (req: Request, res: Response) => {
+  const { userId, otp } = req.body as { userId?: number; otp?: string };
+  if (!userId || !otp) {
+    res.status(400).json({ error: 'userId और OTP दोनों जरूरी हैं' });
+    return;
+  }
+
+  const valid = await verifyOtp(userId, otp);
+  if (!valid) {
+    res.status(401).json({ error: 'OTP गलत है या expire हो गया' });
+    return;
+  }
+
+  // Issue a temp token (re-use session) for password reset
+  const [user] = await db.select().from(appUsersTable).where(eq(appUsersTable.id, userId)).limit(1);
+  if (!user) { res.status(404).json({ error: 'User नहीं मिला' }); return; }
+
+  res.json({ success: true, userId: user.id });
+});
+
+// POST /api/auth/reset-password  { userId, newPassword }
+router.post('/auth/reset-password', async (req: Request, res: Response) => {
+  const { userId, newPassword } = req.body as { userId?: number; newPassword?: string };
+  if (!userId || !newPassword) {
+    res.status(400).json({ error: 'userId और newPassword जरूरी हैं' });
+    return;
+  }
+  if (newPassword.length < 4) {
+    res.status(400).json({ error: 'Password कम से कम 4 अक्षर का होना चाहिए' });
+    return;
+  }
+
+  const hash = await hashPassword(newPassword);
+  await db.update(appUsersTable).set({ passwordHash: hash }).where(eq(appUsersTable.id, userId));
+
+  res.json({ success: true, message: 'Password बदल गया। अब login करें।' });
+});
+
+// POST /api/auth/change-password  { currentPassword, newPassword }  (for logged-in users)
+router.post('/auth/change-password', async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) { res.status(401).json({ error: 'Login करें पहले' }); return; }
+
+  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: 'दोनों passwords जरूरी हैं' }); return;
+  }
+  if (newPassword.length < 4) {
+    res.status(400).json({ error: 'New password कम से कम 4 अक्षर का होना चाहिए' }); return;
+  }
+
+  const [user] = await db.select().from(appUsersTable).where(eq(appUsersTable.id, req.user.id)).limit(1);
+  if (!user?.passwordHash) { res.status(400).json({ error: 'Password set नहीं है' }); return; }
+
+  const ok = await verifyPassword(currentPassword, user.passwordHash);
+  if (!ok) { res.status(401).json({ error: 'Current password गलत है' }); return; }
+
+  const hash = await hashPassword(newPassword);
+  await db.update(appUsersTable).set({ passwordHash: hash }).where(eq(appUsersTable.id, user.id));
+  res.json({ success: true, message: 'Password बदल गया' });
 });
 
 export default router;

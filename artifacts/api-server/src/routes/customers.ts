@@ -119,6 +119,7 @@ router.get("/customers/:id", async (req, res): Promise<void> => {
   res.json(
     GetCustomerResponse.parse({
       ...customer,
+      createdAt: customer.createdAt.toISOString(),
       totalJobs,
       unpaidAmount,
       lastJobDate: lastJob ? lastJob.createdAt.toISOString() : null,
@@ -241,6 +242,7 @@ router.get("/customers/:id/history", async (req, res): Promise<void> => {
     GetCustomerHistoryResponse.parse({
       customer: {
         ...customer,
+        createdAt: customer.createdAt.toISOString(),
         totalJobs,
         unpaidAmount,
         lastJobDate: lastJob ? lastJob.createdAt.toISOString() : null,

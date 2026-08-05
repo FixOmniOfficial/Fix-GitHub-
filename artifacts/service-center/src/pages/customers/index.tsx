@@ -408,44 +408,60 @@ export default function Customers() {
                     const date = job.scheduledDate
                       ? new Date(job.scheduledDate).toLocaleDateString('hi-IN')
                       : null;
+                    const customerHref = job.customerId
+                      ? `/customers/${job.customerId}`
+                      : `/jobs/${job.id}`;
                     return (
-                      <Link key={job.id} href={`/jobs/${job.id}`}>
-                        <Card className={`hover-elevate cursor-pointer transition-all border-l-4 group ${st.bg}`}>
-                          <CardContent className="p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="hidden sm:flex flex-col items-center justify-center w-14 h-14 rounded bg-card border shadow-sm shrink-0">
-                                <span className="text-[10px] text-muted-foreground font-semibold uppercase">Job</span>
-                                <span className="font-mono font-bold text-primary text-sm">#{job.jobNumber || job.id}</span>
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <h3 className="font-bold group-hover:text-primary transition-colors">
-                                    {job.customerName || '—'}
-                                  </h3>
-                                  {job.isHighlighted && (
-                                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                                  )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
-                                  {job.applianceType && <span className="flex items-center gap-1"><Wrench className="w-3 h-3" />{job.applianceType}</span>}
-                                  {date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{date}</span>}
-                                  {job.technicianName && <span className="text-primary/80 font-medium">@ {job.technicianName}</span>}
-                                </div>
-                                {job.description && <p className="text-sm mt-1 text-foreground/70 line-clamp-1">{job.description}</p>}
-                              </div>
+                      <Card key={job.id} className={`transition-all border-l-4 group ${st.bg}`}>
+                        <CardContent className="p-4 flex items-center justify-between">
+                          {/* Left: customer link + details */}
+                          <Link href={customerHref} className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer">
+                            <div className="hidden sm:flex flex-col items-center justify-center w-14 h-14 rounded bg-card border shadow-sm shrink-0">
+                              <span className="text-[10px] text-muted-foreground font-semibold uppercase">Job</span>
+                              <span className="font-mono font-bold text-primary text-sm">#{job.jobNumber || job.id}</span>
                             </div>
-                            <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
-                              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border bg-background ${st.color}`}>
-                                <st.icon className="w-3 h-3" />{st.label}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <h3 className="font-bold group-hover:text-primary transition-colors truncate">
+                                  {job.customerName || '—'}
+                                </h3>
+                                {job.isHighlighted && (
+                                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                                )}
+                                {job.customerId && (
+                                  <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+                                    C-{job.customerId}
+                                  </span>
+                                )}
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-bold text-sm">₹{job.amount || 0}</span>
-                                <span className={`w-2.5 h-2.5 rounded-full ${getPaymentDot(job.paymentStatus)}`} title={job.paymentStatus} />
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+                                {job.applianceType && <span className="flex items-center gap-1"><Wrench className="w-3 h-3" />{job.applianceType}</span>}
+                                {date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{date}</span>}
+                                {job.technicianName && <span className="text-primary/80 font-medium">@ {job.technicianName}</span>}
                               </div>
+                              {job.description && <p className="text-sm mt-1 text-foreground/70 line-clamp-1">{job.description}</p>}
                             </div>
-                          </CardContent>
-                        </Card>
-                      </Link>
+                          </Link>
+
+                          {/* Right: status + amount + direct job link */}
+                          <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
+                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border bg-background ${st.color}`}>
+                              <st.icon className="w-3 h-3" />{st.label}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-sm">₹{job.amount || 0}</span>
+                              <span className={`w-2.5 h-2.5 rounded-full ${getPaymentDot(job.paymentStatus)}`} title={job.paymentStatus} />
+                            </div>
+                            <Link
+                              href={`/jobs/${job.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[10px] text-muted-foreground hover:text-primary underline underline-offset-2"
+                            >
+                              Job विवरण →
+                            </Link>
+                          </div>
+                        </CardContent>
+                      </Card>
                     );
                   })}
                   {jobs?.length === 0 && (

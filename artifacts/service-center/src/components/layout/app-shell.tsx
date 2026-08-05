@@ -8,7 +8,7 @@ import {
 import { useGetSettings, useListReminders } from '@workspace/api-client-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { authApi, useAuth } from '@/lib/use-auth';
+import { useUser, useClerk } from '@clerk/react';
 import { toast } from 'sonner';
 
 // All nav items — label = Hindi, subtitle = English
@@ -73,12 +73,13 @@ function NavLink({
   );
 }
 
-export function AppShell({ children, onLogout }: { children: React.ReactNode; onLogout?: () => void }) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const [location]    = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: settings }  = useGetSettings();
   const { data: reminders } = useListReminders({ isActive: true });
-  const { user } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
 
   // Cast to extended type that includes our extra fields
   const ext = settings as typeof settings & { shopName?: string; logoUrl?: string };
@@ -161,19 +162,20 @@ export function AppShell({ children, onLogout }: { children: React.ReactNode; on
           {user && (
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-800/50">
               <div className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
-                <span className="text-[10px] font-bold text-amber-400">{user.name.slice(0,1).toUpperCase()}</span>
+                <span className="text-[10px] font-bold text-amber-400">
+                  {(user.firstName || user.emailAddresses?.[0]?.emailAddress || 'U').slice(0,1).toUpperCase()}
+                </span>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-slate-300 truncate">{user.name}</div>
-                <div className="text-[10px] text-slate-600 truncate">{user.role}</div>
+                <div className="text-xs font-medium text-slate-300 truncate">
+                  {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.emailAddresses?.[0]?.emailAddress}
+                </div>
+                <div className="text-[10px] text-slate-600 truncate">{user.emailAddresses?.[0]?.emailAddress}</div>
               </div>
             </div>
           )}
           <button
-            onClick={async () => {
-              await authApi.logout();
-              onLogout?.();
-            }}
+            onClick={() => signOut({ redirectUrl: import.meta.env.BASE_URL || '/' })}
             className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all text-xs"
           >
             <LogOut className="w-3.5 h-3.5" />

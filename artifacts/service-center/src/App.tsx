@@ -122,6 +122,29 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+/** After sign-in: promote first user to admin if no admin exists yet */
+function EnsureFirstAdmin() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useClerk();
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    fetch(`${basePath}/api/admin/ensure-first-admin`, {
+      method: 'POST', credentials: 'include',
+    })
+      .then(r => r.json())
+      .then((data) => {
+        if (data.promoted) {
+          // Reload Clerk session so publicMetadata.role is fresh
+          user?.reload();
+        }
+      })
+      .catch(() => {/* silent */});
+  }, [isLoaded, isSignedIn, user]);
+
+  return null;
+}
+
 /** Guard: shows loading → redirects to sign-in if not authenticated */
 function ProtectedLayout() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -163,6 +186,7 @@ function ClerkProviderWithRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
+        <EnsureFirstAdmin />
         <TooltipProvider>
           <Switch>
             {/* Auth pages — public */}

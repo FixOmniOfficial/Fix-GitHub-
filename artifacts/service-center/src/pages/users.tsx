@@ -1,209 +1,196 @@
 import React, { useState } from 'react';
-import { useListUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@workspace/api-client-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Shield, Trash2, Plus, Mail } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { getListUsersQueryKey } from '@workspace/api-client-react';
+import { UserCircle, Shield, Ban, CheckCircle2, Clock, Crown } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { useRole } from '@/lib/use-role';
+import { useUser } from '@clerk/react';
 
-const userSchema = z.object({
-  name: z.string().min(1, 'नाम आवश्यक है (Name is required)'),
-  email: z.string().email('वैध ईमेल आवश्यक है (Valid email is required)').optional().or(z.literal('')),
-  role: z.enum(['admin', 'technician', 'viewer']),
-});
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+
+interface ClerkUser {
+  id: string;
+  name: string;
+  email: string | null;
+  role: string;
+  banned: boolean;
+  createdAt: number;
+  lastSignInAt: number | null;
+  imageUrl: string;
+}
+
+async function fetchAdminUsers(): Promise<ClerkUser[]> {
+  const r = await fetch(`${BASE}/api/admin/users`, { credentials: 'include' });
+  if (!r.ok) throw new Error('Failed to fetch users');
+  return r.json();
+}
+
+async function setRole(id: string, role: string) {
+  const r = await fetch(`${BASE}/api/admin/users/${id}/role`, {
+    method: 'PATCH', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error); }
+  return r.json();
+}
+
+async function setBan(id: string, ban: boolean) {
+  const r = await fetch(`${BASE}/api/admin/users/${id}/ban`, {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ban }),
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error); }
+  return r.json();
+}
+
+const ROLE_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  admin:      { label: 'Admin (व्यवस्थापक)',      color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',    icon: Crown },
+  technician: { label: 'Technician (तकनीशियन)', color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',       icon: UserCircle },
+  viewer:     { label: 'Viewer (दर्शक)',          color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',    icon: UserCircle },
+  user:       { label: 'User (उपयोगकर्ता)',        color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',   icon: UserCircle },
+};
 
 export default function Users() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const queryClient = useQueryClient();
-  
-  const { data: users, isLoading } = useListUsers();
-  const createUser = useCreateUser();
-  const updateUser = useUpdateUser();
-  const deleteUser = useDeleteUser();
+  const { isAdmin } = useRole();
+  const { user: me } = useUser();
+  const qc = useQueryClient();
 
-  const form = useForm<z.infer<typeof userSchema>>({
-    resolver: zodResolver(userSchema),
-    defaultValues: { name: '', email: '', role: 'technician' }
+  const { data: users, isLoading, error } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: fetchAdminUsers,
+    enabled: isAdmin,
   });
 
-  const onSubmit = (data: z.infer<typeof userSchema>) => {
-    createUser.mutate({ data: { ...data, email: data.email || undefined } }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
-        setIsDialogOpen(false);
-        form.reset();
-        toast.success('यूज़र जोड़ा गया (User added successfully)');
-      }
-    });
-  };
+  const roleMut = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: string }) => setRole(id, role),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Role update हो गया'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
-  const handleToggleStatus = (id: number, currentStatus: boolean) => {
-    updateUser.mutate({ id, data: { isActive: !currentStatus } }, {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() })
-    });
-  };
+  const banMut = useMutation({
+    mutationFn: ({ id, ban }: { id: string; ban: boolean }) => setBan(id, ban),
+    onSuccess: (_, { ban }) => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success(ban ? 'User block कर दिया' : 'User unblock कर दिया'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
-  const handleDelete = (id: number) => {
-    if (confirm('क्या आप वाकई इस यूज़र को हटाना चाहते हैं? (Are you sure you want to delete this user?)')) {
-      deleteUser.mutate({ id }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
-          toast.success('यूज़र हटा दिया गया (User deleted)');
-        }
-      });
-    }
-  };
-
-  const roleColors = {
-    admin: 'bg-primary/10 text-primary border-primary/20',
-    technician: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-    viewer: 'bg-muted text-muted-foreground border-border'
-  };
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center space-y-3">
+        <Shield className="w-14 h-14 text-slate-700" />
+        <h2 className="text-xl font-bold text-slate-300">Admin Only</h2>
+        <p className="text-slate-500">यह पेज सिर्फ Admin देख सकता है।</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl mx-auto">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">यूज़र्स <span className="text-xl font-normal text-muted-foreground ml-2">Users</span></h1>
-          <p className="text-muted-foreground mt-1">कर्मचारियों और पहुँच का प्रबंधन करें (Manage staff and access)</p>
-        </div>
-        
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="shadow-sm">
-              <Plus className="w-4 h-4 mr-2" />
-              नया यूज़र (New User)
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>नया यूज़र जोड़ें (Add New User)</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>नाम (Name)</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ईमेल (Email) - Optional</FormLabel>
-                      <FormControl><Input type="email" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>भूमिका (Role)</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="भूमिका चुनें" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin (व्यवस्थापक)</SelectItem>
-                          <SelectItem value="technician">Technician (तकनीशियन)</SelectItem>
-                          <SelectItem value="viewer">Viewer (दर्शक)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={createUser.isPending}>
-                  {createUser.isPending ? 'जोड़ रहा है...' : 'सुरक्षित करें (Save)'}
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-white">
+          यूज़र्स <span className="text-xl font-normal text-slate-500 ml-2">Users</span>
+        </h1>
+        <p className="text-slate-400 mt-1">सभी users को manage करें — role बदलें, block/unblock करें</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Role legend */}
+      <div className="flex flex-wrap gap-2 text-xs">
+        {Object.entries(ROLE_CONFIG).filter(([k]) => k !== 'user').map(([role, cfg]) => (
+          <span key={role} className={`px-2 py-1 rounded-full border font-medium ${cfg.color}`}>{cfg.label}</span>
+        ))}
+      </div>
+
+      <div className="space-y-3">
         {isLoading ? (
-          [1,2,3,4].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)
+          [1,2,3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl bg-slate-800" />)
+        ) : error ? (
+          <div className="text-center py-12 text-rose-400">Users load नहीं हुए। Server check करें।</div>
         ) : users?.length === 0 ? (
-          <div className="col-span-2 text-center py-16 bg-card border-2 border-dashed rounded-xl">
-            <UserCircle className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-xl font-medium">कोई यूज़र नहीं (No users found)</h3>
+          <div className="text-center py-16 border-2 border-dashed border-slate-800 rounded-xl">
+            <UserCircle className="w-12 h-12 text-slate-700 mx-auto mb-3" />
+            <p className="text-slate-500">अभी कोई user नहीं है।</p>
           </div>
         ) : (
-          users?.map(user => (
-            <Card key={user.id} className={`overflow-hidden transition-all ${!user.isActive ? 'opacity-60 grayscale-[0.5]' : ''}`}>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-4 items-center">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center border-2 border-background shadow-sm">
-                      {user.role === 'admin' ? <Shield className="w-6 h-6 text-primary" /> : <UserCircle className="w-6 h-6 text-muted-foreground" />}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg leading-tight">{user.name}</h3>
-                      <div className="flex flex-col mt-1 gap-1">
-                        <Badge variant="outline" className={`w-fit text-[10px] uppercase font-bold tracking-wider ${roleColors[user.role as keyof typeof roleColors]}`}>
-                          {user.role}
-                        </Badge>
-                        {user.email && (
-                          <span className="text-xs flex items-center gap-1 text-muted-foreground">
-                            <Mail className="w-3 h-3" /> {user.email}
-                          </span>
-                        )}
+          users?.map(user => {
+            const cfg = ROLE_CONFIG[user.role] ?? ROLE_CONFIG.user;
+            const RoleIcon = cfg.icon;
+            const isMe = user.id === me?.id;
+
+            return (
+              <Card key={user.id} className={`bg-slate-900 border-slate-800 ${user.banned ? 'opacity-60' : ''}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      <img src={user.imageUrl} alt={user.name}
+                        className="w-11 h-11 rounded-full border-2 border-slate-700 object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }}
+                      />
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center bg-slate-900">
+                        <RoleIcon className={`w-3 h-3 ${cfg.color.split(' ')[1]}`} />
                       </div>
                     </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-white text-sm truncate">{user.name}</span>
+                        {isMe && <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/30 border">आप (You)</Badge>}
+                        {user.banned && <Badge className="text-[10px] bg-rose-500/20 text-rose-400 border-rose-500/30 border">Blocked</Badge>}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5 truncate">{user.email ?? '—'}</div>
+                      <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-600">
+                        <Clock className="w-3 h-3" />
+                        <span>Last login: {user.lastSignInAt ? new Date(user.lastSignInAt).toLocaleDateString('hi-IN') : 'Never'}</span>
+                      </div>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Role selector */}
+                      <Select
+                        value={user.role}
+                        onValueChange={(role) => roleMut.mutate({ id: user.id, role })}
+                        disabled={isMe || roleMut.isPending}
+                      >
+                        <SelectTrigger className="h-8 w-36 text-xs bg-slate-800 border-slate-700 text-slate-300">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="admin" className="text-amber-400">👑 Admin</SelectItem>
+                          <SelectItem value="technician" className="text-blue-400">🔧 Technician</SelectItem>
+                          <SelectItem value="viewer" className="text-slate-300">👁 Viewer</SelectItem>
+                          <SelectItem value="user" className="text-slate-400">👤 User</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {/* Ban/Unban */}
+                      {!isMe && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => banMut.mutate({ id: user.id, ban: !user.banned })}
+                          disabled={banMut.isPending}
+                          className={user.banned
+                            ? 'h-8 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10'
+                            : 'h-8 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10'
+                          }
+                          title={user.banned ? 'Unblock करें' : 'Block करें'}
+                        >
+                          {user.banned ? <CheckCircle2 className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  
-                  <div className="flex flex-col items-end gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleToggleStatus(user.id, user.isActive || false)}
-                      className={`text-xs h-7 ${user.isActive ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
-                    >
-                      {user.isActive ? 'निष्क्रिय करें (Disable)' : 'सक्रिय करें (Enable)'}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDelete(user.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

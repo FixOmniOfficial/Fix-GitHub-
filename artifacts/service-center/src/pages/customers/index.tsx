@@ -73,7 +73,7 @@ interface CustomerMenuItem {
   phone: string;
 }
 
-/* ─── Per-card long-press wrapper ────────────────────────────────────────── */
+/* ─── Customer Card ──────────────────────────────────────────────────────── */
 
 function CustomerCard({
   customer,
@@ -90,24 +90,13 @@ function CustomerCard({
   onWhatsApp: (e: React.MouseEvent, phone: string) => void;
   onNavigate: () => void;
 }) {
-  const [longPressActive, setLongPressActive] = useState(false);
-
-  const longPress = useLongPress({
-    delay: 600,
-    onLongPress: () => {
-      setLongPressActive(true);
-      onDelete();           // fires the delete confirm directly
-    },
-    onClick: onNavigate,
-  });
-
   return (
     <Card
-      {...longPress}
-      className={`transition-all border-l-4 border-l-transparent hover:border-l-primary group cursor-pointer select-none ${longPressActive ? 'ring-2 ring-rose-500/50' : 'hover-elevate'}`}
-      onContextMenu={(e) => { e.preventDefault(); onDelete(); }}   // right-click → delete too
+      className="transition-all border-l-4 border-l-transparent hover:border-l-primary hover-elevate group cursor-pointer"
+      onClick={onNavigate}
     >
       <CardContent className="p-4 flex items-center justify-between gap-3">
+
         {/* Left: avatar + name + phone */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Avatar className="h-10 w-10 border border-border shrink-0">
@@ -116,15 +105,17 @@ function CustomerCard({
               {customer.name.substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
+
           <div className="min-w-0 flex-1">
-            {/* NAME → click menu */}
+            {/* NAME → dropdown for edit / delete */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   className="font-bold text-lg leading-tight text-left hover:text-primary transition-colors flex items-center gap-1 group/name"
                   onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
-                  <span className="truncate">{customer.name}</span>
+                  <span className="truncate max-w-[180px]">{customer.name}</span>
                   <Pencil className="w-3 h-3 opacity-0 group-hover/name:opacity-60 transition-opacity shrink-0" />
                 </button>
               </DropdownMenuTrigger>
@@ -144,12 +135,12 @@ function CustomerCard({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Phone → dial */}
+            {/* Phone → tap to dial */}
             <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
               <button
-                onClick={(e) => onDial(e, customer.phone)}
                 className="flex items-center gap-1 text-primary hover:underline font-medium"
                 title="Call करें"
+                onClick={(e) => { e.stopPropagation(); onDial(e, customer.phone); }}
               >
                 <Phone className="w-3 h-3" />
                 {customer.phone}
@@ -161,7 +152,7 @@ function CustomerCard({
           </div>
         </div>
 
-        {/* Right: badge + actions */}
+        {/* Right: stats + WhatsApp + arrow */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="hidden sm:flex flex-col items-end gap-1 mr-1">
             <span className="text-xs text-muted-foreground">कार्य: {customer.totalJobs || 0}</span>
@@ -172,25 +163,16 @@ function CustomerCard({
             )}
           </div>
 
-          {/* WhatsApp */}
           <Button
             variant="outline" size="icon"
             className="rounded-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
-            onClick={(e) => { e.stopPropagation(); onWhatsApp(e, customer.whatsappPhone || customer.phone); }}
             title="WhatsApp"
+            onClick={(e) => { e.stopPropagation(); onWhatsApp(e, customer.whatsappPhone || customer.phone); }}
           >
             <MessageCircle className="w-4 h-4" />
           </Button>
 
-          {/* Detail arrow */}
-          <Button
-            variant="ghost" size="icon"
-            className="rounded-full text-muted-foreground hover:text-foreground"
-            onClick={(e) => { e.stopPropagation(); onNavigate(); }}
-            title="विवरण देखें"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </Button>
+          <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
         </div>
       </CardContent>
     </Card>

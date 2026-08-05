@@ -39,6 +39,9 @@ router.get("/public/customer-form/:token", async (req, res): Promise<void> => {
       floorNumber: (customer as any).floorNumber ?? null,
       address: customer.address ?? null,
       location: (customer as any).location ?? null,
+      visitingAmount: (customer as any).visitingAmount
+        ? parseFloat((customer as any).visitingAmount)
+        : null,
     })
   );
 });

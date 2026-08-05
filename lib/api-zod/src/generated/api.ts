@@ -1115,6 +1115,7 @@ export const GetPublicCustomerFormResponse = zod.object({
   "address": zod.string().nullish(),
   "location": zod.string().nullish(),
   "serialNumber": zod.number(),
+  "visitingAmount": zod.coerce.number().nullish(),
 })
 
 /**

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRoute } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +34,6 @@ export default function CustomerFormPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState('');
-  const tokenValidRef = useRef(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -44,24 +43,25 @@ export default function CustomerFormPage() {
     },
   });
 
-  /* Verify token is valid — but do NOT pre-fill the form */
+  const locationValue = form.watch('location');
+
+  /* Verify token is valid — do NOT pre-fill form data */
   useEffect(() => {
     if (!token) { setPageState('invalid'); return; }
 
     fetch(`${BASE}/api/public/customer-form/${encodeURIComponent(token)}`)
-      .then(async (r) => {
+      .then((r) => {
         if (!r.ok) { setPageState('invalid'); return; }
-        // Token is valid — show blank form, don't pre-fill
-        tokenValidRef.current = true;
+        // Token valid — show blank form
         setPageState('form');
       })
       .catch(() => setPageState('invalid'));
   }, [token]);
 
-  /* Get GPS location → Google Maps link */
+  /* GPS → Google Maps link */
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
-      setGpsError('आपके डिवाइस पर GPS उपलब्ध नहीं है');
+      setGpsError('इस डिवाइस पर GPS उपलब्ध नहीं है');
       return;
     }
     setGpsLoading(true);
@@ -75,7 +75,7 @@ export default function CustomerFormPage() {
       },
       (err) => {
         setGpsLoading(false);
-        if (err.code === err.PERMISSION_DENIED) {
+        if (err.code === 1) {
           setGpsError('लोकेशन की अनुमति नहीं दी। Settings में Allow करें।');
         } else {
           setGpsError('लोकेशन नहीं मिला। दोबारा कोशिश करें।');
@@ -116,7 +116,7 @@ export default function CustomerFormPage() {
     );
   }
 
-  /* ── Invalid link ── */
+  /* ── Invalid ── */
   if (pageState === 'invalid') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center p-4">
@@ -157,7 +157,7 @@ export default function CustomerFormPage() {
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-start justify-center p-4 pt-8">
       <div className="w-full max-w-md space-y-4">
 
-        {/* Header branding */}
+        {/* Branding */}
         <div className="text-center space-y-2 pb-2">
           <div className="w-14 h-14 rounded-2xl bg-amber-500 flex items-center justify-center mx-auto shadow-md">
             <Wrench className="w-7 h-7 text-white" />
@@ -169,30 +169,34 @@ export default function CustomerFormPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">ग्राहक विवरण फ़ॉर्म</CardTitle>
-            <CardDescription>Customer Details Form</CardDescription>
+            <CardDescription>कृपया सभी जानकारी सही-सही भरें</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-                {/* Name */}
+                {/* नाम */}
                 <FormField control={form.control} name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>नाम (Name) <span className="text-destructive">*</span></FormLabel>
-                      <FormControl><Input placeholder="राहुल कुमार" {...field} /></FormControl>
+                      <FormLabel>नाम <span className="text-destructive">*</span></FormLabel>
+                      <FormControl>
+                        <Input placeholder="जैसे: राहुल कुमार" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {/* Phone + WhatsApp */}
+                {/* मोबाइल + WhatsApp */}
                 <div className="grid grid-cols-2 gap-3">
                   <FormField control={form.control} name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>मोबाइल <span className="text-destructive">*</span></FormLabel>
-                        <FormControl><Input placeholder="9876543210" type="tel" inputMode="numeric" {...field} /></FormControl>
+                        <FormLabel>मोबाइल नंबर <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input placeholder="9876543210" type="tel" inputMode="numeric" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -200,21 +204,25 @@ export default function CustomerFormPage() {
                   <FormField control={form.control} name="whatsappPhone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>WhatsApp</FormLabel>
-                        <FormControl><Input placeholder="अलग है तो भरें" type="tel" inputMode="numeric" {...field} /></FormControl>
+                        <FormLabel>WhatsApp नंबर</FormLabel>
+                        <FormControl>
+                          <Input placeholder="अलग हो तो भरें" type="tel" inputMode="numeric" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
 
-                {/* House + Floor */}
+                {/* हाउस + फ्लोर */}
                 <div className="grid grid-cols-2 gap-3">
                   <FormField control={form.control} name="houseNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>हाउस/फ्लैट नंबर</FormLabel>
-                        <FormControl><Input placeholder="A-201" {...field} /></FormControl>
+                        <FormLabel>मकान / फ्लैट नंबर</FormLabel>
+                        <FormControl>
+                          <Input placeholder="जैसे: क-201" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -222,58 +230,65 @@ export default function CustomerFormPage() {
                   <FormField control={form.control} name="floorNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>फ्लोर</FormLabel>
-                        <FormControl><Input placeholder="2nd Floor" {...field} /></FormControl>
+                        <FormLabel>मंजिल (फ्लोर)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="जैसे: दूसरी मंजिल" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
 
-                {/* Address */}
+                {/* पूरा पता */}
                 <FormField control={form.control} name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>पूरा पता (Full Address)</FormLabel>
-                      <FormControl><Textarea placeholder="सेक्टर 12, नोएडा, उत्तर प्रदेश" rows={3} {...field} /></FormControl>
+                      <FormLabel>पूरा पता</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="जैसे: सेक्टर 12, नोएडा, उत्तर प्रदेश" rows={3} {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {/* Location with GPS button */}
+                {/* लोकेशन — GPS button OUTSIDE the label */}
                 <FormField control={form.control} name="location"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center justify-between">
-                        <span>लोकेशन / मोहल्ला</span>
-                        <button
+                      <div className="flex items-center justify-between mb-1.5">
+                        <FormLabel className="mb-0">मोहल्ला / लोकेशन</FormLabel>
+                        {/* Button is sibling to label, NOT inside it */}
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={handleGetLocation}
                           disabled={gpsLoading}
-                          className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium disabled:opacity-60"
+                          className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 gap-1"
                         >
                           {gpsLoading
                             ? <><Loader2 className="w-3 h-3 animate-spin" />मिल रहा है…</>
-                            : <><Navigation className="w-3 h-3" />GPS से लें</>
+                            : <><Navigation className="w-3 h-3" />वर्तमान लोकेशन</>
                           }
-                        </button>
-                      </FormLabel>
+                        </Button>
+                      </div>
                       <FormControl>
-                        <Input placeholder="नोएडा सेक्टर 62 या Google Maps लिंक" {...field} />
+                        <Input placeholder="मोहल्ला / क्षेत्र का नाम या Google Maps लिंक" {...field} />
                       </FormControl>
                       {gpsError && (
                         <p className="text-xs text-destructive mt-1">{gpsError}</p>
                       )}
-                      {field.value?.startsWith('https://maps.google.com') && (
+                      {locationValue?.startsWith('https://maps.google.com') && (
                         <a
-                          href={field.value}
+                          href={locationValue}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1"
                         >
                           <MapPin className="w-3 h-3" />
-                          लोकेशन देखें →
+                          मानचित्र पर देखें →
                         </a>
                       )}
                       <FormMessage />
@@ -291,6 +306,7 @@ export default function CustomerFormPage() {
                     : 'जानकारी सबमिट करें ✓'
                   }
                 </Button>
+
               </form>
             </Form>
           </CardContent>

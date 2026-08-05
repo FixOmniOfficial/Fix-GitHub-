@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft, Edit, Trash2, MessageCircle, Phone, MapPin, Calendar,
   Wrench, FileText, Plus, Home, Layers, Navigation, IndianRupee, X, Check,
-  ShieldAlert,
+  ShieldAlert, Share2, Copy, ExternalLink,
 } from 'lucide-react';
 import {
   Dialog,
@@ -109,6 +109,10 @@ export default function CustomerDetail() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isNewJobOpen, setIsNewJobOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const { data: customer, isLoading: isCustomerLoading } = useGetCustomer(id, {
     query: { enabled: !!id, queryKey: getGetCustomerQueryKey(id) },
@@ -213,6 +217,41 @@ export default function CustomerDetail() {
     window.open(waForm.whatsappLink, '_blank');
   };
 
+  const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+
+  const handleShare = async () => {
+    setShareLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/customers/${id}/generate-share-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const json = await r.json();
+      if (!r.ok) { toast.error('लिंक नहीं बना'); return; }
+      const url = `${window.location.origin}${BASE}/customer-form/${json.token}`;
+      setShareUrl(url);
+      setIsShareOpen(true);
+    } catch {
+      toast.error('कनेक्शन में समस्या');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    });
+  };
+
+  const shareOnWhatsApp = () => {
+    const phone = customer ? (customer.whatsappPhone ?? customer.phone) : '';
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const msg = `नमस्ते! कृपया नीचे दिए लिंक पर अपनी जानकारी भरें:\n${shareUrl}`;
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
   /* ── Loading / not found ── */
   if (isCustomerLoading || isHistoryLoading) {
     return (
@@ -256,6 +295,16 @@ export default function CustomerDetail() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={handleShare}
+            disabled={shareLoading}
+          >
+            {shareLoading
+              ? <><span className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />लोड…</>
+              : <><Share2 className="w-4 h-4 mr-2" />फ़ॉर्म भेजें</>
+            }
+          </Button>
           <Button
             className="bg-[#25D366] hover:bg-[#128C7E] text-white"
             onClick={handleWhatsApp}
@@ -575,6 +624,46 @@ export default function CustomerDetail() {
             </div>
           </form>
         </Form>
+      </DialogContent>
+    </Dialog>
+
+    {/* ── SHARE FORM LINK DIALOG ─────────────────────────────────────────── */}
+    <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Share2 className="w-4 h-4" /> फ़ॉर्म लिंक शेयर करें
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          <p className="text-sm text-muted-foreground">
+            नीचे का लिंक <span className="font-semibold text-foreground">{customer?.name}</span> को भेजें।
+            वो इस फ़ॉर्म को भरकर अपनी जानकारी अपडेट कर सकते हैं।
+          </p>
+
+          {/* Link preview */}
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border text-xs font-mono break-all">
+            <ExternalLink className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            <span className="text-muted-foreground flex-1 truncate">{shareUrl}</span>
+          </div>
+
+          {/* Action buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" onClick={copyLink} className="gap-2">
+              {shareCopied
+                ? <><Check className="w-4 h-4 text-emerald-500" />कॉपी हुआ!</>
+                : <><Copy className="w-4 h-4" />लिंक कॉपी करें</>
+              }
+            </Button>
+            <Button
+              className="bg-[#25D366] hover:bg-[#128C7E] text-white gap-2"
+              onClick={shareOnWhatsApp}
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp पर भेजें
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
 

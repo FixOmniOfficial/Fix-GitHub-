@@ -1087,3 +1087,51 @@ export const GetReportStatsResponse = zod.object({
 })
 
 
+/**
+ * @summary Generate a shareable form token for a customer (admin)
+ */
+export const GenerateShareTokenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GenerateShareTokenResponse = zod.object({
+  "token": zod.string(),
+})
+
+/**
+ * @summary Get customer data via public share token
+ */
+export const GetPublicCustomerFormParams = zod.object({
+  "token": zod.string().min(1)
+})
+
+export const GetPublicCustomerFormResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string(),
+  "whatsappPhone": zod.string().nullish(),
+  "houseNumber": zod.string().nullish(),
+  "floorNumber": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "serialNumber": zod.number(),
+})
+
+/**
+ * @summary Submit customer self-service form via share token
+ */
+export const SubmitPublicCustomerFormBody = zod.object({
+  "name": zod.string().min(1, "नाम आवश्यक है"),
+  "phone": zod.string().min(10, "मोबाइल नंबर आवश्यक है"),
+  "whatsappPhone": zod.string().optional(),
+  "houseNumber": zod.string().optional(),
+  "floorNumber": zod.string().optional(),
+  "address": zod.string().optional(),
+  "location": zod.string().optional(),
+})
+
+export const SubmitPublicCustomerFormResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string(),
+})
+

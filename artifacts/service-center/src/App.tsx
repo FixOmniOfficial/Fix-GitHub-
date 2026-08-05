@@ -18,6 +18,7 @@ import Users from '@/pages/users';
 import Settings from '@/pages/settings';
 import SignInPage from '@/pages/sign-in';
 import SignUpPage from '@/pages/sign-up';
+import CustomerFormPage from '@/pages/customer-form';
 import {
   ClerkProvider,
   useClerk,
@@ -192,6 +193,8 @@ function ClerkProviderWithRoutes() {
             {/* Auth pages — public */}
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
+            {/* Public customer self-service form — no auth required */}
+            <Route path="/customer-form/:token" component={CustomerFormPage} />
             {/* Everything else — protected */}
             <Route component={ProtectedLayout} />
           </Switch>

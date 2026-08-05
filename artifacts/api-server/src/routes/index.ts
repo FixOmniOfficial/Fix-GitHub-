@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import authRouter from "./auth";
 import adminRouter from "./admin";
 import customersRouter from "./customers";
+import publicFormRouter from "./public-form";
 import appliancesRouter from "./appliances";
 import jobsRouter from "./jobs";
 import highlightsRouter from "./highlights";
@@ -16,6 +17,7 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use(authRouter);
 router.use(adminRouter);
+router.use(publicFormRouter); // public — no auth required
 router.use(customersRouter);
 router.use(appliancesRouter);
 router.use(jobsRouter);

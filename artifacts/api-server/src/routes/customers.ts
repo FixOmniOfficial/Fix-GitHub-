@@ -16,6 +16,8 @@ import {
   GetCustomerHistoryResponse,
   GetCustomerWhatsappFormParams,
   GetCustomerWhatsappFormResponse,
+  GenerateShareTokenParams,
+  GenerateShareTokenResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -157,7 +159,13 @@ router.patch("/customers/:id", async (req, res): Promise<void> => {
     .filter((j) => j.paymentStatus !== "paid")
     .reduce((sum, j) => sum + (parseFloat(j.amount as string) - parseFloat(j.paidAmount as string)), 0);
 
-  res.json(UpdateCustomerResponse.parse({ ...customer, totalJobs, unpaidAmount, lastJobDate: null }));
+  res.json(UpdateCustomerResponse.parse({
+    ...customer,
+    createdAt: customer.createdAt.toISOString(),
+    totalJobs,
+    unpaidAmount,
+    lastJobDate: null,
+  }));
 });
 
 router.delete("/customers/:id", async (req, res): Promise<void> => {
@@ -253,6 +261,37 @@ router.get("/customers/:id/history", async (req, res): Promise<void> => {
       totalDue,
     })
   );
+});
+
+/* ── Generate / return shareable form token ─────────────────────────────── */
+router.post("/customers/:id/generate-share-token", async (req, res): Promise<void> => {
+  const params = GenerateShareTokenParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [customer] = await db
+    .select()
+    .from(customersTable)
+    .where(eq(customersTable.id, params.data.id));
+
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+
+  // Reuse existing token or generate a new UUID
+  const token = (customer as any).shareToken ?? crypto.randomUUID();
+
+  if (!(customer as any).shareToken) {
+    await db
+      .update(customersTable)
+      .set({ shareToken: token } as any)
+      .where(eq(customersTable.id, params.data.id));
+  }
+
+  res.json(GenerateShareTokenResponse.parse({ token }));
 });
 
 router.get("/customers/:id/whatsapp-form", async (req, res): Promise<void> => {

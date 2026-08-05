@@ -4,6 +4,7 @@ import {
   useCreateCustomer,
   useUpdateCustomer,
   useDeleteCustomer,
+  useListJobs,
   getListCustomersQueryKey,
 } from '@workspace/api-client-react';
 import { useLongPress } from '@/hooks/use-long-press';
@@ -12,8 +13,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, MessageCircle, Phone, Users, Pencil, Trash2, ChevronRight } from 'lucide-react';
-import { useLocation } from 'wouter';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Search, MessageCircle, Phone, Users, Pencil, Trash2, ChevronRight,
+         Wrench, Calendar, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -194,18 +197,49 @@ function CustomerCard({
   );
 }
 
+/* ─── Jobs helpers ───────────────────────────────────────────────────────── */
+
+function getStatusConfig(status: string) {
+  switch (status) {
+    case 'pending':     return { label: 'लंबित',     icon: Clock,         color: 'text-amber-500',  bg: 'border-amber-300' };
+    case 'in_progress': return { label: 'प्रगति पर', icon: Wrench,        color: 'text-blue-500',   bg: 'border-blue-300' };
+    case 'completed':   return { label: 'पूरा हुआ',  icon: CheckCircle2,  color: 'text-emerald-500',bg: 'border-emerald-300' };
+    case 'cancelled':   return { label: 'रद्द',       icon: XCircle,       color: 'text-red-500',    bg: 'border-red-300' };
+    default:            return { label: status,       icon: Clock,         color: 'text-gray-500',   bg: 'border-gray-200' };
+  }
+}
+
+function getPaymentDot(status: string) {
+  switch (status) {
+    case 'paid':    return 'bg-emerald-500';
+    case 'partial': return 'bg-amber-500';
+    default:        return 'bg-rose-500';
+  }
+}
+
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 
 export default function Customers() {
+  const [tab, setTab] = useState('customers');
+
+  // Customer state
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<CustomerMenuItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomerMenuItem | null>(null);
 
+  // Jobs state
+  const [jobSearch, setJobSearch] = useState('');
+  const [jobStatus, setJobStatus] = useState('all');
+
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
 
   const { data: customers, isLoading } = useListCustomers({ search });
+  const { data: jobs, isLoading: jobsLoading } = useListJobs({
+    search: jobSearch || undefined,
+    status: jobStatus !== 'all' ? jobStatus : undefined,
+  });
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
@@ -274,62 +308,159 @@ export default function Customers() {
 
   /* ─── Render ────────────────────────────────────────────────────────────── */
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-4 animate-in fade-in duration-500">
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            ग्राहक सूची <span className="text-xl font-normal text-muted-foreground ml-2">Customers</span>
-          </h1>
-          <p className="text-muted-foreground mt-1">नाम पर click करें — Edit या Delete करें</p>
-        </div>
-
-        <Button className="shadow-sm" onClick={() => setAddOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          नया ग्राहक
-        </Button>
+      {/* Page title */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">
+          ग्राहक & कार्य <span className="text-xl font-normal text-muted-foreground ml-2">Customers & Jobs</span>
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">सभी ग्राहक और सर्विस जॉब्स एक जगह</p>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="नाम या फ़ोन नंबर से खोजें..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Top-level tabs */}
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="grid grid-cols-2 w-full max-w-xs">
+          <TabsTrigger value="customers" className="flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" /> ग्राहक
+          </TabsTrigger>
+          <TabsTrigger value="jobs" className="flex items-center gap-1.5">
+            <Wrench className="w-3.5 h-3.5" /> कार्य
+          </TabsTrigger>
+        </TabsList>
 
-      {/* List */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-20 w-full" />)}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {customers?.map((customer) => (
-            <CustomerCard
-              key={customer.id}
-              customer={customer}
-              onEdit={() => setEditTarget({ id: customer.id, name: customer.name, phone: customer.phone })}
-              onDelete={() => setDeleteTarget({ id: customer.id, name: customer.name, phone: customer.phone })}
-              onDial={handleDial}
-              onWhatsApp={handleWhatsApp}
-              onNavigate={() => navigate(`/customers/${customer.id}`)}
-            />
-          ))}
+        {/* ══ CUSTOMERS TAB ═══════════════════════════════════════════════ */}
+        <TabsContent value="customers" className="mt-4 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="नाम या फ़ोन नंबर से खोजें..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button className="shadow-sm shrink-0" onClick={() => setAddOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" /> नया ग्राहक
+            </Button>
+          </div>
 
-          {customers?.length === 0 && (
-            <div className="text-center py-16 bg-card rounded-xl border-2 border-dashed">
-              <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-              <h3 className="text-lg font-medium">कोई ग्राहक नहीं मिला</h3>
-              <p className="text-muted-foreground text-sm mt-1">No customers found</p>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-20 w-full" />)}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {customers?.map((customer) => (
+                <CustomerCard
+                  key={customer.id}
+                  customer={customer}
+                  onEdit={() => setEditTarget({ id: customer.id, name: customer.name, phone: customer.phone })}
+                  onDelete={() => setDeleteTarget({ id: customer.id, name: customer.name, phone: customer.phone })}
+                  onDial={handleDial}
+                  onWhatsApp={handleWhatsApp}
+                  onNavigate={() => navigate(`/customers/${customer.id}`)}
+                />
+              ))}
+              {customers?.length === 0 && (
+                <div className="text-center py-16 bg-card rounded-xl border-2 border-dashed">
+                  <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+                  <h3 className="text-lg font-medium">कोई ग्राहक नहीं मिला</h3>
+                  <p className="text-muted-foreground text-sm mt-1">No customers found</p>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
+        </TabsContent>
+
+        {/* ══ JOBS TAB ════════════════════════════════════════════════════ */}
+        <TabsContent value="jobs" className="mt-4 space-y-4">
+          {/* Search + status filter */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="जॉब नंबर या ग्राहक खोजें..."
+              value={jobSearch}
+              onChange={(e) => setJobSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <Tabs value={jobStatus} onValueChange={setJobStatus}>
+            <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+              <TabsTrigger value="all">सभी</TabsTrigger>
+              <TabsTrigger value="pending">लंबित</TabsTrigger>
+              <TabsTrigger value="in_progress">प्रगति</TabsTrigger>
+              <TabsTrigger value="completed">पूर्ण</TabsTrigger>
+              <TabsTrigger value="cancelled">रद्द</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value={jobStatus} className="mt-3">
+              {jobsLoading ? (
+                <div className="space-y-3">
+                  {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {jobs?.map((job) => {
+                    const st = getStatusConfig(job.status);
+                    const date = job.scheduledDate
+                      ? new Date(job.scheduledDate).toLocaleDateString('hi-IN')
+                      : null;
+                    return (
+                      <Link key={job.id} href={`/jobs/${job.id}`}>
+                        <Card className={`hover-elevate cursor-pointer transition-all border-l-4 group ${st.bg}`}>
+                          <CardContent className="p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="hidden sm:flex flex-col items-center justify-center w-14 h-14 rounded bg-card border shadow-sm shrink-0">
+                                <span className="text-[10px] text-muted-foreground font-semibold uppercase">Job</span>
+                                <span className="font-mono font-bold text-primary text-sm">#{job.jobNumber || job.id}</span>
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <h3 className="font-bold group-hover:text-primary transition-colors">
+                                    {job.customerName || '—'}
+                                  </h3>
+                                  {job.isHighlighted && (
+                                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+                                  {job.applianceType && <span className="flex items-center gap-1"><Wrench className="w-3 h-3" />{job.applianceType}</span>}
+                                  {date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{date}</span>}
+                                  {job.technicianName && <span className="text-primary/80 font-medium">@ {job.technicianName}</span>}
+                                </div>
+                                {job.description && <p className="text-sm mt-1 text-foreground/70 line-clamp-1">{job.description}</p>}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
+                              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border bg-background ${st.color}`}>
+                                <st.icon className="w-3 h-3" />{st.label}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-sm">₹{job.amount || 0}</span>
+                                <span className={`w-2.5 h-2.5 rounded-full ${getPaymentDot(job.paymentStatus)}`} title={job.paymentStatus} />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })}
+                  {jobs?.length === 0 && (
+                    <div className="text-center py-12 bg-card rounded-xl border-2 border-dashed">
+                      <Wrench className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+                      <h3 className="text-lg font-medium">कोई कार्य नहीं मिला</h3>
+                      <p className="text-muted-foreground text-sm">No jobs found</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+      </Tabs>
 
       {/* ── ADD DIALOG ───────────────────────────────────────────────────── */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

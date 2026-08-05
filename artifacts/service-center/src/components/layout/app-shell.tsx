@@ -14,8 +14,7 @@ import { toast } from 'sonner';
 // All nav items — label = Hindi, subtitle = English
 const NAV_ITEMS = [
   { label: 'डैशबोर्ड', subtitle: 'Dashboard',  icon: Home,            href: '/' },
-  { label: 'ग्राहक',   subtitle: 'Customers',   icon: Users,           href: '/customers' },
-  { label: 'कार्य',    subtitle: 'Jobs',         icon: Wrench,          href: '/jobs' },
+  { label: 'ग्राहक / कार्य', subtitle: 'Customers & Jobs', icon: Users, href: '/customers' },
   { label: 'रिमाइंडर', subtitle: 'Reminders',   icon: Bell,            href: '/reminders' },
   { label: 'कैलकुलेटर',subtitle: 'Calculator',  icon: CalculatorIcon,  href: '/calculator' },
   { label: 'रिपोर्ट्स',subtitle: 'Reports',     icon: BarChart3,       href: '/reports' },

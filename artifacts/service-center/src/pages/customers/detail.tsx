@@ -170,6 +170,7 @@ export default function CustomerDetail() {
   }
 
   return (
+    <>
     <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -447,9 +448,10 @@ export default function CustomerDetail() {
           </Tabs>
         </div>
       </div>
+    </div>
 
-      {/* ── NEW JOB DIALOG ────────────────────────────────────────────── */}
-      <Dialog open={isNewJobOpen} onOpenChange={setIsNewJobOpen}>
+    {/* ── NEW JOB DIALOG ────────────────────────────────────────────── */}
+    <Dialog open={isNewJobOpen} onOpenChange={setIsNewJobOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -519,6 +521,6 @@ export default function CustomerDetail() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

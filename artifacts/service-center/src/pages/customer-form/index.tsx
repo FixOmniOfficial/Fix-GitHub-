@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRoute } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, Loader2, WifiOff, Wrench } from 'lucide-react';
+import { CheckCircle2, Loader2, WifiOff, Wrench, MapPin, Navigation } from 'lucide-react';
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
 
@@ -23,19 +23,6 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
-
-interface CustomerData {
-  id: number;
-  serialNumber: number;
-  name: string;
-  phone: string;
-  whatsappPhone?: string | null;
-  houseNumber?: string | null;
-  floorNumber?: string | null;
-  address?: string | null;
-  location?: string | null;
-}
-
 type PageState = 'loading' | 'form' | 'success' | 'invalid';
 
 export default function CustomerFormPage() {
@@ -45,6 +32,9 @@ export default function CustomerFormPage() {
   const [pageState, setPageState] = useState<PageState>('loading');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState('');
+  const tokenValidRef = useRef(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -54,27 +44,46 @@ export default function CustomerFormPage() {
     },
   });
 
-  /* Fetch customer data on mount */
+  /* Verify token is valid — but do NOT pre-fill the form */
   useEffect(() => {
     if (!token) { setPageState('invalid'); return; }
 
     fetch(`${BASE}/api/public/customer-form/${encodeURIComponent(token)}`)
       .then(async (r) => {
         if (!r.ok) { setPageState('invalid'); return; }
-        const data: CustomerData = await r.json();
-        form.reset({
-          name: data.name,
-          phone: data.phone,
-          whatsappPhone: data.whatsappPhone || '',
-          houseNumber: data.houseNumber || '',
-          floorNumber: data.floorNumber || '',
-          address: data.address || '',
-          location: data.location || '',
-        });
+        // Token is valid — show blank form, don't pre-fill
+        tokenValidRef.current = true;
         setPageState('form');
       })
       .catch(() => setPageState('invalid'));
   }, [token]);
+
+  /* Get GPS location → Google Maps link */
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setGpsError('आपके डिवाइस पर GPS उपलब्ध नहीं है');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+        form.setValue('location', mapsLink, { shouldValidate: true });
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsLoading(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setGpsError('लोकेशन की अनुमति नहीं दी। Settings में Allow करें।');
+        } else {
+          setGpsError('लोकेशन नहीं मिला। दोबारा कोशिश करें।');
+        }
+      },
+      { timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
@@ -101,7 +110,7 @@ export default function CustomerFormPage() {
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center p-4">
         <div className="text-center space-y-3">
           <Loader2 className="w-10 h-10 animate-spin text-amber-500 mx-auto" />
-          <p className="text-sm text-muted-foreground">जानकारी लोड हो रही है…</p>
+          <p className="text-sm text-muted-foreground">लोड हो रहा है…</p>
         </div>
       </div>
     );
@@ -143,7 +152,7 @@ export default function CustomerFormPage() {
     );
   }
 
-  /* ── Form ── */
+  /* ── Blank Form ── */
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-start justify-center p-4 pt-8">
       <div className="w-full max-w-md space-y-4">
@@ -166,7 +175,7 @@ export default function CustomerFormPage() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-                {/* Name + Phone */}
+                {/* Name */}
                 <FormField control={form.control} name="name"
                   render={({ field }) => (
                     <FormItem>
@@ -177,12 +186,13 @@ export default function CustomerFormPage() {
                   )}
                 />
 
+                {/* Phone + WhatsApp */}
                 <div className="grid grid-cols-2 gap-3">
                   <FormField control={form.control} name="phone"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>मोबाइल <span className="text-destructive">*</span></FormLabel>
-                        <FormControl><Input placeholder="9876543210" type="tel" {...field} /></FormControl>
+                        <FormControl><Input placeholder="9876543210" type="tel" inputMode="numeric" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -191,7 +201,7 @@ export default function CustomerFormPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>WhatsApp</FormLabel>
-                        <FormControl><Input placeholder="अलग है तो भरें" type="tel" {...field} /></FormControl>
+                        <FormControl><Input placeholder="अलग है तो भरें" type="tel" inputMode="numeric" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -231,12 +241,41 @@ export default function CustomerFormPage() {
                   )}
                 />
 
-                {/* Location */}
+                {/* Location with GPS button */}
                 <FormField control={form.control} name="location"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>लोकेशन / मोहल्ला</FormLabel>
-                      <FormControl><Input placeholder="नोएडा सेक्टर 62" {...field} /></FormControl>
+                      <FormLabel className="flex items-center justify-between">
+                        <span>लोकेशन / मोहल्ला</span>
+                        <button
+                          type="button"
+                          onClick={handleGetLocation}
+                          disabled={gpsLoading}
+                          className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium disabled:opacity-60"
+                        >
+                          {gpsLoading
+                            ? <><Loader2 className="w-3 h-3 animate-spin" />मिल रहा है…</>
+                            : <><Navigation className="w-3 h-3" />GPS से लें</>
+                          }
+                        </button>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="नोएडा सेक्टर 62 या Google Maps लिंक" {...field} />
+                      </FormControl>
+                      {gpsError && (
+                        <p className="text-xs text-destructive mt-1">{gpsError}</p>
+                      )}
+                      {field.value?.startsWith('https://maps.google.com') && (
+                        <a
+                          href={field.value}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1"
+                        >
+                          <MapPin className="w-3 h-3" />
+                          लोकेशन देखें →
+                        </a>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

@@ -5,7 +5,9 @@ import {
   useGetCustomerHistory, 
   useGetCustomerWhatsappForm,
   useUpdateCustomer,
-  useDeleteCustomer
+  useDeleteCustomer,
+  useCreateJob,
+  getGetCustomerHistoryQueryKey as _getHistoryKey,
 } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,6 +55,14 @@ const customerSchema = z.object({
   notes: z.string().optional(),
 });
 
+const jobSchema = z.object({
+  description: z.string().optional(),
+  applianceType: z.string().optional(),
+  technicianName: z.string().optional(),
+  amount: z.string().optional(),
+  scheduledDate: z.string().optional(),
+});
+
 export default function CustomerDetail() {
   const [, params] = useRoute('/customers/:id');
   const id = parseInt(params?.id || '0');
@@ -67,6 +77,13 @@ export default function CustomerDetail() {
   
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
+  const createJob = useCreateJob();
+  const [isNewJobOpen, setIsNewJobOpen] = useState(false);
+
+  const jobForm = useForm<z.infer<typeof jobSchema>>({
+    resolver: zodResolver(jobSchema),
+    defaultValues: { description: '', applianceType: '', technicianName: '', amount: '', scheduledDate: '' }
+  });
 
   const form = useForm<z.infer<typeof customerSchema>>({
     resolver: zodResolver(customerSchema),
@@ -105,6 +122,26 @@ export default function CustomerDetail() {
         navigate('/customers');
       },
       onError: () => toast.error('Failed to delete customer')
+    });
+  };
+
+  const onNewJob = (data: z.infer<typeof jobSchema>) => {
+    createJob.mutate({
+      data: {
+        customerId: id,
+        description: data.description || undefined,
+        technicianName: data.technicianName || undefined,
+        amount: data.amount ? parseFloat(data.amount) : undefined,
+        scheduledDate: data.scheduledDate || undefined,
+      }
+    }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetCustomerHistoryQueryKey(id) });
+        setIsNewJobOpen(false);
+        jobForm.reset();
+        toast.success('नया कार्य जोड़ा गया ✓');
+      },
+      onError: () => toast.error('कार्य जोड़ने में विफल'),
     });
   };
 
@@ -319,6 +356,14 @@ export default function CustomerDetail() {
             </TabsList>
             
             <TabsContent value="jobs" className="mt-4 space-y-4">
+              {/* New Job button */}
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => setIsNewJobOpen(true)}>
+                  <Plus className="w-3 h-3 mr-2" />
+                  नया कार्य जोड़ें
+                </Button>
+              </div>
+
               {history.jobs.length === 0 ? (
                 <Card className="border-dashed">
                   <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -402,6 +447,78 @@ export default function CustomerDetail() {
           </Tabs>
         </div>
       </div>
+
+      {/* ── NEW JOB DIALOG ────────────────────────────────────────────── */}
+      <Dialog open={isNewJobOpen} onOpenChange={setIsNewJobOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              नया कार्य — <span className="text-primary">{customer.name}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...jobForm}>
+            <form onSubmit={jobForm.handleSubmit(onNewJob)} className="space-y-4">
+              <FormField control={jobForm.control} name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>समस्या / विवरण (Problem)</FormLabel>
+                    <FormControl><Textarea placeholder="जैसे: AC cooling नहीं कर रहा" rows={2} {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={jobForm.control} name="applianceType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>उपकरण (Appliance)</FormLabel>
+                      <FormControl><Input placeholder="AC, Fridge…" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField control={jobForm.control} name="technicianName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>तकनीशियन (Technician)</FormLabel>
+                      <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={jobForm.control} name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>राशि ₹ (Amount)</FormLabel>
+                      <FormControl><Input type="number" placeholder="0" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField control={jobForm.control} name="scheduledDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>तारीख (Date)</FormLabel>
+                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setIsNewJobOpen(false)}>
+                  रद्द करें
+                </Button>
+                <Button type="submit" className="flex-1" disabled={createJob.isPending}>
+                  {createJob.isPending ? 'जोड़ रहा है…' : 'कार्य जोड़ें ✓'}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

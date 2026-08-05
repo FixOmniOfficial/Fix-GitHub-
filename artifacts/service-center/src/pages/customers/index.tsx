@@ -6,6 +6,7 @@ import {
   useDeleteCustomer,
   getListCustomersQueryKey,
 } from '@workspace/api-client-react';
+import { useLongPress } from '@/hooks/use-long-press';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +68,130 @@ interface CustomerMenuItem {
   id: number;
   name: string;
   phone: string;
+}
+
+/* ─── Per-card long-press wrapper ────────────────────────────────────────── */
+
+function CustomerCard({
+  customer,
+  onEdit,
+  onDelete,
+  onDial,
+  onWhatsApp,
+  onNavigate,
+}: {
+  customer: any;
+  onEdit: () => void;
+  onDelete: () => void;
+  onDial: (e: React.MouseEvent, phone: string) => void;
+  onWhatsApp: (e: React.MouseEvent, phone: string) => void;
+  onNavigate: () => void;
+}) {
+  const [longPressActive, setLongPressActive] = useState(false);
+
+  const longPress = useLongPress({
+    delay: 600,
+    onLongPress: () => {
+      setLongPressActive(true);
+      onDelete();           // fires the delete confirm directly
+    },
+    onClick: onNavigate,
+  });
+
+  return (
+    <Card
+      {...longPress}
+      className={`transition-all border-l-4 border-l-transparent hover:border-l-primary group cursor-pointer select-none ${longPressActive ? 'ring-2 ring-rose-500/50' : 'hover-elevate'}`}
+      onContextMenu={(e) => { e.preventDefault(); onDelete(); }}   // right-click → delete too
+    >
+      <CardContent className="p-4 flex items-center justify-between gap-3">
+        {/* Left: avatar + name + phone */}
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <Avatar className="h-10 w-10 border border-border shrink-0">
+            <AvatarImage src={customer.dpUrl || undefined} />
+            <AvatarFallback className="bg-primary/10 text-primary font-bold">
+              {customer.name.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            {/* NAME → click menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="font-bold text-lg leading-tight text-left hover:text-primary transition-colors flex items-center gap-1 group/name"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className="truncate">{customer.name}</span>
+                  <Pencil className="w-3 h-3 opacity-0 group-hover/name:opacity-60 transition-opacity shrink-0" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={onEdit}>
+                  <Pencil className="w-4 h-4 text-blue-400" />
+                  नाम / नंबर बदलें
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2 cursor-pointer text-rose-500 focus:text-rose-500"
+                  onSelect={onDelete}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  हटाएं (Delete)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Phone → dial */}
+            <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
+              <button
+                onClick={(e) => onDial(e, customer.phone)}
+                className="flex items-center gap-1 text-primary hover:underline font-medium"
+                title="Call करें"
+              >
+                <Phone className="w-3 h-3" />
+                {customer.phone}
+              </button>
+              {customer.address && (
+                <span className="hidden md:inline truncate max-w-[180px]">• {customer.address}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: badge + actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:flex flex-col items-end gap-1 mr-1">
+            <span className="text-xs text-muted-foreground">कार्य: {customer.totalJobs || 0}</span>
+            {customer.unpaidAmount ? (
+              <Badge variant="destructive" className="text-xs">बकाया ₹{customer.unpaidAmount}</Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-600 border-emerald-200">Clear</Badge>
+            )}
+          </div>
+
+          {/* WhatsApp */}
+          <Button
+            variant="outline" size="icon"
+            className="rounded-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+            onClick={(e) => { e.stopPropagation(); onWhatsApp(e, customer.whatsappPhone || customer.phone); }}
+            title="WhatsApp"
+          >
+            <MessageCircle className="w-4 h-4" />
+          </Button>
+
+          {/* Detail arrow */}
+          <Button
+            variant="ghost" size="icon"
+            className="rounded-full text-muted-foreground hover:text-foreground"
+            onClick={(e) => { e.stopPropagation(); onNavigate(); }}
+            title="विवरण देखें"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
@@ -185,103 +310,15 @@ export default function Customers() {
       ) : (
         <div className="space-y-3">
           {customers?.map((customer) => (
-            <Card
+            <CustomerCard
               key={customer.id}
-              className="hover-elevate transition-all border-l-4 border-l-transparent hover:border-l-primary group"
-            >
-              <CardContent className="p-4 flex items-center justify-between gap-3">
-
-                {/* Left: avatar + name + phone */}
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <Avatar className="h-10 w-10 border border-border shrink-0">
-                    <AvatarImage src={customer.dpUrl || undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                      {customer.name.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className="min-w-0 flex-1">
-                    {/* ── NAME — click → Edit / Delete menu ── */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          className="font-bold text-lg leading-tight text-left hover:text-primary transition-colors flex items-center gap-1 group/name"
-                          onClick={(e) => e.stopPropagation()}
-                          title="नाम पर click करें"
-                        >
-                          <span className="truncate">{customer.name}</span>
-                          <Pencil className="w-3 h-3 opacity-0 group-hover/name:opacity-60 transition-opacity shrink-0" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuItem
-                          className="gap-2 cursor-pointer"
-                          onSelect={() => setEditTarget({ id: customer.id, name: customer.name, phone: customer.phone })}
-                        >
-                          <Pencil className="w-4 h-4 text-blue-400" />
-                          <span>नाम / नंबर बदलें</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="gap-2 cursor-pointer text-rose-500 focus:text-rose-500"
-                          onSelect={() => setDeleteTarget({ id: customer.id, name: customer.name, phone: customer.phone })}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>हटाएं (Delete)</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    {/* Phone — click to dial */}
-                    <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
-                      <button
-                        onClick={(e) => handleDial(e, customer.phone)}
-                        className="flex items-center gap-1 text-primary hover:underline font-medium"
-                        title="Call करें"
-                      >
-                        <Phone className="w-3 h-3" />
-                        {customer.phone}
-                      </button>
-                      {customer.address && (
-                        <span className="hidden md:inline truncate max-w-[180px]">• {customer.address}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: badge + actions + detail arrow */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="hidden sm:flex flex-col items-end gap-1 mr-1">
-                    <span className="text-xs text-muted-foreground">कार्य: {customer.totalJobs || 0}</span>
-                    {customer.unpaidAmount ? (
-                      <Badge variant="destructive" className="text-xs">बकाया ₹{customer.unpaidAmount}</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-600 border-emerald-200">Clear</Badge>
-                    )}
-                  </div>
-
-                  {/* WhatsApp */}
-                  <Button
-                    variant="outline" size="icon"
-                    className="rounded-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
-                    onClick={(e) => handleWhatsApp(e, customer.whatsappPhone || customer.phone)}
-                    title="WhatsApp"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                  </Button>
-
-                  {/* Detail page arrow */}
-                  <Button
-                    variant="ghost" size="icon"
-                    className="rounded-full text-muted-foreground hover:text-foreground"
-                    onClick={() => navigate(`/customers/${customer.id}`)}
-                    title="विवरण देखें"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              customer={customer}
+              onEdit={() => setEditTarget({ id: customer.id, name: customer.name, phone: customer.phone })}
+              onDelete={() => setDeleteTarget({ id: customer.id, name: customer.name, phone: customer.phone })}
+              onDial={handleDial}
+              onWhatsApp={handleWhatsApp}
+              onNavigate={() => navigate(`/customers/${customer.id}`)}
+            />
           ))}
 
           {customers?.length === 0 && (

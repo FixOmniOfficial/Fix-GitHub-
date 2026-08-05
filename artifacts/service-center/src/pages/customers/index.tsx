@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
-import { useListCustomers, useCreateCustomer } from '@workspace/api-client-react';
+import { useListCustomers, useCreateCustomer, useDeleteCustomer, getListCustomersQueryKey } from '@workspace/api-client-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, MessageCircle, MoreVertical, Phone, Users } from 'lucide-react';
+import { Plus, Search, MessageCircle, Phone, Users, Trash2 } from 'lucide-react';
 import { Link } from 'wouter';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +31,6 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useQueryClient } from '@tanstack/react-query';
-import { getListCustomersQueryKey } from '@workspace/api-client-react';
 import { toast } from 'sonner';
 
 const customerSchema = z.object({
@@ -37,6 +47,7 @@ export default function Customers() {
   
   const { data: customers, isLoading } = useListCustomers({ search });
   const createCustomer = useCreateCustomer();
+  const deleteCustomer = useDeleteCustomer();
 
   const form = useForm<z.infer<typeof customerSchema>>({
     resolver: zodResolver(customerSchema),
@@ -59,6 +70,24 @@ export default function Customers() {
     e.preventDefault();
     e.stopPropagation();
     window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
+  };
+
+  const handleDial = (e: React.MouseEvent, phone: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.location.href = `tel:${phone.replace(/\D/g, '')}`;
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteCustomer.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+        toast.success('ग्राहक हटा दिया गया (Customer deleted)');
+      },
+      onError: () => toast.error('ग्राहक हटाने में विफल (Failed to delete)'),
+    });
   };
 
   return (
@@ -178,30 +207,70 @@ export default function Customers() {
                     <div>
                       <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors">{customer.name}</h3>
                       <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {customer.phone}</span>
+                        <button
+                          onClick={(e) => handleDial(e, customer.phone)}
+                          className="flex items-center gap-1 text-primary hover:underline font-medium"
+                          title="Call करें (Dial)"
+                        >
+                          <Phone className="w-3 h-3" /> {customer.phone}
+                        </button>
                         {customer.address && <span className="hidden md:inline truncate max-w-[200px]">• {customer.address}</span>}
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
-                    <div className="flex flex-col items-end mr-4">
-                      <span className="text-xs text-muted-foreground mb-1">कुल कार्य (Jobs): {customer.totalJobs || 0}</span>
+                    <div className="flex flex-col items-end mr-2">
+                      <span className="text-xs text-muted-foreground mb-1">कुल कार्य: {customer.totalJobs || 0}</span>
                       {customer.unpaidAmount ? (
-                        <Badge variant="destructive" className="font-semibold">बकाया (Due): ₹{customer.unpaidAmount}</Badge>
+                        <Badge variant="destructive" className="font-semibold">बकाया ₹{customer.unpaidAmount}</Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200">कोई बकाया नहीं (Clear)</Badge>
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200">Clear</Badge>
                       )}
                     </div>
-                    
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
+
+                    {/* WhatsApp */}
+                    <Button
+                      variant="outline"
+                      size="icon"
                       className="rounded-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
                       onClick={(e) => handleWhatsApp(e, customer.whatsappPhone || customer.phone)}
+                      title="WhatsApp"
                     >
                       <MessageCircle className="w-4 h-4" />
                     </Button>
+
+                    {/* Delete with confirm */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="rounded-full text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200"
+                          onClick={(e) => e.stopPropagation()}
+                          title="हटाएं (Delete)"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>"{customer.name}" को हटाएं?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            यह ग्राहक और उनसे जुड़ा सारा डेटा हमेशा के लिए हट जाएगा। यह वापस नहीं होगा।
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>रद्द करें</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={(e) => handleDelete(e, customer.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            हां, हटाएं
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </CardContent>
               </Card>

@@ -17,7 +17,15 @@ export interface Customer {
   /** @nullable */
   whatsappPhone?: string | null;
   /** @nullable */
+  houseNumber?: string | null;
+  /** @nullable */
+  floorNumber?: string | null;
+  /** @nullable */
   address?: string | null;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  visitingAmount?: number | null;
   /** @nullable */
   dpUrl?: string | null;
   /** @nullable */
@@ -35,7 +43,11 @@ export interface CustomerInput {
   /** @minLength 1 */
   phone: string;
   whatsappPhone?: string;
+  houseNumber?: string;
+  floorNumber?: string;
   address?: string;
+  location?: string;
+  visitingAmount?: number;
   dpUrl?: string;
   notes?: string;
 }
@@ -44,7 +56,11 @@ export interface CustomerUpdate {
   name?: string;
   phone?: string;
   whatsappPhone?: string;
+  houseNumber?: string;
+  floorNumber?: string;
   address?: string;
+  location?: string;
+  visitingAmount?: number;
   dpUrl?: string;
   notes?: string;
 }

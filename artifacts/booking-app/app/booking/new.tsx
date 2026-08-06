@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useColors } from '@/hooks/useColors';
 import { useCreateBooking } from '@workspace/api-client-react';
+import { useAppAuth } from '@/contexts/AppAuthContext';
 
 export default function NewBookingScreen() {
   const params = useLocalSearchParams<{
@@ -23,11 +24,12 @@ export default function NewBookingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const { user } = useAppAuth();
 
   const createBooking = useCreateBooking();
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState(user?.userType === 'customer' ? (user.name ?? '') : '');
+  const [phone, setPhone] = useState(user?.userType === 'customer' ? (user.phone ?? '') : '');
   const [whatsapp, setWhatsapp] = useState('');
   const [house, setHouse] = useState('');
   const [floor, setFloor] = useState('');

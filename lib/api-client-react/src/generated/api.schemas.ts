@@ -536,6 +536,51 @@ export interface BookingUpdate {
   visitingCharge?: number;
 }
 
+export interface TechnicianSignupInput {
+  name: string;
+  phone?: string;
+  professionType: string;
+  avatarEmoji?: string;
+  visitingCharge?: number;
+}
+
+export interface TechnicianLoginInput {
+  uniqueCode: string;
+}
+
+export interface TechnicianAuthResponse {
+  id: number;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  professionType: string;
+  /** @nullable */
+  avatarEmoji?: string | null;
+  /** @nullable */
+  visitingCharge?: number | null;
+  uniqueCode: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AppCustomer {
+  id: number;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  uniqueCode: string;
+  createdAt: string;
+}
+
+export interface CustomerSignupInput {
+  name: string;
+  phone?: string;
+}
+
+export interface CustomerLoginInput {
+  uniqueCode: string;
+}
+
 export interface ServiceCategory {
   id: number;
   name: string;

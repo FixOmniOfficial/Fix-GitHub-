@@ -1,6 +1,14 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, asc } from "drizzle-orm";
-import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable } from "@workspace/db";
+import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable } from "@workspace/db";
+
+// Unique code generator: prefix + 6 random uppercase alphanumeric (no confusable chars)
+function genCode(prefix: string): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = prefix + '-';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
 
 const router: IRouter = Router();
 
@@ -254,6 +262,79 @@ router.delete("/booking/bookings/:id", async (req, res): Promise<void> => {
     res.status(204).end();
   } catch {
     res.status(500).json({ error: "Failed to delete booking" });
+  }
+});
+
+// ── Technician Auth ──────────────────────────────────────────────
+
+router.post("/booking/technician/signup", async (req, res): Promise<void> => {
+  try {
+    const { name, phone, professionType, avatarEmoji, visitingCharge } = req.body;
+    if (!name?.trim() || !professionType?.trim()) {
+      res.status(400).json({ error: "name and professionType are required" }); return;
+    }
+    let uniqueCode: string;
+    // Retry until unique
+    for (;;) {
+      uniqueCode = genCode('TECH');
+      const existing = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, uniqueCode)).limit(1);
+      if (existing.length === 0) break;
+    }
+    const [row] = await db.insert(professionalsTable).values({
+      name: name.trim(), phone: phone?.trim() || null,
+      professionType: professionType.trim(),
+      avatarEmoji: avatarEmoji?.trim() || '🔧',
+      visitingCharge: visitingCharge ? String(visitingCharge) : null,
+      uniqueCode,
+    }).returning();
+    res.status(201).json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Signup failed" });
+  }
+});
+
+router.post("/booking/technician/login", async (req, res): Promise<void> => {
+  try {
+    const { uniqueCode } = req.body;
+    if (!uniqueCode) { res.status(400).json({ error: "uniqueCode required" }); return; }
+    const [row] = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, uniqueCode.trim().toUpperCase())).limit(1);
+    if (!row) { res.status(404).json({ error: "Invalid code" }); return; }
+    res.json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+// ── Customer Auth ──────────────────────────────────────────────
+
+router.post("/booking/customer/signup", async (req, res): Promise<void> => {
+  try {
+    const { name, phone } = req.body;
+    if (!name?.trim()) { res.status(400).json({ error: "name is required" }); return; }
+    let uniqueCode: string;
+    for (;;) {
+      uniqueCode = genCode('CUST');
+      const existing = await db.select().from(appCustomersTable).where(eq(appCustomersTable.uniqueCode, uniqueCode)).limit(1);
+      if (existing.length === 0) break;
+    }
+    const [row] = await db.insert(appCustomersTable).values({
+      name: name.trim(), phone: phone?.trim() || null, uniqueCode,
+    }).returning();
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Signup failed" });
+  }
+});
+
+router.post("/booking/customer/login", async (req, res): Promise<void> => {
+  try {
+    const { uniqueCode } = req.body;
+    if (!uniqueCode) { res.status(400).json({ error: "uniqueCode required" }); return; }
+    const [row] = await db.select().from(appCustomersTable).where(eq(appCustomersTable.uniqueCode, uniqueCode.trim().toUpperCase())).limit(1);
+    if (!row) { res.status(404).json({ error: "Invalid code" }); return; }
+    res.json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Login failed" });
   }
 });
 

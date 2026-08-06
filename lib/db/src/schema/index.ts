@@ -13,3 +13,4 @@ export * from "./helpline-messages";
 export * from "./app-ratings";
 export * from "./service-categories";
 export * from "./home-config";
+export * from "./app-customers";

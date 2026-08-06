@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './appCustomer';
 export * from './appliance';
 export * from './applianceInput';
 export * from './applianceUpdate';
@@ -30,6 +31,8 @@ export * from './bookingUpdate';
 export * from './customer';
 export * from './customerHistory';
 export * from './customerInput';
+export * from './customerLoginInput';
+export * from './customerSignupInput';
 export * from './customerUpdate';
 export * from './dashboardSummary';
 export * from './errorEnvelope';
@@ -77,4 +80,7 @@ export * from './serviceJobInput';
 export * from './serviceJobPaymentStatus';
 export * from './serviceJobStatus';
 export * from './serviceJobUpdate';
+export * from './technicianAuthResponse';
+export * from './technicianLoginInput';
+export * from './technicianSignupInput';
 export * from './whatsappForm';

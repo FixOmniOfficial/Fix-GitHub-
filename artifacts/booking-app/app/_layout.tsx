@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { AppAuthProvider } from '@/contexts/AppAuthContext';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -35,6 +36,10 @@ function RootLayoutNav() {
       <Stack.Screen name="admin/helpline" options={{ headerShown: false }} />
       <Stack.Screen name="admin/rates" options={{ headerShown: false }} />
       <Stack.Screen name="admin/home-config" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/index" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/technician" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/customer" options={{ headerShown: false }} />
+      <Stack.Screen name="technician/dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="rates/index" options={{ headerShown: false }} />
       <Stack.Screen name="helpline/index" options={{ headerShown: false }} />
       <Stack.Screen name="rating/index" options={{ headerShown: false }} />
@@ -62,11 +67,13 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView>
-            <KeyboardProvider>
-              <RootLayoutNav />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
+          <AppAuthProvider>
+            <GestureHandlerRootView>
+              <KeyboardProvider>
+                <RootLayoutNav />
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </AppAuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

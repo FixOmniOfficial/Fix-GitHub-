@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AppCustomer,
   AppRating,
   AppRatingInput,
   AppRatingSummary,
@@ -39,6 +40,8 @@ import type {
   Customer,
   CustomerHistory,
   CustomerInput,
+  CustomerLoginInput,
+  CustomerSignupInput,
   CustomerUpdate,
   DashboardSummary,
   GetReportStatsParams,
@@ -77,6 +80,9 @@ import type {
   ServiceJob,
   ServiceJobInput,
   ServiceJobUpdate,
+  TechnicianAuthResponse,
+  TechnicianLoginInput,
+  TechnicianSignupInput,
   WhatsappForm
 } from './api.schemas';
 
@@ -4475,6 +4481,290 @@ export function useGetAppRatingsSummary<TData = Awaited<ReturnType<typeof getApp
 
 
 
+
+export const getTechnicianSignupUrl = () => {
+
+
+
+
+  return `/api/booking/technician/signup`
+}
+
+/**
+ * @summary Register as a technician and receive a unique code
+ */
+export const technicianSignup = async (technicianSignupInput: TechnicianSignupInput, options?: RequestInit): Promise<TechnicianAuthResponse> => {
+
+  return customFetch<TechnicianAuthResponse>(getTechnicianSignupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(technicianSignupInput)
+  }
+);}
+
+
+
+
+
+export const getTechnicianSignupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof technicianSignup>>, TError,{data: BodyType<TechnicianSignupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof technicianSignup>>, TError,{data: BodyType<TechnicianSignupInput>}, TContext> => {
+
+const mutationKey = ['technicianSignup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof technicianSignup>>, {data: BodyType<TechnicianSignupInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  technicianSignup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TechnicianSignupMutationResult = NonNullable<Awaited<ReturnType<typeof technicianSignup>>>
+    export type TechnicianSignupMutationBody = BodyType<TechnicianSignupInput>
+    export type TechnicianSignupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Register as a technician and receive a unique code
+ */
+export const useTechnicianSignup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof technicianSignup>>, TError,{data: BodyType<TechnicianSignupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof technicianSignup>>,
+        TError,
+        {data: BodyType<TechnicianSignupInput>},
+        TContext
+      > => {
+      return useMutation(getTechnicianSignupMutationOptions(options));
+    }
+
+export const getTechnicianLoginUrl = () => {
+
+
+
+
+  return `/api/booking/technician/login`
+}
+
+/**
+ * @summary Login as a technician using unique code
+ */
+export const technicianLogin = async (technicianLoginInput: TechnicianLoginInput, options?: RequestInit): Promise<TechnicianAuthResponse> => {
+
+  return customFetch<TechnicianAuthResponse>(getTechnicianLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(technicianLoginInput)
+  }
+);}
+
+
+
+
+
+export const getTechnicianLoginMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof technicianLogin>>, TError,{data: BodyType<TechnicianLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof technicianLogin>>, TError,{data: BodyType<TechnicianLoginInput>}, TContext> => {
+
+const mutationKey = ['technicianLogin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof technicianLogin>>, {data: BodyType<TechnicianLoginInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  technicianLogin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TechnicianLoginMutationResult = NonNullable<Awaited<ReturnType<typeof technicianLogin>>>
+    export type TechnicianLoginMutationBody = BodyType<TechnicianLoginInput>
+    export type TechnicianLoginMutationError = ErrorType<void>
+
+    /**
+ * @summary Login as a technician using unique code
+ */
+export const useTechnicianLogin = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof technicianLogin>>, TError,{data: BodyType<TechnicianLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof technicianLogin>>,
+        TError,
+        {data: BodyType<TechnicianLoginInput>},
+        TContext
+      > => {
+      return useMutation(getTechnicianLoginMutationOptions(options));
+    }
+
+export const getCustomerSignupUrl = () => {
+
+
+
+
+  return `/api/booking/customer/signup`
+}
+
+/**
+ * @summary Register as a customer and receive a unique code
+ */
+export const customerSignup = async (customerSignupInput: CustomerSignupInput, options?: RequestInit): Promise<AppCustomer> => {
+
+  return customFetch<AppCustomer>(getCustomerSignupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(customerSignupInput)
+  }
+);}
+
+
+
+
+
+export const getCustomerSignupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof customerSignup>>, TError,{data: BodyType<CustomerSignupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof customerSignup>>, TError,{data: BodyType<CustomerSignupInput>}, TContext> => {
+
+const mutationKey = ['customerSignup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof customerSignup>>, {data: BodyType<CustomerSignupInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  customerSignup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CustomerSignupMutationResult = NonNullable<Awaited<ReturnType<typeof customerSignup>>>
+    export type CustomerSignupMutationBody = BodyType<CustomerSignupInput>
+    export type CustomerSignupMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Register as a customer and receive a unique code
+ */
+export const useCustomerSignup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof customerSignup>>, TError,{data: BodyType<CustomerSignupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof customerSignup>>,
+        TError,
+        {data: BodyType<CustomerSignupInput>},
+        TContext
+      > => {
+      return useMutation(getCustomerSignupMutationOptions(options));
+    }
+
+export const getCustomerLoginUrl = () => {
+
+
+
+
+  return `/api/booking/customer/login`
+}
+
+/**
+ * @summary Login as a customer using unique code
+ */
+export const customerLogin = async (customerLoginInput: CustomerLoginInput, options?: RequestInit): Promise<AppCustomer> => {
+
+  return customFetch<AppCustomer>(getCustomerLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(customerLoginInput)
+  }
+);}
+
+
+
+
+
+export const getCustomerLoginMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof customerLogin>>, TError,{data: BodyType<CustomerLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof customerLogin>>, TError,{data: BodyType<CustomerLoginInput>}, TContext> => {
+
+const mutationKey = ['customerLogin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof customerLogin>>, {data: BodyType<CustomerLoginInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  customerLogin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CustomerLoginMutationResult = NonNullable<Awaited<ReturnType<typeof customerLogin>>>
+    export type CustomerLoginMutationBody = BodyType<CustomerLoginInput>
+    export type CustomerLoginMutationError = ErrorType<void>
+
+    /**
+ * @summary Login as a customer using unique code
+ */
+export const useCustomerLogin = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof customerLogin>>, TError,{data: BodyType<CustomerLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof customerLogin>>,
+        TError,
+        {data: BodyType<CustomerLoginInput>},
+        TContext
+      > => {
+      return useMutation(getCustomerLoginMutationOptions(options));
+    }
 
 export const getListServiceCategoriesUrl = () => {
 

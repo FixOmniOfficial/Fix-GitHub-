@@ -1453,6 +1453,83 @@ export const GetAppRatingsSummaryResponse = zod.object({
 
 
 /**
+ * @summary Register as a technician and receive a unique code
+ */
+export const TechnicianSignupBody = zod.object({
+  "name": zod.string(),
+  "phone": zod.string().optional(),
+  "professionType": zod.string(),
+  "avatarEmoji": zod.string().optional(),
+  "visitingCharge": zod.number().optional()
+})
+
+export const TechnicianSignupResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "professionType": zod.string(),
+  "avatarEmoji": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "uniqueCode": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Login as a technician using unique code
+ */
+export const TechnicianLoginBody = zod.object({
+  "uniqueCode": zod.string()
+})
+
+export const TechnicianLoginResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "professionType": zod.string(),
+  "avatarEmoji": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "uniqueCode": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Register as a customer and receive a unique code
+ */
+export const CustomerSignupBody = zod.object({
+  "name": zod.string(),
+  "phone": zod.string().optional()
+})
+
+export const CustomerSignupResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "uniqueCode": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Login as a customer using unique code
+ */
+export const CustomerLoginBody = zod.object({
+  "uniqueCode": zod.string()
+})
+
+export const CustomerLoginResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "uniqueCode": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary List all service categories
  */
 export const ListServiceCategoriesResponseItem = zod.object({

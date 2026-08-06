@@ -18,6 +18,7 @@ export const professionalsTable = pgTable("professionals", {
   phone: text("phone"),
   avatarEmoji: text("avatar_emoji").default("👤"),
   visitingCharge: numeric("visiting_charge", { precision: 10, scale: 2 }),
+  uniqueCode: text("unique_code").unique(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

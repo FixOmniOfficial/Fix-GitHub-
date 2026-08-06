@@ -1085,6 +1085,88 @@ paths:
               schema:
                 $ref: "#/components/schemas/AppRatingSummary"
 
+  # ── Technician Auth ──────────────────────────────────────────────
+  /booking/technician/signup:
+    post:
+      operationId: technicianSignup
+      tags: [booking]
+      summary: Register as a technician and receive a unique code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TechnicianSignupInput"
+      responses:
+        "201":
+          description: Technician created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianAuthResponse"
+
+  /booking/technician/login:
+    post:
+      operationId: technicianLogin
+      tags: [booking]
+      summary: Login as a technician using unique code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TechnicianLoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianAuthResponse"
+        "404":
+          description: Invalid code
+
+  # ── Customer Auth ──────────────────────────────────────────────
+  /booking/customer/signup:
+    post:
+      operationId: customerSignup
+      tags: [booking]
+      summary: Register as a customer and receive a unique code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSignupInput"
+      responses:
+        "201":
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppCustomer"
+
+  /booking/customer/login:
+    post:
+      operationId: customerLogin
+      tags: [booking]
+      summary: Login as a customer using unique code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerLoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppCustomer"
+        "404":
+          description: Invalid code
+
   # ── Service Categories ──────────────────────────────────────────────
   /booking/service-categories:
     get:
@@ -1748,6 +1830,60 @@ components:
         notes: { type: string }
         bookingTime: { type: string }
         visitingCharge: { type: number }
+
+    # ── Technician / Customer Auth ──────────────────────────────────────────────
+    TechnicianSignupInput:
+      type: object
+      required: [name, professionType]
+      properties:
+        name: { type: string }
+        phone: { type: string }
+        professionType: { type: string }
+        avatarEmoji: { type: string }
+        visitingCharge: { type: number }
+
+    TechnicianLoginInput:
+      type: object
+      required: [uniqueCode]
+      properties:
+        uniqueCode: { type: string }
+
+    TechnicianAuthResponse:
+      type: object
+      required: [id, name, professionType, uniqueCode, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        phone: { type: ["string", "null"] }
+        professionType: { type: string }
+        avatarEmoji: { type: ["string", "null"] }
+        visitingCharge: { type: ["number", "null"] }
+        uniqueCode: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+
+    AppCustomer:
+      type: object
+      required: [id, name, uniqueCode, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        phone: { type: ["string", "null"] }
+        uniqueCode: { type: string }
+        createdAt: { type: string }
+
+    CustomerSignupInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        phone: { type: string }
+
+    CustomerLoginInput:
+      type: object
+      required: [uniqueCode]
+      properties:
+        uniqueCode: { type: string }
 
     # ── ServiceCategory ──────────────────────────────────────────────
     ServiceCategory:

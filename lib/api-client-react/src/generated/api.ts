@@ -50,6 +50,8 @@ import type {
   Highlight,
   HighlightInput,
   HighlightUpdate,
+  HomeConfig,
+  HomeConfigUpdate,
   ListAppliancesParams,
   ListBookingsParams,
   ListCustomersParams,
@@ -69,6 +71,9 @@ import type {
   ReminderInput,
   ReminderUpdate,
   ReportStats,
+  ServiceCategory,
+  ServiceCategoryInput,
+  ServiceCategoryUpdate,
   ServiceJob,
   ServiceJobInput,
   ServiceJobUpdate,
@@ -4470,6 +4475,445 @@ export function useGetAppRatingsSummary<TData = Awaited<ReturnType<typeof getApp
 
 
 
+
+export const getListServiceCategoriesUrl = () => {
+
+
+
+
+  return `/api/booking/service-categories`
+}
+
+/**
+ * @summary List all service categories
+ */
+export const listServiceCategories = async ( options?: RequestInit): Promise<ServiceCategory[]> => {
+
+  return customFetch<ServiceCategory[]>(getListServiceCategoriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListServiceCategoriesQueryKey = () => {
+    return [
+    `/api/booking/service-categories`
+    ] as const;
+    }
+
+
+export const getListServiceCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listServiceCategories>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListServiceCategoriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listServiceCategories>>> = ({ signal }) => listServiceCategories({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listServiceCategories>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListServiceCategoriesQueryResult = NonNullable<Awaited<ReturnType<typeof listServiceCategories>>>
+export type ListServiceCategoriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all service categories
+ */
+
+export function useListServiceCategories<TData = Awaited<ReturnType<typeof listServiceCategories>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListServiceCategoriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateServiceCategoryUrl = () => {
+
+
+
+
+  return `/api/booking/service-categories`
+}
+
+/**
+ * @summary Create a new service category
+ */
+export const createServiceCategory = async (serviceCategoryInput: ServiceCategoryInput, options?: RequestInit): Promise<ServiceCategory> => {
+
+  return customFetch<ServiceCategory>(getCreateServiceCategoryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(serviceCategoryInput)
+  }
+);}
+
+
+
+
+
+export const getCreateServiceCategoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createServiceCategory>>, TError,{data: BodyType<ServiceCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createServiceCategory>>, TError,{data: BodyType<ServiceCategoryInput>}, TContext> => {
+
+const mutationKey = ['createServiceCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createServiceCategory>>, {data: BodyType<ServiceCategoryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createServiceCategory(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateServiceCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof createServiceCategory>>>
+    export type CreateServiceCategoryMutationBody = BodyType<ServiceCategoryInput>
+    export type CreateServiceCategoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new service category
+ */
+export const useCreateServiceCategory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createServiceCategory>>, TError,{data: BodyType<ServiceCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createServiceCategory>>,
+        TError,
+        {data: BodyType<ServiceCategoryInput>},
+        TContext
+      > => {
+      return useMutation(getCreateServiceCategoryMutationOptions(options));
+    }
+
+export const getUpdateServiceCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/booking/service-categories/${id}`
+}
+
+/**
+ * @summary Update a service category
+ */
+export const updateServiceCategory = async (id: number,
+    serviceCategoryUpdate: ServiceCategoryUpdate, options?: RequestInit): Promise<ServiceCategory> => {
+
+  return customFetch<ServiceCategory>(getUpdateServiceCategoryUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(serviceCategoryUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateServiceCategoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceCategory>>, TError,{id: number;data: BodyType<ServiceCategoryUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateServiceCategory>>, TError,{id: number;data: BodyType<ServiceCategoryUpdate>}, TContext> => {
+
+const mutationKey = ['updateServiceCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateServiceCategory>>, {id: number;data: BodyType<ServiceCategoryUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateServiceCategory(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateServiceCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof updateServiceCategory>>>
+    export type UpdateServiceCategoryMutationBody = BodyType<ServiceCategoryUpdate>
+    export type UpdateServiceCategoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a service category
+ */
+export const useUpdateServiceCategory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceCategory>>, TError,{id: number;data: BodyType<ServiceCategoryUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateServiceCategory>>,
+        TError,
+        {id: number;data: BodyType<ServiceCategoryUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateServiceCategoryMutationOptions(options));
+    }
+
+export const getDeleteServiceCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/booking/service-categories/${id}`
+}
+
+/**
+ * @summary Delete a service category
+ */
+export const deleteServiceCategory = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteServiceCategoryUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteServiceCategoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceCategory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteServiceCategory>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteServiceCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteServiceCategory>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteServiceCategory(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteServiceCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteServiceCategory>>>
+
+    export type DeleteServiceCategoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a service category
+ */
+export const useDeleteServiceCategory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceCategory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteServiceCategory>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteServiceCategoryMutationOptions(options));
+    }
+
+export const getGetHomeConfigUrl = () => {
+
+
+
+
+  return `/api/booking/home-config`
+}
+
+/**
+ * @summary Get home page configuration
+ */
+export const getHomeConfig = async ( options?: RequestInit): Promise<HomeConfig> => {
+
+  return customFetch<HomeConfig>(getGetHomeConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetHomeConfigQueryKey = () => {
+    return [
+    `/api/booking/home-config`
+    ] as const;
+    }
+
+
+export const getGetHomeConfigQueryOptions = <TData = Awaited<ReturnType<typeof getHomeConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHomeConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHomeConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHomeConfig>>> = ({ signal }) => getHomeConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHomeConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetHomeConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getHomeConfig>>>
+export type GetHomeConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get home page configuration
+ */
+
+export function useGetHomeConfig<TData = Awaited<ReturnType<typeof getHomeConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHomeConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetHomeConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateHomeConfigUrl = () => {
+
+
+
+
+  return `/api/booking/home-config`
+}
+
+/**
+ * @summary Update home page configuration
+ */
+export const updateHomeConfig = async (homeConfigUpdate: HomeConfigUpdate, options?: RequestInit): Promise<HomeConfig> => {
+
+  return customFetch<HomeConfig>(getUpdateHomeConfigUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(homeConfigUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateHomeConfigMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateHomeConfig>>, TError,{data: BodyType<HomeConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateHomeConfig>>, TError,{data: BodyType<HomeConfigUpdate>}, TContext> => {
+
+const mutationKey = ['updateHomeConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateHomeConfig>>, {data: BodyType<HomeConfigUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateHomeConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateHomeConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateHomeConfig>>>
+    export type UpdateHomeConfigMutationBody = BodyType<HomeConfigUpdate>
+    export type UpdateHomeConfigMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update home page configuration
+ */
+export const useUpdateHomeConfig = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateHomeConfig>>, TError,{data: BodyType<HomeConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateHomeConfig>>,
+        TError,
+        {data: BodyType<HomeConfigUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateHomeConfigMutationOptions(options));
+    }
 
 export const getGetReportStatsUrl = (params?: GetReportStatsParams,) => {
   const normalizedParams = new URLSearchParams();

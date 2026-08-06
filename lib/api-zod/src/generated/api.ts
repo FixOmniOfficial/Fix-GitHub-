@@ -1453,6 +1453,117 @@ export const GetAppRatingsSummaryResponse = zod.object({
 
 
 /**
+ * @summary List all service categories
+ */
+export const ListServiceCategoriesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "icon": zod.string(),
+  "accent": zod.string(),
+  "professionType": zod.string(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+export const ListServiceCategoriesResponse = zod.array(ListServiceCategoriesResponseItem)
+
+
+/**
+ * @summary Create a new service category
+ */
+export const CreateServiceCategoryBody = zod.object({
+  "name": zod.string(),
+  "icon": zod.string(),
+  "accent": zod.string(),
+  "professionType": zod.string(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateServiceCategoryResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "icon": zod.string(),
+  "accent": zod.string(),
+  "professionType": zod.string(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Update a service category
+ */
+export const UpdateServiceCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateServiceCategoryBody = zod.object({
+  "name": zod.string().optional(),
+  "icon": zod.string().optional(),
+  "accent": zod.string().optional(),
+  "professionType": zod.string().optional(),
+  "sortOrder": zod.number().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateServiceCategoryResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "icon": zod.string(),
+  "accent": zod.string(),
+  "professionType": zod.string(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete a service category
+ */
+export const DeleteServiceCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteServiceCategoryResponse = zod.void()
+
+
+/**
+ * @summary Get home page configuration
+ */
+export const GetHomeConfigResponse = zod.object({
+  "id": zod.number(),
+  "helplineNumber": zod.string(),
+  "helplineName": zod.string(),
+  "isLocked": zod.boolean(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Update home page configuration
+ */
+export const UpdateHomeConfigBody = zod.object({
+  "helplineNumber": zod.string().optional(),
+  "helplineName": zod.string().optional(),
+  "isLocked": zod.boolean().optional()
+})
+
+export const UpdateHomeConfigResponse = zod.object({
+  "id": zod.number(),
+  "helplineNumber": zod.string(),
+  "helplineName": zod.string(),
+  "isLocked": zod.boolean(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
  * @summary Get detailed reporting statistics
  */
 export const GetReportStatsQueryParams = zod.object({

@@ -34,6 +34,7 @@ function RootLayoutNav() {
       <Stack.Screen name="admin/professionals" options={{ headerShown: false }} />
       <Stack.Screen name="admin/helpline" options={{ headerShown: false }} />
       <Stack.Screen name="admin/rates" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/home-config" options={{ headerShown: false }} />
       <Stack.Screen name="rates/index" options={{ headerShown: false }} />
       <Stack.Screen name="helpline/index" options={{ headerShown: false }} />
       <Stack.Screen name="rating/index" options={{ headerShown: false }} />

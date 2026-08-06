@@ -104,6 +104,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     { icon: 'users' as const,     label: 'Professionals',   sub: 'Block / Unblock Manage करें',  path: '/admin/professionals',  color: '#3b82f6' },
     { icon: 'phone' as const,     label: 'Helpline',        sub: `${pending} pending messages`,  path: '/admin/helpline',       color: '#22c55e' },
     { icon: 'tag' as const,       label: 'Market Rates',    sub: 'Rates view/edit करें',         path: '/admin/rates',          color: '#f59e0b' },
+    { icon: 'home' as const,      label: 'Home Config',     sub: 'Services & Helpline सेटअप करें', path: '/admin/home-config',   color: '#8b5cf6' },
   ];
 
   return (

@@ -1085,6 +1085,106 @@ paths:
               schema:
                 $ref: "#/components/schemas/AppRatingSummary"
 
+  # ── Service Categories ──────────────────────────────────────────────
+  /booking/service-categories:
+    get:
+      operationId: listServiceCategories
+      tags: [booking]
+      summary: List all service categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceCategory"
+    post:
+      operationId: createServiceCategory
+      tags: [booking]
+      summary: Create a new service category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceCategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceCategory"
+
+  /booking/service-categories/{id}:
+    patch:
+      operationId: updateServiceCategory
+      tags: [booking]
+      summary: Update a service category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceCategoryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceCategory"
+    delete:
+      operationId: deleteServiceCategory
+      tags: [booking]
+      summary: Delete a service category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Home Config ──────────────────────────────────────────────
+  /booking/home-config:
+    get:
+      operationId: getHomeConfig
+      tags: [booking]
+      summary: Get home page configuration
+      responses:
+        "200":
+          description: Config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeConfig"
+    patch:
+      operationId: updateHomeConfig
+      tags: [booking]
+      summary: Update home page configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HomeConfigUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeConfig"
+
   /reports/stats:
     get:
       operationId: getReportStats
@@ -1648,6 +1748,60 @@ components:
         notes: { type: string }
         bookingTime: { type: string }
         visitingCharge: { type: number }
+
+    # ── ServiceCategory ──────────────────────────────────────────────
+    ServiceCategory:
+      type: object
+      required: [id, name, icon, accent, professionType, sortOrder, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        icon: { type: string }
+        accent: { type: string }
+        professionType: { type: string }
+        sortOrder: { type: integer }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    ServiceCategoryInput:
+      type: object
+      required: [name, icon, accent, professionType, sortOrder]
+      properties:
+        name: { type: string }
+        icon: { type: string }
+        accent: { type: string }
+        professionType: { type: string }
+        sortOrder: { type: integer }
+        isActive: { type: boolean }
+
+    ServiceCategoryUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        icon: { type: string }
+        accent: { type: string }
+        professionType: { type: string }
+        sortOrder: { type: integer }
+        isActive: { type: boolean }
+
+    # ── HomeConfig ──────────────────────────────────────────────
+    HomeConfig:
+      type: object
+      required: [id, helplineNumber, helplineName, isLocked]
+      properties:
+        id: { type: integer }
+        helplineNumber: { type: string }
+        helplineName: { type: string }
+        isLocked: { type: boolean }
+        updatedAt: { type: string }
+
+    HomeConfigUpdate:
+      type: object
+      properties:
+        helplineNumber: { type: string }
+        helplineName: { type: string }
+        isLocked: { type: boolean }
 
     # ── Auth ──────────────────────────────────────────────────
     AuthUser:

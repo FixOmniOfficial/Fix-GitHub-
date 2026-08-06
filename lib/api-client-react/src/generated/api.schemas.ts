@@ -536,6 +536,50 @@ export interface BookingUpdate {
   visitingCharge?: number;
 }
 
+export interface ServiceCategory {
+  id: number;
+  name: string;
+  icon: string;
+  accent: string;
+  professionType: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ServiceCategoryInput {
+  name: string;
+  icon: string;
+  accent: string;
+  professionType: string;
+  sortOrder: number;
+  isActive?: boolean;
+}
+
+export interface ServiceCategoryUpdate {
+  name?: string;
+  icon?: string;
+  accent?: string;
+  professionType?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface HomeConfig {
+  id: number;
+  helplineNumber: string;
+  helplineName: string;
+  isLocked: boolean;
+  updatedAt?: string;
+}
+
+export interface HomeConfigUpdate {
+  helplineNumber?: string;
+  helplineName?: string;
+  isLocked?: boolean;
+}
+
 export interface AuthUser {
   id: string;
   /** @nullable */

@@ -1,24 +1,19 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, ActivityIndicator,
+  Platform, ActivityIndicator, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
-import { useListBookings } from '@workspace/api-client-react';
+import { useListBookings, useListServiceCategories, useGetHomeConfig } from '@workspace/api-client-react';
 
-const PROFESSIONS = [
-  { type: 'ac_technician', label: 'AC Service',   icon: 'wind'      as const, accent: '#3b82f6' },
-  { type: 'electrician',   label: 'Electrician',  icon: 'zap'       as const, accent: '#f59e0b' },
-  { type: 'carpenter',     label: 'Carpenter',    icon: 'tool'      as const, accent: '#d97706' },
-  { type: 'plumber',       label: 'Plumber',      icon: 'droplet'   as const, accent: '#0ea5e9' },
-  { type: 'painter',       label: 'Painter',      icon: 'edit-2'    as const, accent: '#ec4899' },
-  { type: 'repair',        label: 'Repair',       icon: 'settings'  as const, accent: '#6b7280' },
-];
-
-const PROFESSION_LABELS: Record<string, string> = Object.fromEntries(PROFESSIONS.map(p => [p.type, p.label]));
+const PROFESSION_LABELS_FALLBACK: Record<string, string> = {
+  ac_technician: 'AC Service', electrician: 'Electrician',
+  carpenter: 'Carpenter', plumber: 'Plumber',
+  painter: 'Painter', repair: 'Repair',
+};
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -27,8 +22,11 @@ export default function HomeScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const { data: recentBookings, isLoading } = useListBookings({});
+  const { data: categories, isLoading: catsLoading } = useListServiceCategories({});
+  const { data: homeConfig } = useGetHomeConfig({});
 
   const recent = (recentBookings ?? []).slice(0, 3);
+  const activeCategories = (categories ?? []).filter(c => c.isActive);
 
   const s = styles(colors);
 
@@ -40,13 +38,49 @@ export default function HomeScreen() {
       >
         {/* ── Hero ── */}
         <View style={[s.hero, { paddingTop: topPad + 16 }]}>
-          <View style={s.iconCircle}>
-            <Text style={s.heroEmoji}>❄️</Text>
+          {/* Logo */}
+          <View style={s.logoRow}>
+            <View style={s.logoBox}>
+              <Text style={s.logoEmoji}>❄️</Text>
+            </View>
+            <View style={s.logoText}>
+              <Text style={s.heroTitle}>ProBook</Text>
+              <Text style={s.heroTagline}>Trusted Services • विश्वसनीय सेवाएँ</Text>
+            </View>
           </View>
-          <Text style={s.heroTitle}>ProBook</Text>
-          <Text style={s.heroSub}>प्रोफेशनल सर्विस बुक करें</Text>
 
-          {/* Quick stat */}
+          {/* CTA Button */}
+          <TouchableOpacity
+            style={[s.ctaBtn, { backgroundColor: colors.primary }]}
+            onPress={() => activeCategories[0] && router.push(`/professional/${activeCategories[0].professionType}`)}
+            activeOpacity={0.85}
+          >
+            <Feather name="calendar" size={18} color="#000" style={{ marginRight: 8 }} />
+            <Text style={s.ctaBtnText}>प्रोफेशनल सर्विस बुक करें</Text>
+            <Feather name="arrow-right" size={16} color="#000" style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+
+          {/* Helpline Banner */}
+          {homeConfig && (
+            <TouchableOpacity
+              style={s.helplineBanner}
+              onPress={() => Linking.openURL(`tel:${homeConfig.helplineNumber}`)}
+              activeOpacity={0.8}
+            >
+              <View style={s.helplineIcon}>
+                <Feather name="phone" size={16} color="#22c55e" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.helplineName}>{homeConfig.helplineName}</Text>
+                <Text style={s.helplineNum}>{homeConfig.helplineNumber}</Text>
+              </View>
+              <View style={s.callChip}>
+                <Text style={s.callChipText}>Call करें</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Quick stats */}
           <View style={s.statRow}>
             <View style={s.statCard}>
               <Text style={[s.statNum, { color: colors.primary }]}>
@@ -69,27 +103,31 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── Profession Grid ── */}
+        {/* ── Service Categories ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Service चुनें</Text>
-          <View style={s.grid}>
-            {PROFESSIONS.map((p) => (
-              <TouchableOpacity
-                key={p.type}
-                style={[s.gridCard, { borderColor: colors.border }]}
-                onPress={() => router.push(`/professional/${p.type}`)}
-                activeOpacity={0.7}
-              >
-                <View style={[s.gridIcon, { backgroundColor: p.accent + '22' }]}>
-                  <Feather name={p.icon} size={26} color={p.accent} />
-                </View>
-                <Text style={s.gridLabel}>{p.label}</Text>
-                <View style={s.openBtn}>
-                  <Text style={s.openText}>OPEN</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {catsLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+          ) : (
+            <View style={s.grid}>
+              {activeCategories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[s.gridCard, { borderColor: colors.border }]}
+                  onPress={() => router.push(`/professional/${cat.professionType}`)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[s.gridIcon, { backgroundColor: (cat.accent ?? '#6b7280') + '22' }]}>
+                    <Feather name={(cat.icon ?? 'settings') as any} size={26} color={cat.accent ?? '#6b7280'} />
+                  </View>
+                  <Text style={s.gridLabel}>{cat.name}</Text>
+                  <View style={s.openBtn}>
+                    <Text style={s.openText}>OPEN</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* ── Recent Bookings ── */}
@@ -112,7 +150,9 @@ export default function HomeScreen() {
               >
                 <View style={s.bookingLeft}>
                   <Text style={s.bookingName}>{b.customerName}</Text>
-                  <Text style={s.bookingMeta}>{PROFESSION_LABELS[b.professionType] ?? b.professionType} · {b.phone}</Text>
+                  <Text style={s.bookingMeta}>
+                    {PROFESSION_LABELS_FALLBACK[b.professionType] ?? b.professionType} · {b.phone}
+                  </Text>
                 </View>
                 <View style={[s.ratingDot, { backgroundColor: b.rating === 'good' ? '#22c55e' : b.rating === 'bad' ? '#ef4444' : colors.border }]} />
               </TouchableOpacity>
@@ -127,21 +167,46 @@ export default function HomeScreen() {
 const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   root: { flex: 1 },
   hero: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: c.border,
+    paddingHorizontal: 20, paddingBottom: 20,
+    borderBottomWidth: 1, borderBottomColor: c.border,
+    gap: 14,
   },
-  iconCircle: {
-    width: 64, height: 64,
-    borderRadius: 20,
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  logoBox: {
+    width: 56, height: 56, borderRadius: 16,
     backgroundColor: '#1e3a5f',
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
   },
-  heroEmoji: { fontSize: 34 },
-  heroTitle: { fontSize: 30, fontWeight: '800', color: c.foreground, letterSpacing: -0.5 },
-  heroSub: { fontSize: 13, color: c.mutedForeground, marginTop: 2, marginBottom: 16 },
+  logoEmoji: { fontSize: 30 },
+  logoText: { flex: 1 },
+  heroTitle: { fontSize: 28, fontWeight: '800', color: c.foreground, letterSpacing: -0.5 },
+  heroTagline: { fontSize: 11, color: c.mutedForeground, marginTop: 2 },
+
+  ctaBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20,
+  },
+  ctaBtnText: { fontSize: 16, fontWeight: '800', color: '#000', letterSpacing: -0.2 },
+
+  helplineBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#022c22',
+    borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: '#166534',
+  },
+  helplineIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: '#14532d',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  helplineName: { fontSize: 11, color: '#86efac', fontWeight: '600' },
+  helplineNum: { fontSize: 16, color: '#22c55e', fontWeight: '800', letterSpacing: 0.5 },
+  callChip: {
+    backgroundColor: '#166534', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  callChipText: { fontSize: 12, fontWeight: '700', color: '#22c55e' },
+
   statRow: { flexDirection: 'row', gap: 10 },
   statCard: {
     flex: 1, backgroundColor: c.card,
@@ -150,26 +215,24 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   statNum: { fontSize: 18, fontWeight: '700' },
   statLabel: { fontSize: 10, color: c.mutedForeground, marginTop: 2, textAlign: 'center' },
+
   section: { padding: 20, paddingTop: 16 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: c.foreground, marginBottom: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   gridCard: {
-    width: '47%',
-    backgroundColor: c.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    alignItems: 'flex-start',
-    gap: 8,
+    width: '47%', backgroundColor: c.card,
+    borderRadius: 16, padding: 16, borderWidth: 1,
+    alignItems: 'flex-start', gap: 8,
   },
   gridIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   gridLabel: { fontSize: 14, fontWeight: '600', color: c.foreground },
   openBtn: {
-    backgroundColor: c.secondary,
-    borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: c.secondary, borderRadius: 6,
+    paddingHorizontal: 10, paddingVertical: 4,
     borderWidth: 1, borderColor: c.border,
   },
   openText: { fontSize: 10, fontWeight: '700', color: c.mutedForeground, letterSpacing: 0.8 },
+
   emptyCard: {
     alignItems: 'center', gap: 8,
     backgroundColor: c.card, borderRadius: 14, padding: 32,
@@ -177,14 +240,9 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   emptyText: { fontSize: 14, color: c.mutedForeground },
   bookingCard: {
-    backgroundColor: c.card,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: c.border,
+    backgroundColor: c.card, borderRadius: 12, padding: 14,
+    marginBottom: 10, flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderColor: c.border,
   },
   bookingLeft: { flex: 1 },
   bookingName: { fontSize: 15, fontWeight: '600', color: c.foreground },

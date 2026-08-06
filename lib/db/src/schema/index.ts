@@ -11,3 +11,5 @@ export * from "./bookings";
 export * from "./market-rates";
 export * from "./helpline-messages";
 export * from "./app-ratings";
+export * from "./service-categories";
+export * from "./home-config";

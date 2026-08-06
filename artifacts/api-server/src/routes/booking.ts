@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, avg, count, sql } from "drizzle-orm";
-import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable } from "@workspace/db";
+import { eq, desc, and, asc } from "drizzle-orm";
+import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -254,6 +254,86 @@ router.delete("/booking/bookings/:id", async (req, res): Promise<void> => {
     res.status(204).end();
   } catch {
     res.status(500).json({ error: "Failed to delete booking" });
+  }
+});
+
+// ── Service Categories ──────────────────────────────────────────────
+
+router.get("/booking/service-categories", async (req, res): Promise<void> => {
+  try {
+    const rows = await db.select().from(serviceCategoriesTable).orderBy(asc(serviceCategoriesTable.sortOrder));
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })));
+  } catch {
+    res.status(500).json({ error: "Failed to fetch service categories" });
+  }
+});
+
+router.post("/booking/service-categories", async (req, res): Promise<void> => {
+  try {
+    const { name, icon, accent, professionType, sortOrder, isActive } = req.body;
+    const [row] = await db.insert(serviceCategoriesTable).values({ name, icon, accent, professionType, sortOrder: sortOrder ?? 99, isActive: isActive ?? true }).returning();
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to create service category" });
+  }
+});
+
+router.patch("/booking/service-categories/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const { name, icon, accent, professionType, sortOrder, isActive } = req.body;
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) updates.name = name;
+    if (icon !== undefined) updates.icon = icon;
+    if (accent !== undefined) updates.accent = accent;
+    if (professionType !== undefined) updates.professionType = professionType;
+    if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+    if (isActive !== undefined) updates.isActive = isActive;
+    const [row] = await db.update(serviceCategoriesTable).set(updates).where(eq(serviceCategoriesTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to update service category" });
+  }
+});
+
+router.delete("/booking/service-categories/:id", async (req, res): Promise<void> => {
+  try {
+    await db.delete(serviceCategoriesTable).where(eq(serviceCategoriesTable.id, parseInt(req.params.id)));
+    res.status(204).end();
+  } catch {
+    res.status(500).json({ error: "Failed to delete service category" });
+  }
+});
+
+// ── Home Config ──────────────────────────────────────────────
+
+router.get("/booking/home-config", async (req, res): Promise<void> => {
+  try {
+    let [row] = await db.select().from(homeConfigTable).limit(1);
+    if (!row) {
+      [row] = await db.insert(homeConfigTable).values({ helplineNumber: "9999999999", helplineName: "Admin Helpline", isLocked: false }).returning();
+    }
+    res.json({ ...row, updatedAt: row.updatedAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to fetch home config" });
+  }
+});
+
+router.patch("/booking/home-config", async (req, res): Promise<void> => {
+  try {
+    const { helplineNumber, helplineName, isLocked } = req.body;
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (helplineNumber !== undefined) updates.helplineNumber = helplineNumber;
+    if (helplineName !== undefined) updates.helplineName = helplineName;
+    if (isLocked !== undefined) updates.isLocked = isLocked;
+    let [row] = await db.update(homeConfigTable).set(updates).where(eq(homeConfigTable.id, 1)).returning();
+    if (!row) {
+      [row] = await db.insert(homeConfigTable).values({ helplineNumber: helplineNumber ?? "9999999999", helplineName: helplineName ?? "Admin Helpline", isLocked: isLocked ?? false }).returning();
+    }
+    res.json({ ...row, updatedAt: row.updatedAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to update home config" });
   }
 });
 

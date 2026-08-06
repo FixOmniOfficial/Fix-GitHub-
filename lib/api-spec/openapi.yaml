@@ -909,6 +909,182 @@ paths:
         "204":
           description: Deleted
 
+  # ── Market Rates ──────────────────────────────────────────────
+  /booking/market-rates:
+    get:
+      operationId: listMarketRates
+      tags: [booking]
+      summary: List market rates
+      parameters:
+        - name: professionType
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Market rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketRate"
+    post:
+      operationId: createMarketRate
+      tags: [booking]
+      summary: Create a market rate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketRateInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketRate"
+
+  /booking/market-rates/{id}:
+    patch:
+      operationId: updateMarketRate
+      tags: [booking]
+      summary: Update a market rate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketRateInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketRate"
+    delete:
+      operationId: deleteMarketRate
+      tags: [booking]
+      summary: Delete a market rate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Helpline ──────────────────────────────────────────────
+  /booking/helpline:
+    get:
+      operationId: listHelplineMessages
+      tags: [booking]
+      summary: List helpline messages (admin)
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HelplineMessage"
+    post:
+      operationId: createHelplineMessage
+      tags: [booking]
+      summary: Send a helpline message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelplineMessageInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelplineMessage"
+
+  /booking/helpline/{id}:
+    patch:
+      operationId: updateHelplineMessage
+      tags: [booking]
+      summary: Update helpline message (mark resolved, add reply)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HelplineMessageUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelplineMessage"
+
+  # ── App Ratings ──────────────────────────────────────────────
+  /booking/app-ratings:
+    get:
+      operationId: listAppRatings
+      tags: [booking]
+      summary: List app ratings
+      responses:
+        "200":
+          description: Ratings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppRating"
+    post:
+      operationId: createAppRating
+      tags: [booking]
+      summary: Submit an app rating
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppRatingInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppRating"
+
+  /booking/app-ratings/summary:
+    get:
+      operationId: getAppRatingsSummary
+      tags: [booking]
+      summary: Get app ratings summary
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppRatingSummary"
+
   /reports/stats:
     get:
       operationId: getReportStats
@@ -1313,6 +1489,90 @@ components:
             properties:
               type: { type: string }
               count: { type: integer }
+
+    # ── MarketRate ──────────────────────────────────────────────
+    MarketRate:
+      type: object
+      required: [id, professionType, serviceName, rate, createdAt]
+      properties:
+        id: { type: integer }
+        professionType: { type: string }
+        serviceName: { type: string }
+        rate: { type: ["number", "null"] }
+        unit: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    MarketRateInput:
+      type: object
+      required: [professionType, serviceName, rate]
+      properties:
+        professionType: { type: string }
+        serviceName: { type: string }
+        rate: { type: number }
+        unit: { type: string }
+
+    # ── HelplineMessage ──────────────────────────────────────────────
+    HelplineMessage:
+      type: object
+      required: [id, senderType, senderName, message, isResolved, createdAt]
+      properties:
+        id: { type: integer }
+        senderType: { type: string }
+        senderName: { type: string }
+        phone: { type: ["string", "null"] }
+        message: { type: string }
+        isResolved: { type: boolean }
+        adminReply: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    HelplineMessageInput:
+      type: object
+      required: [senderType, senderName, message]
+      properties:
+        senderType: { type: string }
+        senderName: { type: string }
+        phone: { type: string }
+        message: { type: string }
+
+    HelplineMessageUpdate:
+      type: object
+      properties:
+        isResolved: { type: boolean }
+        adminReply: { type: string }
+
+    # ── AppRating ──────────────────────────────────────────────
+    AppRating:
+      type: object
+      required: [id, raterType, rating, createdAt]
+      properties:
+        id: { type: integer }
+        raterType: { type: string }
+        raterName: { type: ["string", "null"] }
+        rating: { type: integer }
+        comment: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    AppRatingInput:
+      type: object
+      required: [raterType, rating]
+      properties:
+        raterType: { type: string }
+        raterName: { type: string }
+        rating: { type: integer }
+        comment: { type: string }
+
+    AppRatingSummary:
+      type: object
+      required: [totalRatings, averageRating]
+      properties:
+        totalRatings: { type: integer }
+        averageRating: { type: number }
+        star1: { type: integer }
+        star2: { type: integer }
+        star3: { type: integer }
+        star4: { type: integer }
+        star5: { type: integer }
 
     # ── Professional ──────────────────────────────────────────────
     Professional:

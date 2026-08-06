@@ -30,6 +30,13 @@ function RootLayoutNav() {
       <Stack.Screen name="booking/new" options={{ headerShown: false }} />
       <Stack.Screen name="booking/success" options={{ headerShown: false }} />
       <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/index" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/professionals" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/helpline" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/rates" options={{ headerShown: false }} />
+      <Stack.Screen name="rates/index" options={{ headerShown: false }} />
+      <Stack.Screen name="helpline/index" options={{ headerShown: false }} />
+      <Stack.Screen name="rating/index" options={{ headerShown: false }} />
     </Stack>
   );
 }

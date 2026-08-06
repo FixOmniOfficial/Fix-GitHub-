@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and } from "drizzle-orm";
-import { db, professionalsTable, bookingsTable } from "@workspace/db";
+import { eq, desc, and, avg, count, sql } from "drizzle-orm";
+import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -254,6 +254,131 @@ router.delete("/booking/bookings/:id", async (req, res): Promise<void> => {
     res.status(204).end();
   } catch {
     res.status(500).json({ error: "Failed to delete booking" });
+  }
+});
+
+// ── Market Rates ──────────────────────────────────────────────
+
+router.get("/booking/market-rates", async (req, res): Promise<void> => {
+  try {
+    const conditions: any[] = [];
+    if (req.query.professionType)
+      conditions.push(eq(marketRatesTable.professionType, req.query.professionType as string));
+
+    const rows = await db
+      .select()
+      .from(marketRatesTable)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(marketRatesTable.professionType, marketRatesTable.serviceName);
+
+    res.json(rows.map(r => ({ ...r, rate: r.rate ? parseFloat(r.rate) : null, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })));
+  } catch {
+    res.status(500).json({ error: "Failed to fetch market rates" });
+  }
+});
+
+router.post("/booking/market-rates", async (req, res): Promise<void> => {
+  try {
+    const { professionType, serviceName, rate, unit } = req.body;
+    const [row] = await db.insert(marketRatesTable).values({ professionType, serviceName, rate, unit }).returning();
+    res.status(201).json({ ...row, rate: row.rate ? parseFloat(row.rate) : null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to create market rate" });
+  }
+});
+
+router.patch("/booking/market-rates/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [row] = await db.update(marketRatesTable).set(req.body).where(eq(marketRatesTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...row, rate: row.rate ? parseFloat(row.rate) : null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to update market rate" });
+  }
+});
+
+router.delete("/booking/market-rates/:id", async (req, res): Promise<void> => {
+  try {
+    await db.delete(marketRatesTable).where(eq(marketRatesTable.id, parseInt(req.params.id)));
+    res.status(204).end();
+  } catch {
+    res.status(500).json({ error: "Failed to delete market rate" });
+  }
+});
+
+// ── Helpline ──────────────────────────────────────────────
+
+router.get("/booking/helpline", async (req, res): Promise<void> => {
+  try {
+    const rows = await db.select().from(helplineMessagesTable).orderBy(desc(helplineMessagesTable.createdAt));
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch {
+    res.status(500).json({ error: "Failed to fetch helpline messages" });
+  }
+});
+
+router.post("/booking/helpline", async (req, res): Promise<void> => {
+  try {
+    const { senderType, senderName, phone, message } = req.body;
+    const [row] = await db.insert(helplineMessagesTable).values({ senderType, senderName, phone: phone || null, message }).returning();
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to create helpline message" });
+  }
+});
+
+router.patch("/booking/helpline/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const { isResolved, adminReply } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (isResolved !== undefined) updates.isResolved = isResolved;
+    if (adminReply !== undefined) updates.adminReply = adminReply;
+    const [row] = await db.update(helplineMessagesTable).set(updates).where(eq(helplineMessagesTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to update helpline message" });
+  }
+});
+
+// ── App Ratings ──────────────────────────────────────────────
+
+router.get("/booking/app-ratings", async (req, res): Promise<void> => {
+  try {
+    const rows = await db.select().from(appRatingsTable).orderBy(desc(appRatingsTable.createdAt));
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch {
+    res.status(500).json({ error: "Failed to fetch app ratings" });
+  }
+});
+
+router.post("/booking/app-ratings", async (req, res): Promise<void> => {
+  try {
+    const { raterType, raterName, rating, comment } = req.body;
+    const ratingNum = parseInt(rating);
+    if (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      res.status(400).json({ error: "Rating must be 1–5" }); return;
+    }
+    const [row] = await db.insert(appRatingsTable).values({ raterType, raterName: raterName || null, rating: ratingNum, comment: comment || null }).returning();
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to create app rating" });
+  }
+});
+
+router.get("/booking/app-ratings/summary", async (req, res): Promise<void> => {
+  try {
+    const rows = await db.select({ rating: appRatingsTable.rating }).from(appRatingsTable);
+    const total = rows.length;
+    const sum = rows.reduce((acc, r) => acc + r.rating, 0);
+    const avg = total > 0 ? sum / total : 0;
+    const star: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const r of rows) star[r.rating] = (star[r.rating] ?? 0) + 1;
+    res.json({ totalRatings: total, averageRating: Math.round(avg * 10) / 10, star1: star[1], star2: star[2], star3: star[3], star4: star[4], star5: star[5] });
+  } catch {
+    res.status(500).json({ error: "Failed to get app ratings summary" });
   }
 });
 

@@ -1268,6 +1268,191 @@ export const DeleteBookingResponse = zod.void()
 
 
 /**
+ * @summary List market rates
+ */
+export const ListMarketRatesQueryParams = zod.object({
+  "professionType": zod.coerce.string().optional()
+})
+
+export const ListMarketRatesResponseItem = zod.object({
+  "id": zod.number(),
+  "professionType": zod.string(),
+  "serviceName": zod.string(),
+  "rate": zod.number().nullable(),
+  "unit": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+export const ListMarketRatesResponse = zod.array(ListMarketRatesResponseItem)
+
+
+/**
+ * @summary Create a market rate
+ */
+export const CreateMarketRateBody = zod.object({
+  "professionType": zod.string(),
+  "serviceName": zod.string(),
+  "rate": zod.number(),
+  "unit": zod.string().optional()
+})
+
+export const CreateMarketRateResponse = zod.object({
+  "id": zod.number(),
+  "professionType": zod.string(),
+  "serviceName": zod.string(),
+  "rate": zod.number().nullable(),
+  "unit": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Update a market rate
+ */
+export const UpdateMarketRateParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateMarketRateBody = zod.object({
+  "professionType": zod.string(),
+  "serviceName": zod.string(),
+  "rate": zod.number(),
+  "unit": zod.string().optional()
+})
+
+export const UpdateMarketRateResponse = zod.object({
+  "id": zod.number(),
+  "professionType": zod.string(),
+  "serviceName": zod.string(),
+  "rate": zod.number().nullable(),
+  "unit": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete a market rate
+ */
+export const DeleteMarketRateParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteMarketRateResponse = zod.void()
+
+
+/**
+ * @summary List helpline messages (admin)
+ */
+export const ListHelplineMessagesResponseItem = zod.object({
+  "id": zod.number(),
+  "senderType": zod.string(),
+  "senderName": zod.string(),
+  "phone": zod.string().nullish(),
+  "message": zod.string(),
+  "isResolved": zod.boolean(),
+  "adminReply": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListHelplineMessagesResponse = zod.array(ListHelplineMessagesResponseItem)
+
+
+/**
+ * @summary Send a helpline message
+ */
+export const CreateHelplineMessageBody = zod.object({
+  "senderType": zod.string(),
+  "senderName": zod.string(),
+  "phone": zod.string().optional(),
+  "message": zod.string()
+})
+
+export const CreateHelplineMessageResponse = zod.object({
+  "id": zod.number(),
+  "senderType": zod.string(),
+  "senderName": zod.string(),
+  "phone": zod.string().nullish(),
+  "message": zod.string(),
+  "isResolved": zod.boolean(),
+  "adminReply": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update helpline message (mark resolved, add reply)
+ */
+export const UpdateHelplineMessageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateHelplineMessageBody = zod.object({
+  "isResolved": zod.boolean().optional(),
+  "adminReply": zod.string().optional()
+})
+
+export const UpdateHelplineMessageResponse = zod.object({
+  "id": zod.number(),
+  "senderType": zod.string(),
+  "senderName": zod.string(),
+  "phone": zod.string().nullish(),
+  "message": zod.string(),
+  "isResolved": zod.boolean(),
+  "adminReply": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary List app ratings
+ */
+export const ListAppRatingsResponseItem = zod.object({
+  "id": zod.number(),
+  "raterType": zod.string(),
+  "raterName": zod.string().nullish(),
+  "rating": zod.number(),
+  "comment": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListAppRatingsResponse = zod.array(ListAppRatingsResponseItem)
+
+
+/**
+ * @summary Submit an app rating
+ */
+export const CreateAppRatingBody = zod.object({
+  "raterType": zod.string(),
+  "raterName": zod.string().optional(),
+  "rating": zod.number(),
+  "comment": zod.string().optional()
+})
+
+export const CreateAppRatingResponse = zod.object({
+  "id": zod.number(),
+  "raterType": zod.string(),
+  "raterName": zod.string().nullish(),
+  "rating": zod.number(),
+  "comment": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Get app ratings summary
+ */
+export const GetAppRatingsSummaryResponse = zod.object({
+  "totalRatings": zod.number(),
+  "averageRating": zod.number(),
+  "star1": zod.number().optional(),
+  "star2": zod.number().optional(),
+  "star3": zod.number().optional(),
+  "star4": zod.number().optional(),
+  "star5": zod.number().optional()
+})
+
+
+/**
  * @summary Get detailed reporting statistics
  */
 export const GetReportStatsQueryParams = zod.object({

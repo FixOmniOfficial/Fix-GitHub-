@@ -385,6 +385,78 @@ export interface ReportStats {
   topAppliances: ReportStatsTopAppliancesItem[];
 }
 
+export interface MarketRate {
+  id: number;
+  professionType: string;
+  serviceName: string;
+  /** @nullable */
+  rate: number | null;
+  /** @nullable */
+  unit?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface MarketRateInput {
+  professionType: string;
+  serviceName: string;
+  rate: number;
+  unit?: string;
+}
+
+export interface HelplineMessage {
+  id: number;
+  senderType: string;
+  senderName: string;
+  /** @nullable */
+  phone?: string | null;
+  message: string;
+  isResolved: boolean;
+  /** @nullable */
+  adminReply?: string | null;
+  createdAt: string;
+}
+
+export interface HelplineMessageInput {
+  senderType: string;
+  senderName: string;
+  phone?: string;
+  message: string;
+}
+
+export interface HelplineMessageUpdate {
+  isResolved?: boolean;
+  adminReply?: string;
+}
+
+export interface AppRating {
+  id: number;
+  raterType: string;
+  /** @nullable */
+  raterName?: string | null;
+  rating: number;
+  /** @nullable */
+  comment?: string | null;
+  createdAt: string;
+}
+
+export interface AppRatingInput {
+  raterType: string;
+  raterName?: string;
+  rating: number;
+  comment?: string;
+}
+
+export interface AppRatingSummary {
+  totalRatings: number;
+  averageRating: number;
+  star1?: number;
+  star2?: number;
+  star3?: number;
+  star4?: number;
+  star5?: number;
+}
+
 export interface Professional {
   id: number;
   name: string;
@@ -543,6 +615,10 @@ export type ListBookingsParams = {
 professionalId?: number;
 professionType?: string;
 rating?: string;
+};
+
+export type ListMarketRatesParams = {
+professionType?: string;
 };
 
 export type GetReportStatsParams = {

@@ -108,11 +108,7 @@ export const CreateCustomerBody = zod.object({
   "name": zod.string().min(1),
   "phone": zod.string().min(1),
   "whatsappPhone": zod.string().optional(),
-  "houseNumber": zod.string().optional(),
-  "floorNumber": zod.string().optional(),
   "address": zod.string().optional(),
-  "location": zod.string().optional(),
-  "visitingAmount": zod.number().optional(),
   "dpUrl": zod.string().optional(),
   "notes": zod.string().optional()
 })
@@ -123,11 +119,7 @@ export const CreateCustomerResponse = zod.object({
   "name": zod.string(),
   "phone": zod.string(),
   "whatsappPhone": zod.string().nullish(),
-  "houseNumber": zod.string().nullish(),
-  "floorNumber": zod.string().nullish(),
   "address": zod.string().nullish(),
-  "location": zod.string().nullish(),
-  "visitingAmount": zod.number().nullish(),
   "dpUrl": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "totalJobs": zod.number().optional(),
@@ -150,11 +142,7 @@ export const GetCustomerResponse = zod.object({
   "name": zod.string(),
   "phone": zod.string(),
   "whatsappPhone": zod.string().nullish(),
-  "houseNumber": zod.string().nullish(),
-  "floorNumber": zod.string().nullish(),
   "address": zod.string().nullish(),
-  "location": zod.string().nullish(),
-  "visitingAmount": zod.coerce.number().nullish(),
   "dpUrl": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "totalJobs": zod.number().optional(),
@@ -175,11 +163,7 @@ export const UpdateCustomerBody = zod.object({
   "name": zod.string().optional(),
   "phone": zod.string().optional(),
   "whatsappPhone": zod.string().optional(),
-  "houseNumber": zod.string().optional(),
-  "floorNumber": zod.string().optional(),
   "address": zod.string().optional(),
-  "location": zod.string().optional(),
-  "visitingAmount": zod.number().optional(),
   "dpUrl": zod.string().optional(),
   "notes": zod.string().optional()
 })
@@ -190,11 +174,7 @@ export const UpdateCustomerResponse = zod.object({
   "name": zod.string(),
   "phone": zod.string(),
   "whatsappPhone": zod.string().nullish(),
-  "houseNumber": zod.string().nullish(),
-  "floorNumber": zod.string().nullish(),
   "address": zod.string().nullish(),
-  "location": zod.string().nullish(),
-  "visitingAmount": zod.coerce.number().nullish(),
   "dpUrl": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "totalJobs": zod.number().optional(),
@@ -228,11 +208,7 @@ export const GetCustomerHistoryResponse = zod.object({
   "name": zod.string(),
   "phone": zod.string(),
   "whatsappPhone": zod.string().nullish(),
-  "houseNumber": zod.string().nullish(),
-  "floorNumber": zod.string().nullish(),
   "address": zod.string().nullish(),
-  "location": zod.string().nullish(),
-  "visitingAmount": zod.coerce.number().nullish(),
   "dpUrl": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "totalJobs": zod.number().optional(),
@@ -1058,6 +1034,240 @@ export const GetDashboardSummaryResponse = zod.object({
 
 
 /**
+ * @summary List professionals
+ */
+export const ListProfessionalsQueryParams = zod.object({
+  "professionType": zod.coerce.string().optional(),
+  "isActive": zod.coerce.boolean().optional()
+})
+
+export const ListProfessionalsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "professionType": zod.string(),
+  "phone": zod.string().nullish(),
+  "avatarEmoji": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListProfessionalsResponse = zod.array(ListProfessionalsResponseItem)
+
+
+/**
+ * @summary Create a professional
+ */
+export const CreateProfessionalBody = zod.object({
+  "name": zod.string(),
+  "professionType": zod.string(),
+  "phone": zod.string().optional(),
+  "avatarEmoji": zod.string().optional(),
+  "visitingCharge": zod.number().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateProfessionalResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "professionType": zod.string(),
+  "phone": zod.string().nullish(),
+  "avatarEmoji": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a professional
+ */
+export const UpdateProfessionalParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateProfessionalBody = zod.object({
+  "name": zod.string(),
+  "professionType": zod.string(),
+  "phone": zod.string().optional(),
+  "avatarEmoji": zod.string().optional(),
+  "visitingCharge": zod.number().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateProfessionalResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "professionType": zod.string(),
+  "phone": zod.string().nullish(),
+  "avatarEmoji": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a professional
+ */
+export const DeleteProfessionalParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteProfessionalResponse = zod.void()
+
+
+/**
+ * @summary List bookings
+ */
+export const ListBookingsQueryParams = zod.object({
+  "professionalId": zod.coerce.number().optional(),
+  "professionType": zod.coerce.string().optional(),
+  "rating": zod.coerce.string().optional()
+})
+
+export const ListBookingsResponseItem = zod.object({
+  "id": zod.number(),
+  "bookingUid": zod.string(),
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "whatsappPhone": zod.string().nullish(),
+  "houseNumber": zod.string().nullish(),
+  "floorNumber": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "bookingTime": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "professionalId": zod.number().nullish(),
+  "professionType": zod.string(),
+  "professionalName": zod.string().nullish(),
+  "professionalEmoji": zod.string().nullish(),
+  "rating": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+export const ListBookingsResponse = zod.array(ListBookingsResponseItem)
+
+
+/**
+ * @summary Create a booking (public, no auth)
+ */
+export const CreateBookingBody = zod.object({
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "whatsappPhone": zod.string().optional(),
+  "houseNumber": zod.string().optional(),
+  "floorNumber": zod.string().optional(),
+  "address": zod.string().optional(),
+  "location": zod.string().optional(),
+  "bookingTime": zod.string().optional(),
+  "visitingCharge": zod.number().optional(),
+  "professionalId": zod.number().optional(),
+  "professionType": zod.string(),
+  "notes": zod.string().optional()
+})
+
+export const CreateBookingResponse = zod.object({
+  "id": zod.number(),
+  "bookingUid": zod.string(),
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "whatsappPhone": zod.string().nullish(),
+  "houseNumber": zod.string().nullish(),
+  "floorNumber": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "bookingTime": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "professionalId": zod.number().nullish(),
+  "professionType": zod.string(),
+  "professionalName": zod.string().nullish(),
+  "professionalEmoji": zod.string().nullish(),
+  "rating": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Get booking by ID
+ */
+export const GetBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetBookingResponse = zod.object({
+  "id": zod.number(),
+  "bookingUid": zod.string(),
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "whatsappPhone": zod.string().nullish(),
+  "houseNumber": zod.string().nullish(),
+  "floorNumber": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "bookingTime": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "professionalId": zod.number().nullish(),
+  "professionType": zod.string(),
+  "professionalName": zod.string().nullish(),
+  "professionalEmoji": zod.string().nullish(),
+  "rating": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Update booking (rating, notes)
+ */
+export const UpdateBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateBookingBody = zod.object({
+  "rating": zod.string().optional(),
+  "notes": zod.string().optional(),
+  "bookingTime": zod.string().optional(),
+  "visitingCharge": zod.number().optional()
+})
+
+export const UpdateBookingResponse = zod.object({
+  "id": zod.number(),
+  "bookingUid": zod.string(),
+  "customerName": zod.string(),
+  "phone": zod.string(),
+  "whatsappPhone": zod.string().nullish(),
+  "houseNumber": zod.string().nullish(),
+  "floorNumber": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "bookingTime": zod.string().nullish(),
+  "visitingCharge": zod.number().nullish(),
+  "professionalId": zod.number().nullish(),
+  "professionType": zod.string(),
+  "professionalName": zod.string().nullish(),
+  "professionalEmoji": zod.string().nullish(),
+  "rating": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete a booking
+ */
+export const DeleteBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteBookingResponse = zod.void()
+
+
+/**
  * @summary Get detailed reporting statistics
  */
 export const GetReportStatsQueryParams = zod.object({
@@ -1086,54 +1296,4 @@ export const GetReportStatsResponse = zod.object({
 }))
 })
 
-
-/**
- * @summary Generate a shareable form token for a customer (admin)
- */
-export const GenerateShareTokenParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const GenerateShareTokenResponse = zod.object({
-  "token": zod.string(),
-})
-
-/**
- * @summary Get customer data via public share token
- */
-export const GetPublicCustomerFormParams = zod.object({
-  "token": zod.string().min(1)
-})
-
-export const GetPublicCustomerFormResponse = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "phone": zod.string(),
-  "whatsappPhone": zod.string().nullish(),
-  "houseNumber": zod.string().nullish(),
-  "floorNumber": zod.string().nullish(),
-  "address": zod.string().nullish(),
-  "location": zod.string().nullish(),
-  "serialNumber": zod.number(),
-  "visitingAmount": zod.coerce.number().nullish(),
-})
-
-/**
- * @summary Submit customer self-service form via share token
- */
-export const SubmitPublicCustomerFormBody = zod.object({
-  "name": zod.string().min(1, "Name is required"),
-  "phone": zod.string().min(10, "Enter a valid mobile number"),
-  "whatsappPhone": zod.string().optional(),
-  "houseNumber": zod.string().optional(),
-  "floorNumber": zod.string().optional(),
-  "address": zod.string().optional(),
-  "location": zod.string().optional(),
-  "serviceType": zod.string().optional(),
-})
-
-export const SubmitPublicCustomerFormResponse = zod.object({
-  "success": zod.boolean(),
-  "message": zod.string(),
-})
 

@@ -1,3 +1,3 @@
 - [Custom Auth System](custom-auth.md) — OLD custom auth replaced by Clerk; custom routes/middleware still exist in api-server but no longer used by frontend.
-- [Clerk Auth Setup](clerk-auth-setup.md) — Clerk integrated for Email+Password+Google; key routing fix: ProtectedLayout catches all routes, redirects to /sign-in.
+- [Clerk Auth Setup](clerk-auth-setup.md) — Clerk + api-zod codegen gotcha: codegen CLEANS generated folder, wiping hand-written schemas; always use OpenAPI spec or inline validation.
 - [Settings Extra Fields](settings-extra-fields.md) — shopName/logoUrl are NOT in OpenAPI spec/Zod; handled manually in the route by extracting from req.body before Zod parse.

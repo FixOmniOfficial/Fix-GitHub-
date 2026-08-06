@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/booking-app/"
+title = "ProBook — Service Booking"
+description = "Customer-facing mobile app for booking home service professionals (AC technician, carpenter, electrician, plumber, painter). Customers pick a professional, fill a booking form with visiting charge, address, GPS location, and booking time, then receive a unique booking ID. Each professional sees only their own bookings. Admin can rate customers with emoji (good/bad). In-app push notifications on new bookings."
+version = "1.0.0"
+id = "artifacts/booking-app"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/booking-app/" ]
+localPort = 24512
+
+[services.development]
+run = "pnpm --filter @workspace/booking-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/booking-app", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/booking-app", "run", "serve" ]
+
+[services.env]
+PORT = "24512"
+BASE_PATH = "/booking-app/"

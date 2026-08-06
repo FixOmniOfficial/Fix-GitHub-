@@ -16,8 +16,6 @@ import {
   GetCustomerHistoryResponse,
   GetCustomerWhatsappFormParams,
   GetCustomerWhatsappFormResponse,
-  GenerateShareTokenParams,
-  GenerateShareTokenResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -265,16 +263,13 @@ router.get("/customers/:id/history", async (req, res): Promise<void> => {
 
 /* ── Generate / return shareable form token ─────────────────────────────── */
 router.post("/customers/:id/generate-share-token", async (req, res): Promise<void> => {
-  const params = GenerateShareTokenParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [customer] = await db
     .select()
     .from(customersTable)
-    .where(eq(customersTable.id, params.data.id));
+    .where(eq(customersTable.id, id));
 
   if (!customer) {
     res.status(404).json({ error: "Customer not found" });
@@ -288,10 +283,10 @@ router.post("/customers/:id/generate-share-token", async (req, res): Promise<voi
     await db
       .update(customersTable)
       .set({ shareToken: token } as any)
-      .where(eq(customersTable.id, params.data.id));
+      .where(eq(customersTable.id, id));
   }
 
-  res.json(GenerateShareTokenResponse.parse({ token }));
+  res.json({ token });
 });
 
 router.get("/customers/:id/whatsapp-form", async (req, res): Promise<void> => {

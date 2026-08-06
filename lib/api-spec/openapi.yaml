@@ -10,6 +10,8 @@ servers:
 tags:
   - name: Auth
     description: Browser and mobile authentication endpoints.
+  - name: booking
+    description: Professional booking system
   - name: health
     description: Health operations
   - name: customers
@@ -736,6 +738,177 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
 
+  # ── Professionals ──────────────────────────────────────────────
+  /booking/professionals:
+    get:
+      operationId: listProfessionals
+      tags: [booking]
+      summary: List professionals
+      parameters:
+        - name: professionType
+          in: query
+          schema: { type: string }
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: List of professionals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Professional"
+    post:
+      operationId: createProfessional
+      tags: [booking]
+      summary: Create a professional
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfessionalInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Professional"
+
+  /booking/professionals/{id}:
+    patch:
+      operationId: updateProfessional
+      tags: [booking]
+      summary: Update a professional
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfessionalInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Professional"
+    delete:
+      operationId: deleteProfessional
+      tags: [booking]
+      summary: Delete a professional
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Bookings ──────────────────────────────────────────────
+  /booking/bookings:
+    get:
+      operationId: listBookings
+      tags: [booking]
+      summary: List bookings
+      parameters:
+        - name: professionalId
+          in: query
+          schema: { type: integer }
+        - name: professionType
+          in: query
+          schema: { type: string }
+        - name: rating
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [booking]
+      summary: Create a booking (public, no auth)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /booking/bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [booking]
+      summary: Get booking by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+    patch:
+      operationId: updateBooking
+      tags: [booking]
+      summary: Update booking (rating, notes)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingUpdate"
+      responses:
+        "200":
+          description: Updated booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+    delete:
+      operationId: deleteBooking
+      tags: [booking]
+      summary: Delete a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
   /reports/stats:
     get:
       operationId: getReportStats
@@ -1140,6 +1313,81 @@ components:
             properties:
               type: { type: string }
               count: { type: integer }
+
+    # ── Professional ──────────────────────────────────────────────
+    Professional:
+      type: object
+      required: [id, name, professionType, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        professionType: { type: string }
+        phone: { type: ["string", "null"] }
+        avatarEmoji: { type: ["string", "null"] }
+        visitingCharge: { type: ["number", "null"] }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+
+    ProfessionalInput:
+      type: object
+      required: [name, professionType]
+      properties:
+        name: { type: string }
+        professionType: { type: string }
+        phone: { type: string }
+        avatarEmoji: { type: string }
+        visitingCharge: { type: number }
+        isActive: { type: boolean }
+
+    # ── Booking ──────────────────────────────────────────────
+    Booking:
+      type: object
+      required: [id, bookingUid, customerName, phone, professionType, createdAt]
+      properties:
+        id: { type: integer }
+        bookingUid: { type: string }
+        customerName: { type: string }
+        phone: { type: string }
+        whatsappPhone: { type: ["string", "null"] }
+        houseNumber: { type: ["string", "null"] }
+        floorNumber: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        location: { type: ["string", "null"] }
+        bookingTime: { type: ["string", "null"] }
+        visitingCharge: { type: ["number", "null"] }
+        professionalId: { type: ["integer", "null"] }
+        professionType: { type: string }
+        professionalName: { type: ["string", "null"] }
+        professionalEmoji: { type: ["string", "null"] }
+        rating: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    BookingInput:
+      type: object
+      required: [customerName, phone, professionType]
+      properties:
+        customerName: { type: string }
+        phone: { type: string }
+        whatsappPhone: { type: string }
+        houseNumber: { type: string }
+        floorNumber: { type: string }
+        address: { type: string }
+        location: { type: string }
+        bookingTime: { type: string }
+        visitingCharge: { type: number }
+        professionalId: { type: integer }
+        professionType: { type: string }
+        notes: { type: string }
+
+    BookingUpdate:
+      type: object
+      properties:
+        rating: { type: string }
+        notes: { type: string }
+        bookingTime: { type: string }
+        visitingCharge: { type: number }
 
     # ── Auth ──────────────────────────────────────────────────
     AuthUser:

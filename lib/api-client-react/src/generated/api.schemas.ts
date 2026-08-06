@@ -17,15 +17,7 @@ export interface Customer {
   /** @nullable */
   whatsappPhone?: string | null;
   /** @nullable */
-  houseNumber?: string | null;
-  /** @nullable */
-  floorNumber?: string | null;
-  /** @nullable */
   address?: string | null;
-  /** @nullable */
-  location?: string | null;
-  /** @nullable */
-  visitingAmount?: number | null;
   /** @nullable */
   dpUrl?: string | null;
   /** @nullable */
@@ -43,11 +35,7 @@ export interface CustomerInput {
   /** @minLength 1 */
   phone: string;
   whatsappPhone?: string;
-  houseNumber?: string;
-  floorNumber?: string;
   address?: string;
-  location?: string;
-  visitingAmount?: number;
   dpUrl?: string;
   notes?: string;
 }
@@ -56,11 +44,7 @@ export interface CustomerUpdate {
   name?: string;
   phone?: string;
   whatsappPhone?: string;
-  houseNumber?: string;
-  floorNumber?: string;
   address?: string;
-  location?: string;
-  visitingAmount?: number;
   dpUrl?: string;
   notes?: string;
 }
@@ -401,6 +385,85 @@ export interface ReportStats {
   topAppliances: ReportStatsTopAppliancesItem[];
 }
 
+export interface Professional {
+  id: number;
+  name: string;
+  professionType: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  avatarEmoji?: string | null;
+  /** @nullable */
+  visitingCharge?: number | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ProfessionalInput {
+  name: string;
+  professionType: string;
+  phone?: string;
+  avatarEmoji?: string;
+  visitingCharge?: number;
+  isActive?: boolean;
+}
+
+export interface Booking {
+  id: number;
+  bookingUid: string;
+  customerName: string;
+  phone: string;
+  /** @nullable */
+  whatsappPhone?: string | null;
+  /** @nullable */
+  houseNumber?: string | null;
+  /** @nullable */
+  floorNumber?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  bookingTime?: string | null;
+  /** @nullable */
+  visitingCharge?: number | null;
+  /** @nullable */
+  professionalId?: number | null;
+  professionType: string;
+  /** @nullable */
+  professionalName?: string | null;
+  /** @nullable */
+  professionalEmoji?: string | null;
+  /** @nullable */
+  rating?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface BookingInput {
+  customerName: string;
+  phone: string;
+  whatsappPhone?: string;
+  houseNumber?: string;
+  floorNumber?: string;
+  address?: string;
+  location?: string;
+  bookingTime?: string;
+  visitingCharge?: number;
+  professionalId?: number;
+  professionType: string;
+  notes?: string;
+}
+
+export interface BookingUpdate {
+  rating?: string;
+  notes?: string;
+  bookingTime?: string;
+  visitingCharge?: number;
+}
+
 export interface AuthUser {
   id: string;
   /** @nullable */
@@ -469,6 +532,17 @@ customerId?: number;
 export type ListRemindersParams = {
 customerId?: number;
 isActive?: boolean;
+};
+
+export type ListProfessionalsParams = {
+professionType?: string;
+isActive?: boolean;
+};
+
+export type ListBookingsParams = {
+professionalId?: number;
+professionType?: string;
+rating?: string;
 };
 
 export type GetReportStatsParams = {

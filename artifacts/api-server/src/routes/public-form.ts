@@ -80,6 +80,7 @@ router.post("/public/customer-form/:token", async (req, res): Promise<void> => {
       floorNumber: body.data.floorNumber || null,
       address: body.data.address || null,
       location: body.data.location || null,
+      serviceType: body.data.serviceType || null,
     } as any)
     .where(eq(customersTable.id, existing.id));
 

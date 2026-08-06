@@ -16,6 +16,7 @@ export const customersTable = pgTable("customers", {
   dpUrl: text("dp_url"),
   notes: text("notes"),
   shareToken: text("share_token").unique(),
+  serviceType: text("service_type"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

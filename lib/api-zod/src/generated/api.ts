@@ -1122,13 +1122,14 @@ export const GetPublicCustomerFormResponse = zod.object({
  * @summary Submit customer self-service form via share token
  */
 export const SubmitPublicCustomerFormBody = zod.object({
-  "name": zod.string().min(1, "नाम आवश्यक है"),
-  "phone": zod.string().min(10, "मोबाइल नंबर आवश्यक है"),
+  "name": zod.string().min(1, "Name is required"),
+  "phone": zod.string().min(10, "Enter a valid mobile number"),
   "whatsappPhone": zod.string().optional(),
   "houseNumber": zod.string().optional(),
   "floorNumber": zod.string().optional(),
   "address": zod.string().optional(),
   "location": zod.string().optional(),
+  "serviceType": zod.string().optional(),
 })
 
 export const SubmitPublicCustomerFormResponse = zod.object({

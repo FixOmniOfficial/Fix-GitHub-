@@ -248,7 +248,7 @@ export default function CustomerFormPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Full Name <span className="text-destructive">*</span></FormLabel>
-                      <FormControl><Input placeholder="e.g. Rahul Kumar" {...field} /></FormControl>
+                      <FormControl><Input placeholder="" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -260,7 +260,7 @@ export default function CustomerFormPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Mobile <span className="text-destructive">*</span></FormLabel>
-                        <FormControl><Input placeholder="9876543210" type="tel" inputMode="numeric" {...field} /></FormControl>
+                        <FormControl><Input placeholder="" type="tel" inputMode="numeric" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -269,7 +269,7 @@ export default function CustomerFormPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>WhatsApp</FormLabel>
-                        <FormControl><Input placeholder="If different" type="tel" inputMode="numeric" {...field} /></FormControl>
+                        <FormControl><Input placeholder="" type="tel" inputMode="numeric" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -282,7 +282,7 @@ export default function CustomerFormPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>House / Flat No.</FormLabel>
-                        <FormControl><Input placeholder="e.g. A-201" {...field} /></FormControl>
+                        <FormControl><Input placeholder="" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -291,7 +291,7 @@ export default function CustomerFormPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Floor</FormLabel>
-                        <FormControl><Input placeholder="e.g. 2nd Floor" {...field} /></FormControl>
+                        <FormControl><Input placeholder="" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -304,7 +304,7 @@ export default function CustomerFormPage() {
                     <FormItem>
                       <FormLabel>Full Address</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="e.g. Sector 12, Noida, Uttar Pradesh" rows={3} {...field} />
+                        <Textarea placeholder="" rows={3} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -332,7 +332,7 @@ export default function CustomerFormPage() {
                         </Button>
                       </div>
                       <FormControl>
-                        <Input placeholder="Locality / area name or Google Maps link" {...field} />
+                        <Input placeholder="" {...field} />
                       </FormControl>
                       {gpsError && <p className="text-xs text-destructive mt-1">{gpsError}</p>}
                       {locationValue?.startsWith('https://maps.google.com') && (

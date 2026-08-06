@@ -244,11 +244,13 @@ export default function Customers() {
   /* Handlers */
   const handleAdd = (data: AddForm) => {
     createCustomer.mutate({ data }, {
-      onSuccess: () => {
+      onSuccess: (newCustomer) => {
         queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
         setAddOpen(false);
         addForm.reset();
         toast.success('ग्राहक जोड़ा गया ✓');
+        // Navigate to the new customer's detail page
+        if (newCustomer?.id) navigate(`/customers/${newCustomer.id}`);
       },
       onError: () => toast.error('जोड़ने में विफल'),
     });

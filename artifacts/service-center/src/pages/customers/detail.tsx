@@ -113,6 +113,8 @@ export default function CustomerDetail() {
   const [shareUrl, setShareUrl] = useState('');
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareVisitingAmount, setShareVisitingAmount] = useState('');
+  const [shareStep, setShareStep] = useState<'input' | 'url'>('input');
 
   const { data: customer, isLoading: isCustomerLoading } = useGetCustomer(id, {
     query: { enabled: !!id, queryKey: getGetCustomerQueryKey(id) },
@@ -219,9 +221,31 @@ export default function CustomerDetail() {
 
   const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
 
-  const handleShare = async () => {
+  const handleShare = () => {
+    // Pre-fill visiting amount from existing customer data
+    setShareVisitingAmount(c?.visitingAmount != null ? String(c.visitingAmount) : '');
+    setShareStep('input');
+    setShareUrl('');
+    setShareCopied(false);
+    setIsShareOpen(true);
+  };
+
+  const handleGenerateLink = async () => {
     setShareLoading(true);
     try {
+      // If visiting amount entered, update customer first
+      if (shareVisitingAmount.trim()) {
+        const amount = parseFloat(shareVisitingAmount);
+        if (!isNaN(amount)) {
+          await fetch(`${BASE}/api/customers/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visitingAmount: amount }),
+          });
+          queryClient.invalidateQueries({ queryKey: getGetCustomerQueryKey(id) });
+        }
+      }
+      // Generate / fetch share token
       const r = await fetch(`${BASE}/api/customers/${id}/generate-share-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -230,7 +254,7 @@ export default function CustomerDetail() {
       if (!r.ok) { toast.error('लिंक नहीं बना'); return; }
       const url = `${window.location.origin}${BASE}/customer-form/${json.token}`;
       setShareUrl(url);
-      setIsShareOpen(true);
+      setShareStep('url');
     } catch {
       toast.error('कनेक्शन में समस्या');
     } finally {
@@ -635,35 +659,86 @@ export default function CustomerDetail() {
             <Share2 className="w-4 h-4" /> फ़ॉर्म लिंक शेयर करें
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-1">
-          <p className="text-sm text-muted-foreground">
-            नीचे का लिंक <span className="font-semibold text-foreground">{customer?.name}</span> को भेजें।
-            वो इस फ़ॉर्म को भरकर अपनी जानकारी अपडेट कर सकते हैं।
-          </p>
 
-          {/* Link preview */}
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border text-xs font-mono break-all">
-            <ExternalLink className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-            <span className="text-muted-foreground flex-1 truncate">{shareUrl}</span>
-          </div>
+        {shareStep === 'input' ? (
+          /* ── Step 1: Visiting charge input ── */
+          <div className="space-y-4 pt-1">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{customer?.name}</span> के लिए फ़ॉर्म लिंक बनाएं।
+            </p>
 
-          {/* Action buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" onClick={copyLink} className="gap-2">
-              {shareCopied
-                ? <><Check className="w-4 h-4 text-emerald-500" />कॉपी हुआ!</>
-                : <><Copy className="w-4 h-4" />लिंक कॉपी करें</>
+            {/* Visiting charge */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium flex items-center gap-1.5">
+                <IndianRupee className="w-3.5 h-3.5 text-amber-500" />
+                विजिटिंग चार्ज (Visiting Charge)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">₹</span>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={shareVisitingAmount}
+                  onChange={(e) => setShareVisitingAmount(e.target.value)}
+                  className="pl-7"
+                  min="0"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                ग्राहक को फ़ॉर्म में यह राशि दिखेगी। खाली छोड़ने पर नहीं दिखेगी।
+              </p>
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={handleGenerateLink}
+              disabled={shareLoading}
+            >
+              {shareLoading
+                ? <><span className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />लिंक बन रहा है…</>
+                : <><Share2 className="w-4 h-4 mr-2" />लिंक बनाएं</>
               }
             </Button>
-            <Button
-              className="bg-[#25D366] hover:bg-[#128C7E] text-white gap-2"
-              onClick={shareOnWhatsApp}
-            >
-              <MessageCircle className="w-4 h-4" />
-              WhatsApp पर भेजें
-            </Button>
           </div>
-        </div>
+        ) : (
+          /* ── Step 2: Show URL + share options ── */
+          <div className="space-y-4 pt-1">
+            <p className="text-sm text-muted-foreground">
+              नीचे का लिंक <span className="font-semibold text-foreground">{customer?.name}</span> को भेजें।
+              वो इस फ़ॉर्म को भरकर अपनी जानकारी दे सकते हैं।
+            </p>
+
+            {/* Link preview */}
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border text-xs font-mono break-all">
+              <ExternalLink className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+              <span className="text-muted-foreground flex-1 truncate">{shareUrl}</span>
+            </div>
+
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={copyLink} className="gap-2">
+                {shareCopied
+                  ? <><Check className="w-4 h-4 text-emerald-500" />कॉपी हुआ!</>
+                  : <><Copy className="w-4 h-4" />लिंक कॉपी करें</>
+                }
+              </Button>
+              <Button
+                className="bg-[#25D366] hover:bg-[#128C7E] text-white gap-2"
+                onClick={shareOnWhatsApp}
+              >
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp पर भेजें
+              </Button>
+            </div>
+
+            <button
+              onClick={() => setShareStep('input')}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 w-full text-center"
+            >
+              ← वापस जाएं / चार्ज बदलें
+            </button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, ActivityIndicator, Linking, Alert, Image,
@@ -6,9 +6,14 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
-import { useListBookings, useListServiceCategories, useGetHomeConfig } from '@workspace/api-client-react';
+import {
+  useListBookings, useListServiceCategories, useGetHomeConfig,
+  useCreateAppRating, useGetAppRatingsSummary,
+} from '@workspace/api-client-react';
 import { useAppAuth } from '@/contexts/AppAuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 const PROFESSION_LABELS_FALLBACK: Record<string, string> = {
   ac_technician: 'AC Service', electrician: 'Electrician',
@@ -16,6 +21,133 @@ const PROFESSION_LABELS_FALLBACK: Record<string, string> = {
   painter: 'Painter', repair: 'Repair',
 };
 
+const STAR_LABELS = ['', 'बहुत बुरा 😞', 'बुरा 😕', 'ठीक है 😐', 'अच्छा 😊', 'बहुत अच्छा 🤩'];
+
+// ── Inline Rating Widget ──────────────────────────────────────────────────────
+function RatingWidget({ colors }: { colors: ReturnType<typeof useColors> }) {
+  const [hovered, setHovered] = useState(0);
+  const [selected, setSelected] = useState(0);
+  const [done, setDone] = useState(false);
+
+  const queryClient = useQueryClient();
+  const createRating = useCreateAppRating();
+  const { data: summary } = useGetAppRatingsSummary({});
+  const { user } = useAppAuth();
+
+  const display = hovered || selected;
+
+  const handleStar = (star: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelected(star);
+  };
+
+  const handleSubmit = () => {
+    if (!selected) return;
+    const raterType = user?.userType === 'technician' ? 'technician' : 'customer';
+    createRating.mutate(
+      { data: { raterType, raterName: user?.name?.trim() || undefined, rating: selected } },
+      {
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          queryClient.invalidateQueries();
+          setDone(true);
+        },
+        onError: () => Alert.alert('Error', 'Rating submit नहीं हुई। Please retry.'),
+      }
+    );
+  };
+
+  const s = styles(colors);
+
+  const avg = summary?.averageRating ?? 0;
+  const total = summary?.totalRatings ?? 0;
+
+  // ── Thank-you state ──
+  if (done) {
+    return (
+      <View style={[s.ratingWidget, { borderColor: '#f59e0b55', backgroundColor: '#f59e0b08' }]}>
+        <View style={{ alignItems: 'center', gap: 4 }}>
+          <Text style={{ fontSize: 30 }}>🙏</Text>
+          <Text style={[s.ratingWidgetTitle, { color: colors.foreground }]}>
+            धन्यवाद! आपकी Rating मिल गई
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}>
+            {[1,2,3,4,5].map(s => (
+              <Feather key={s} name="star" size={15} color={s <= selected ? '#f59e0b' : colors.border} />
+            ))}
+          </View>
+          {avg > 0 && (
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 2 }}>
+              Overall: {avg.toFixed(1)}⭐ ({total} ratings)
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // ── Rating widget ──
+  return (
+    <View style={[s.ratingWidget, { borderColor: '#f59e0b55', backgroundColor: '#f59e0b08' }]}>
+      {/* Top row: label + avg */}
+      <View style={s.ratingWidgetTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.ratingWidgetTitle, { color: colors.foreground }]}>⭐ Rate the App</Text>
+          <Text style={[s.ratingWidgetSub, { color: colors.mutedForeground }]}>
+            Stars tap करें — instant rating!
+          </Text>
+        </View>
+        {avg > 0 && (
+          <View style={s.ratingAvgBadge}>
+            <Text style={[s.ratingAvgNum, { color: '#f59e0b' }]}>{avg.toFixed(1)}</Text>
+            <Text style={[s.ratingAvgTotal, { color: colors.mutedForeground }]}>{total} ratings</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Stars */}
+      <View style={s.starRow}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity
+            key={star}
+            onPress={() => handleStar(star)}
+            onPressIn={() => setHovered(star)}
+            onPressOut={() => setHovered(0)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          >
+            <Feather
+              name={star <= display ? 'star' : 'star'}
+              size={40}
+              color={star <= display ? '#f59e0b' : colors.border}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Label + submit */}
+      {selected > 0 && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+          <Text style={{ color: '#f59e0b', fontSize: 14, fontWeight: '700' }}>
+            {STAR_LABELS[selected]}
+          </Text>
+          <TouchableOpacity
+            style={[s.ratingSubmitBtn, createRating.isPending && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={createRating.isPending}
+            activeOpacity={0.85}
+          >
+            {createRating.isPending
+              ? <ActivityIndicator color="#000" size="small" />
+              : <Text style={s.ratingSubmitText}>Submit</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Home Screen ───────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -51,7 +183,6 @@ export default function HomeScreen() {
       >
         {/* ── Header Bar ── */}
         <View style={[s.header, { paddingTop: topPad + 10 }]}>
-          {/* Logo */}
           <View style={s.logoRow}>
             <View style={s.logoBox}>
               <Text style={s.logoEmoji}>❄️</Text>
@@ -62,7 +193,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Right side: helpline + user avatar */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {homeConfig && (
               <TouchableOpacity
@@ -73,7 +203,6 @@ export default function HomeScreen() {
                 <Feather name="phone-call" size={17} color="#22c55e" />
               </TouchableOpacity>
             )}
-            {/* User avatar / login button */}
             {user ? (
               <TouchableOpacity style={s.userAvatarBtn} onPress={handleLogout} activeOpacity={0.8}>
                 {user.avatar ? (
@@ -95,7 +224,12 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── User Welcome Banner (if logged in) ── */}
+        {/* ── ⭐ Rate the App — top for all users ── */}
+        <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
+          <RatingWidget colors={colors} />
+        </View>
+
+        {/* ── User Welcome Banner (logged in) ── */}
         {user && (
           <View style={[s.welcomeBanner, {
             borderColor: user.userType === 'technician' ? colors.primary + '55' : '#3b82f655',
@@ -127,7 +261,6 @@ export default function HomeScreen() {
                 <Text style={[s.welcomeEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
               )}
             </View>
-            {/* Action buttons */}
             <View style={{ gap: 8 }}>
               {user.userType === 'technician' ? (
                 <TouchableOpacity
@@ -252,7 +385,9 @@ export default function HomeScreen() {
                     {PROFESSION_LABELS_FALLBACK[b.professionType] ?? b.professionType} · {b.phone}
                   </Text>
                 </View>
-                <View style={[s.ratingDot, { backgroundColor: b.rating === 'good' ? '#22c55e' : b.rating === 'bad' ? '#ef4444' : colors.border }]} />
+                <View style={[s.ratingDot, {
+                  backgroundColor: b.rating === 'good' ? '#22c55e' : b.rating === 'bad' ? '#ef4444' : colors.border,
+                }]} />
               </TouchableOpacity>
             ))
           )}
@@ -272,6 +407,7 @@ function getGreeting() {
 const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   root: { flex: 1 },
 
+  // Header
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 14,
@@ -287,15 +423,12 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   logoEmoji: { fontSize: 24 },
   heroTitle: { fontSize: 22, fontWeight: '800', color: c.foreground, letterSpacing: -0.5 },
   heroTagline: { fontSize: 10, color: c.mutedForeground, marginTop: 1 },
-
   helplineIconBtn: {
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: '#022c22',
     borderWidth: 1, borderColor: '#166534',
     alignItems: 'center', justifyContent: 'center',
   },
-
-  // User avatar (top-right when logged in)
   userAvatarBtn: {
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: c.card,
@@ -304,8 +437,6 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     overflow: 'hidden',
   },
   userAvatarImg: { width: 38, height: 38, borderRadius: 19 },
-
-  // Login button in header (when not logged in)
   loginHeaderBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1.5, borderRadius: 20,
@@ -313,12 +444,29 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   loginHeaderText: { fontSize: 12, fontWeight: '700' },
 
-  // Welcome banner (logged in)
+  // ── Rating Widget ──
+  ratingWidget: {
+    borderRadius: 16, borderWidth: 1.5,
+    padding: 16, gap: 10,
+  },
+  ratingWidgetTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  ratingWidgetTitle: { fontSize: 15, fontWeight: '800' },
+  ratingWidgetSub: { fontSize: 11, marginTop: 2 },
+  ratingAvgBadge: { alignItems: 'center', gap: 1 },
+  ratingAvgNum: { fontSize: 22, fontWeight: '900' },
+  ratingAvgTotal: { fontSize: 9, fontWeight: '600' },
+  starRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 2 },
+  ratingSubmitBtn: {
+    backgroundColor: '#f59e0b', borderRadius: 10,
+    paddingHorizontal: 18, paddingVertical: 8, minWidth: 80, alignItems: 'center',
+  },
+  ratingSubmitText: { fontSize: 13, fontWeight: '800', color: '#000' },
+
+  // Welcome banner
   welcomeBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     marginHorizontal: 16, marginTop: 14,
-    borderRadius: 16, borderWidth: 1,
-    padding: 14,
+    borderRadius: 16, borderWidth: 1, padding: 14,
   },
   welcomeGreet: { fontSize: 11, fontWeight: '600', marginBottom: 1 },
   welcomeName: { fontSize: 17, fontWeight: '800' },
@@ -343,7 +491,7 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   bannerLogoutText: { fontSize: 11, fontWeight: '600' },
 
-  // Login CTA (not logged in)
+  // Login CTA
   loginCta: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginTop: 14,
@@ -356,6 +504,7 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   loginCtaTitle: { fontSize: 14, fontWeight: '700' },
   loginCtaSub: { fontSize: 12, marginTop: 2 },
 
+  // Stats
   statRow: { flexDirection: 'row', gap: 10 },
   statCard: {
     flex: 1, backgroundColor: c.card,
@@ -365,6 +514,7 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   statNum: { fontSize: 18, fontWeight: '700' },
   statLabel: { fontSize: 10, color: c.mutedForeground, marginTop: 2, textAlign: 'center' },
 
+  // Service grid
   section: { padding: 16, paddingTop: 16 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: c.foreground, marginBottom: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
@@ -382,6 +532,7 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   openText: { fontSize: 10, fontWeight: '700', color: c.mutedForeground, letterSpacing: 0.8 },
 
+  // Recent bookings
   emptyCard: {
     alignItems: 'center', gap: 8,
     backgroundColor: c.card, borderRadius: 14, padding: 32,

@@ -41,7 +41,7 @@ export default function TechnicianHomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, logout } = useAppAuth();
+  const { user, logout, loading: authLoading } = useAppAuth();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const [activeTab, setActiveTab] = useState(0);
@@ -87,12 +87,17 @@ export default function TechnicianHomeScreen() {
 
   const s = styles(colors);
 
-  if (!user || user.userType !== 'technician') {
+  if (authLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: colors.mutedForeground }}>Technician login required</Text>
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
+  }
+
+  if (!user || user.userType !== 'technician') {
+    router.replace('/auth/technician' as any);
+    return null;
   }
 
   // ── Balance summary ──────────────────────────────────────────────────────────

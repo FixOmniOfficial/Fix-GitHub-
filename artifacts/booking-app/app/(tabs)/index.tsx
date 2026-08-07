@@ -36,70 +36,50 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 80 }}
       >
-        {/* ── Hero ── */}
-        <View style={[s.hero, { paddingTop: topPad + 16 }]}>
+        {/* ── Header Bar ── */}
+        <View style={[s.header, { paddingTop: topPad + 10 }]}>
           {/* Logo */}
           <View style={s.logoRow}>
             <View style={s.logoBox}>
               <Text style={s.logoEmoji}>❄️</Text>
             </View>
-            <View style={s.logoText}>
+            <View style={{ flex: 1 }}>
               <Text style={s.heroTitle}>ProBook</Text>
               <Text style={s.heroTagline}>Trusted Services • विश्वसनीय सेवाएँ</Text>
             </View>
           </View>
 
-          {/* CTA Button */}
-          <TouchableOpacity
-            style={[s.ctaBtn, { backgroundColor: colors.primary }]}
-            onPress={() => activeCategories[0] && router.push(`/professional/${activeCategories[0].professionType}`)}
-            activeOpacity={0.85}
-          >
-            <Feather name="calendar" size={18} color="#000" style={{ marginRight: 8 }} />
-            <Text style={s.ctaBtnText}>प्रोफेशनल सर्विस बुक करें</Text>
-            <Feather name="arrow-right" size={16} color="#000" style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
-
-          {/* Helpline Banner */}
+          {/* Helpline small icon */}
           {homeConfig && (
             <TouchableOpacity
-              style={s.helplineBanner}
+              style={s.helplineIconBtn}
               onPress={() => Linking.openURL(`tel:${homeConfig.helplineNumber}`)}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
-              <View style={s.helplineIcon}>
-                <Feather name="phone" size={16} color="#22c55e" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.helplineName}>{homeConfig.helplineName}</Text>
-                <Text style={s.helplineNum}>{homeConfig.helplineNumber}</Text>
-              </View>
-              <View style={s.callChip}>
-                <Text style={s.callChipText}>Call करें</Text>
-              </View>
+              <Feather name="phone-call" size={17} color="#22c55e" />
             </TouchableOpacity>
           )}
+        </View>
 
-          {/* Quick stats */}
-          <View style={s.statRow}>
-            <View style={s.statCard}>
-              <Text style={[s.statNum, { color: colors.primary }]}>
-                {recentBookings?.length ?? '—'}
-              </Text>
-              <Text style={s.statLabel}>Total Bookings</Text>
-            </View>
-            <View style={s.statCard}>
-              <Text style={[s.statNum, { color: '#22c55e' }]}>
-                {recentBookings?.filter(b => b.rating === 'good').length ?? '—'}
-              </Text>
-              <Text style={s.statLabel}>Good Ratings</Text>
-            </View>
-            <View style={s.statCard}>
-              <Text style={[s.statNum, { color: colors.primary }]}>
-                {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-              </Text>
-              <Text style={s.statLabel}>Today</Text>
-            </View>
+        {/* ── Quick stats ── */}
+        <View style={[s.statRow, { paddingHorizontal: 16, marginTop: 14 }]}>
+          <View style={s.statCard}>
+            <Text style={[s.statNum, { color: colors.primary }]}>
+              {recentBookings?.length ?? '—'}
+            </Text>
+            <Text style={s.statLabel}>Total Bookings</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statNum, { color: '#22c55e' }]}>
+              {recentBookings?.filter(b => b.rating === 'good').length ?? '—'}
+            </Text>
+            <Text style={s.statLabel}>Good Ratings</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statNum, { color: colors.primary }]}>
+              {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+            </Text>
+            <Text style={s.statLabel}>Today</Text>
           </View>
         </View>
 
@@ -166,46 +146,29 @@ export default function HomeScreen() {
 
 const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   root: { flex: 1 },
-  hero: {
-    paddingHorizontal: 20, paddingBottom: 20,
+
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: c.border,
-    gap: 14,
+    gap: 10,
   },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   logoBox: {
-    width: 56, height: 56, borderRadius: 16,
+    width: 46, height: 46, borderRadius: 13,
     backgroundColor: '#1e3a5f',
     alignItems: 'center', justifyContent: 'center',
   },
-  logoEmoji: { fontSize: 30 },
-  logoText: { flex: 1 },
-  heroTitle: { fontSize: 28, fontWeight: '800', color: c.foreground, letterSpacing: -0.5 },
-  heroTagline: { fontSize: 11, color: c.mutedForeground, marginTop: 2 },
+  logoEmoji: { fontSize: 24 },
+  heroTitle: { fontSize: 22, fontWeight: '800', color: c.foreground, letterSpacing: -0.5 },
+  heroTagline: { fontSize: 10, color: c.mutedForeground, marginTop: 1 },
 
-  ctaBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20,
-  },
-  ctaBtnText: { fontSize: 16, fontWeight: '800', color: '#000', letterSpacing: -0.2 },
-
-  helplineBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+  helplineIconBtn: {
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#022c22',
-    borderRadius: 12, padding: 12,
     borderWidth: 1, borderColor: '#166534',
-  },
-  helplineIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: '#14532d',
     alignItems: 'center', justifyContent: 'center',
   },
-  helplineName: { fontSize: 11, color: '#86efac', fontWeight: '600' },
-  helplineNum: { fontSize: 16, color: '#22c55e', fontWeight: '800', letterSpacing: 0.5 },
-  callChip: {
-    backgroundColor: '#166534', borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 6,
-  },
-  callChipText: { fontSize: 12, fontWeight: '700', color: '#22c55e' },
 
   statRow: { flexDirection: 'row', gap: 10 },
   statCard: {
@@ -216,7 +179,7 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   statNum: { fontSize: 18, fontWeight: '700' },
   statLabel: { fontSize: 10, color: c.mutedForeground, marginTop: 2, textAlign: 'center' },
 
-  section: { padding: 20, paddingTop: 16 },
+  section: { padding: 16, paddingTop: 16 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: c.foreground, marginBottom: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   gridCard: {

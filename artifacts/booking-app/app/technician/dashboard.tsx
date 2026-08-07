@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, ActivityIndicator,
@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
 import { useListBookings } from '@workspace/api-client-react';
+import { getBaseUrl } from '@workspace/api-client-react';
 
 const PROF_LABELS: Record<string, string> = {
   ac_technician: 'AC Technician', electrician: 'Electrician',
@@ -23,11 +24,26 @@ export default function TechnicianDashboardScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const { user } = useAppAuth();
 
-  // Fetch all bookings and filter by professionalId
   const { data: allBookings, isLoading } = useListBookings({});
   const myBookings = (allBookings ?? []).filter(b =>
     user?.professionalId ? b.professionalId === user.professionalId : false
   );
+
+  const [pendingCount, setPendingCount] = useState(0);
+  const techCode = user?.uniqueCode ?? '';
+
+  const fetchPending = useCallback(async () => {
+    if (!techCode) return;
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/booking/tech-form-submissions?techCode=${techCode}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setPendingCount(data.filter((s: any) => s.status === 'pending').length);
+      }
+    } catch {}
+  }, [techCode]);
+
+  useEffect(() => { fetchPending(); }, [fetchPending]);
 
   const goodRatings = myBookings.filter(b => b.rating === 'good').length;
   const thisMonth = myBookings.filter(b => {
@@ -64,7 +80,7 @@ export default function TechnicianDashboardScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 40, gap: 16 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 40, gap: 14 }}
       >
         {/* Profile card */}
         <View style={[s.profileCard, { borderColor: colors.primary }]}>
@@ -109,7 +125,64 @@ export default function TechnicianDashboardScreen() {
           </View>
         </View>
 
-        {/* My Bookings */}
+        {/* ── Form Tools ── */}
+        <Text style={s.sectionTitle}>Customer Form Tools</Text>
+
+        {/* Pending Notification Banner */}
+        {pendingCount > 0 && (
+          <TouchableOpacity
+            style={[s.notifBanner, { backgroundColor: '#f59e0b22', borderColor: '#f59e0b' }]}
+            onPress={() => router.push('/technician/submissions' as any)}
+            activeOpacity={0.8}
+          >
+            <View style={s.notifDot} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#f59e0b' }}>
+                {pendingCount} नई Request{pendingCount > 1 ? 'ें' : ''} Pending
+              </Text>
+              <Text style={{ fontSize: 12, color: '#f59e0b99', marginTop: 2 }}>Tap करके देखें और complete करें</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color="#f59e0b" />
+          </TouchableOpacity>
+        )}
+
+        <View style={s.formActions}>
+          {/* My Form (share via WhatsApp) */}
+          <TouchableOpacity
+            style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => router.push('/technician/form-manager' as any)}
+            activeOpacity={0.8}
+          >
+            <View style={[s.formIcon, { backgroundColor: '#25D36622' }]}>
+              <Text style={{ fontSize: 22 }}>📲</Text>
+            </View>
+            <Text style={s.formCardTitle}>My Form</Text>
+            <Text style={s.formCardSub}>WhatsApp से share करें</Text>
+            <Feather name="arrow-right" size={14} color={colors.mutedForeground} style={{ marginTop: 6 }} />
+          </TouchableOpacity>
+
+          {/* Customer Requests */}
+          <TouchableOpacity
+            style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => router.push('/technician/submissions' as any)}
+            activeOpacity={0.8}
+          >
+            <View style={[s.formIcon, { backgroundColor: colors.primary + '22' }]}>
+              <Text style={{ fontSize: 22 }}>📋</Text>
+            </View>
+            <Text style={s.formCardTitle}>Customer Requests</Text>
+            <Text style={s.formCardSub}>
+              {pendingCount > 0 ? `${pendingCount} pending` : 'सभी records'}
+            </Text>
+            {pendingCount > 0 && (
+              <View style={[s.pendingBadge, { backgroundColor: '#ef4444' }]}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: '#fff' }}>{pendingCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* My Bookings (from main booking system) */}
         <Text style={s.sectionTitle}>मेरी Bookings</Text>
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
@@ -161,28 +234,38 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   profileName: { fontSize: 18, fontWeight: '800', color: c.foreground },
   profileType: { fontSize: 13, color: c.mutedForeground, marginTop: 2 },
   profilePhone: { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
-  statusBadge: {
-    backgroundColor: '#14532d', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
-  codeRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 14, borderWidth: 1, padding: 14,
-  },
+  statusBadge: { backgroundColor: '#14532d', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  codeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, padding: 14 },
   liveChip: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: {
-    flex: 1, backgroundColor: c.card, borderRadius: 12,
-    borderWidth: 1, padding: 14, alignItems: 'center', gap: 4,
-  },
+  statCard: { flex: 1, backgroundColor: c.card, borderRadius: 12, borderWidth: 1, padding: 14, alignItems: 'center', gap: 4 },
   statNum: { fontSize: 24, fontWeight: '800' },
   statLabel: { fontSize: 10, color: c.mutedForeground, textAlign: 'center' },
+
   sectionTitle: { fontSize: 16, fontWeight: '700', color: c.foreground },
-  emptyCard: { borderRadius: 14, borderWidth: 1, padding: 32, alignItems: 'center' },
-  bookingRow: {
-    borderRadius: 12, borderWidth: 1, padding: 14,
-    flexDirection: 'row', alignItems: 'center',
+
+  notifBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: 12, borderWidth: 1.5, padding: 14,
   },
+  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#f59e0b' },
+
+  formActions: { flexDirection: 'row', gap: 12 },
+  formCard: {
+    flex: 1, borderRadius: 14, borderWidth: 1, padding: 14,
+    alignItems: 'flex-start', position: 'relative',
+  },
+  formIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  formCardTitle: { fontSize: 14, fontWeight: '700', color: c.foreground },
+  formCardSub: { fontSize: 11, color: c.mutedForeground, marginTop: 2 },
+  pendingBadge: {
+    position: 'absolute', top: 10, right: 10,
+    width: 20, height: 20, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  emptyCard: { borderRadius: 14, borderWidth: 1, padding: 32, alignItems: 'center' },
+  bookingRow: { borderRadius: 12, borderWidth: 1, padding: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   bookingName: { fontSize: 15, fontWeight: '600', color: c.foreground },
   bookingMeta: { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
   bookingId: { fontSize: 11, fontWeight: '700', marginTop: 4, letterSpacing: 0.5 },

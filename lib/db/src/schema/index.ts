@@ -14,3 +14,5 @@ export * from "./app-ratings";
 export * from "./service-categories";
 export * from "./home-config";
 export * from "./app-customers";
+export * from "./tech-form-configs";
+export * from "./tech-form-submissions";

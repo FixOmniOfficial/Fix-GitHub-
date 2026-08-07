@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, asc } from "drizzle-orm";
-import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable } from "@workspace/db";
+import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable } from "@workspace/db";
 
 // Unique code generator: prefix + 6 random uppercase alphanumeric (no confusable chars)
 function genCode(prefix: string): string {
@@ -540,6 +540,99 @@ router.get("/booking/app-ratings/summary", async (req, res): Promise<void> => {
     res.json({ totalRatings: total, averageRating: Math.round(avg * 10) / 10, star1: star[1], star2: star[2], star3: star[3], star4: star[4], star5: star[5] });
   } catch {
     res.status(500).json({ error: "Failed to get app ratings summary" });
+  }
+});
+
+// ── Tech Form Config ──────────────────────────────────────────────
+
+router.get("/booking/tech-form-config/:techCode", async (req, res): Promise<void> => {
+  try {
+    const tech = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, req.params.techCode)).limit(1);
+    if (!tech[0]) { res.status(404).json({ error: "Technician not found" }); return; }
+    const configs = await db.select().from(techFormConfigsTable).where(eq(techFormConfigsTable.professionalId, tech[0].id)).limit(1);
+    const cfg = configs[0] ?? null;
+    res.json({
+      technician: { id: tech[0].id, name: tech[0].name, phone: tech[0].phone, professionType: tech[0].professionType, uniqueCode: tech[0].uniqueCode },
+      config: cfg ? { ...cfg, defaultVisitingCharge: cfg.defaultVisitingCharge ? parseFloat(cfg.defaultVisitingCharge) : 0 } : null,
+    });
+  } catch {
+    res.status(500).json({ error: "Failed to fetch form config" });
+  }
+});
+
+router.post("/booking/tech-form-config", async (req, res): Promise<void> => {
+  try {
+    const { techCode, defaultVisitingCharge, customMessage } = req.body;
+    const tech = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, techCode)).limit(1);
+    if (!tech[0]) { res.status(404).json({ error: "Technician not found" }); return; }
+    const existing = await db.select().from(techFormConfigsTable).where(eq(techFormConfigsTable.professionalId, tech[0].id)).limit(1);
+    if (existing[0]) {
+      const [updated] = await db.update(techFormConfigsTable)
+        .set({ defaultVisitingCharge: String(defaultVisitingCharge ?? 0), customMessage: customMessage ?? null })
+        .where(eq(techFormConfigsTable.professionalId, tech[0].id))
+        .returning();
+      res.json({ ...updated, defaultVisitingCharge: updated.defaultVisitingCharge ? parseFloat(updated.defaultVisitingCharge) : 0 });
+    } else {
+      const [created] = await db.insert(techFormConfigsTable)
+        .values({ professionalId: tech[0].id, defaultVisitingCharge: String(defaultVisitingCharge ?? 0), customMessage: customMessage ?? null })
+        .returning();
+      res.status(201).json({ ...created, defaultVisitingCharge: created.defaultVisitingCharge ? parseFloat(created.defaultVisitingCharge) : 0 });
+    }
+  } catch {
+    res.status(500).json({ error: "Failed to save form config" });
+  }
+});
+
+// ── Tech Form Submissions ──────────────────────────────────────────────
+
+router.post("/booking/tech-form-submit/:techCode", async (req, res): Promise<void> => {
+  try {
+    const tech = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, req.params.techCode)).limit(1);
+    if (!tech[0]) { res.status(404).json({ error: "Technician not found" }); return; }
+    const { customerName, phone, fullAddress, sector, floorNumber, houseNumber, location, visitingCharge, notes } = req.body;
+    if (!customerName || !phone) { res.status(400).json({ error: "customerName and phone required" }); return; }
+    const [row] = await db.insert(techFormSubmissionsTable).values({
+      professionalId: tech[0].id,
+      techCode: req.params.techCode,
+      customerName,
+      phone,
+      fullAddress: fullAddress ?? null,
+      sector: sector ?? null,
+      floorNumber: floorNumber ?? null,
+      houseNumber: houseNumber ?? null,
+      location: location ?? null,
+      visitingCharge: visitingCharge ? String(visitingCharge) : null,
+      notes: notes ?? null,
+      status: "pending",
+    }).returning();
+    res.status(201).json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to submit form" });
+  }
+});
+
+router.get("/booking/tech-form-submissions", async (req, res): Promise<void> => {
+  try {
+    const { techCode, phone } = req.query as Record<string, string>;
+    if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+    const conditions: ReturnType<typeof eq>[] = [eq(techFormSubmissionsTable.techCode, techCode)];
+    if (phone) conditions.push(eq(techFormSubmissionsTable.phone, phone));
+    const rows = await db.select().from(techFormSubmissionsTable).where(and(...conditions)).orderBy(desc(techFormSubmissionsTable.createdAt));
+    res.json(rows.map(r => ({ ...r, visitingCharge: r.visitingCharge ? parseFloat(r.visitingCharge) : null, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })));
+  } catch {
+    res.status(500).json({ error: "Failed to fetch submissions" });
+  }
+});
+
+router.patch("/booking/tech-form-submissions/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status } = req.body;
+    const [row] = await db.update(techFormSubmissionsTable).set({ status }).where(eq(techFormSubmissionsTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to update submission" });
   }
 });
 

@@ -85,6 +85,12 @@ export default function TechnicianHomeScreen() {
     if (idx !== activeTab) setActiveTab(idx);
   };
 
+  useEffect(() => {
+    if (!authLoading && (!user || user.userType !== 'technician')) {
+      router.replace('/auth/technician' as any);
+    }
+  }, [authLoading, user]);
+
   const s = styles(colors);
 
   if (authLoading) {
@@ -96,7 +102,6 @@ export default function TechnicianHomeScreen() {
   }
 
   if (!user || user.userType !== 'technician') {
-    router.replace('/auth/technician' as any);
     return null;
   }
 

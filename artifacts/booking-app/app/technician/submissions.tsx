@@ -163,6 +163,12 @@ export default function SubmissionsScreen() {
 
   const s = styles(colors);
 
+  useEffect(() => {
+    if (!authLoading && (!user || user.userType !== 'technician')) {
+      router.replace('/auth/technician' as any);
+    }
+  }, [authLoading, user]);
+
   if (authLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
@@ -172,7 +178,6 @@ export default function SubmissionsScreen() {
   }
 
   if (!user || user.userType !== 'technician') {
-    router.replace('/auth/technician' as any);
     return null;
   }
 

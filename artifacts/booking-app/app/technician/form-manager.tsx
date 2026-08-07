@@ -25,7 +25,11 @@ export default function FormManagerScreen() {
   const [saved, setSaved] = useState(false);
 
   const techCode = user?.uniqueCode ?? '';
-  const formUrl = `${process.env.EXPO_PUBLIC_REPL_ID ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : getBaseUrl()}/form/${techCode}`;
+  // Service-center (customer-facing) is hosted at root path of EXPO_PUBLIC_DOMAIN
+  const serviceCenterBase = process.env.EXPO_PUBLIC_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+    : getBaseUrl().replace('/api', '');
+  const formUrl = `${serviceCenterBase}/customer-form/${techCode}`;
 
   useEffect(() => {
     if (!techCode) return;
@@ -61,19 +65,43 @@ export default function FormManagerScreen() {
   };
 
   const shareOnWhatsApp = () => {
-    const msg = encodeURIComponent(`🔧 Service Request Form\n\nनमस्ते! अपनी service book करने के लिए यह form भरें:\n${formUrl}\n\n- ${user?.name ?? 'Technician'}\n${techCode}`);
+    const name = user?.name ?? 'Technician';
+    const msg = encodeURIComponent(
+      `🔧 *Service Booking Form*\n\n` +
+      `नमस्ते! 🙏\n` +
+      `अपनी service book करने के लिए नीचे दिए link पर tap करें:\n\n` +
+      `👉 ${formUrl}\n\n` +
+      `Form में अपना नाम, address और problem लिखें — हम जल्द आएंगे!\n\n` +
+      `— *${name}*`
+    );
     Linking.openURL(`https://wa.me/?text=${msg}`).catch(() =>
       Alert.alert('WhatsApp', 'WhatsApp नहीं खुल सका')
     );
   };
 
+  const [copied, setCopied] = useState(false);
   const copyLink = async () => {
     try {
-      await Share.share({ message: formUrl, url: formUrl });
-    } catch {}
+      if (Platform.OS === 'web' && navigator?.clipboard) {
+        await navigator.clipboard.writeText(formUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        await Share.share({ message: formUrl, url: formUrl });
+      }
+    } catch {
+      // fallback: show share sheet anyway
+      try { await Share.share({ message: formUrl }); } catch {}
+    }
   };
 
   const s = styles(colors);
+
+  useEffect(() => {
+    if (!authLoading && (!user || user.userType !== 'technician')) {
+      router.replace('/auth/technician' as any);
+    }
+  }, [authLoading, user]);
 
   if (authLoading) {
     return (
@@ -84,7 +112,6 @@ export default function FormManagerScreen() {
   }
 
   if (!user || user.userType !== 'technician') {
-    router.replace('/auth/technician' as any);
     return null;
   }
 
@@ -119,8 +146,8 @@ export default function FormManagerScreen() {
               <TouchableOpacity style={[s.shareBtn, { backgroundColor: '#25D366', flex: 1 }]} onPress={shareOnWhatsApp} activeOpacity={0.8}>
                 <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff' }}>📲 WhatsApp से Share करें</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.copyBtn, { borderColor: colors.border }]} onPress={copyLink} activeOpacity={0.8}>
-                <Feather name="copy" size={16} color={colors.foreground} />
+              <TouchableOpacity style={[s.copyBtn, { borderColor: copied ? colors.primary : colors.border, backgroundColor: copied ? colors.primary + '22' : 'transparent' }]} onPress={copyLink} activeOpacity={0.8}>
+                <Feather name={copied ? 'check' : 'copy'} size={16} color={copied ? colors.primary : colors.foreground} />
               </TouchableOpacity>
             </View>
           </View>

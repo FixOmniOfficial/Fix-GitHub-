@@ -205,6 +205,34 @@ export default function TechnicianHomeScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Market Rates & Rate the App */}
+          <View style={{ gap: 10, marginTop: 4 }}>
+            <TouchableOpacity
+              style={[s.infoRow, { borderColor: '#3b82f655', backgroundColor: '#3b82f610' }]}
+              onPress={() => router.push('/rates' as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 22 }}>📋</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.infoRowTitle, { color: colors.foreground }]}>Market Rates</Text>
+                <Text style={[s.infoRowSub, { color: colors.mutedForeground }]}>सर्विस की current दरें देखें</Text>
+              </View>
+              <Text style={{ color: '#3b82f6', fontSize: 18 }}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.infoRow, { borderColor: '#f59e0b55', backgroundColor: '#f59e0b10' }]}
+              onPress={() => router.push('/rating' as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 22 }}>⭐</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.infoRowTitle, { color: colors.foreground }]}>Rate the App</Text>
+                <Text style={[s.infoRowSub, { color: colors.mutedForeground }]}>ऐप को रेट करें, feedback दें</Text>
+              </View>
+              <Text style={{ color: '#f59e0b', fontSize: 18 }}>›</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Recent Payments */}
           {payments.slice(0, 3).length > 0 && (
             <>
@@ -759,6 +787,13 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     padding: 16, alignItems: 'center', gap: 8,
   },
   actionLabel: { fontSize: 13, fontWeight: '600', color: c.foreground, textAlign: 'center' },
+
+  infoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, borderWidth: 1.5, padding: 14,
+  },
+  infoRowTitle: { fontSize: 14, fontWeight: '700' },
+  infoRowSub: { fontSize: 11, marginTop: 2 },
 
   miniRow: { borderRadius: 10, borderWidth: 1, padding: 12, flexDirection: 'row', alignItems: 'center' },
   miniName: { fontSize: 14, fontWeight: '600', color: c.foreground },

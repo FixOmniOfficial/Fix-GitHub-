@@ -228,34 +228,6 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* ── Quick Links: Market Rates & Rate the App ── */}
-        <View style={[s.quickRow, { paddingHorizontal: 16, marginBottom: 4 }]}>
-          <TouchableOpacity
-            style={[s.quickCard, { borderColor: '#3b82f655', backgroundColor: '#3b82f610' }]}
-            onPress={() => router.push('/rates' as any)}
-            activeOpacity={0.8}
-          >
-            <Feather name="list" size={20} color="#3b82f6" />
-            <View style={{ flex: 1 }}>
-              <Text style={[s.quickLabel, { color: colors.foreground }]}>Market Rates</Text>
-              <Text style={[s.quickSub, { color: colors.mutedForeground }]}>सर्विस की दरें देखें</Text>
-            </View>
-            <Feather name="chevron-right" size={16} color="#3b82f6" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.quickCard, { borderColor: '#f59e0b55', backgroundColor: '#f59e0b10' }]}
-            onPress={() => router.push('/rating' as any)}
-            activeOpacity={0.8}
-          >
-            <Feather name="star" size={20} color="#f59e0b" />
-            <View style={{ flex: 1 }}>
-              <Text style={[s.quickLabel, { color: colors.foreground }]}>Rate the App</Text>
-              <Text style={[s.quickSub, { color: colors.mutedForeground }]}>ऐप को रेट करें</Text>
-            </View>
-            <Feather name="chevron-right" size={16} color="#f59e0b" />
-          </TouchableOpacity>
-        </View>
-
         {/* ── Recent Bookings ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Recent Bookings</Text>
@@ -409,14 +381,6 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     borderWidth: 1, borderColor: c.border,
   },
   openText: { fontSize: 10, fontWeight: '700', color: c.mutedForeground, letterSpacing: 0.8 },
-
-  quickRow: { gap: 10 },
-  quickCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderRadius: 14, borderWidth: 1.5, padding: 14,
-  },
-  quickLabel: { fontSize: 14, fontWeight: '700' },
-  quickSub: { fontSize: 11, marginTop: 1 },
 
   emptyCard: {
     alignItems: 'center', gap: 8,

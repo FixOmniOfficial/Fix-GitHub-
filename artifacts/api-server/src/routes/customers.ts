@@ -86,7 +86,13 @@ router.post("/customers", async (req, res): Promise<void> => {
   }
 
   const [customer] = await db.insert(customersTable).values(parsed.data).returning();
-  const result = { ...customer, totalJobs: 0, unpaidAmount: 0, lastJobDate: null };
+  const result = {
+    ...customer,
+    createdAt: customer.createdAt.toISOString(),
+    totalJobs: 0,
+    unpaidAmount: 0,
+    lastJobDate: null,
+  };
   res.status(201).json(CreateCustomerResponse.parse(result));
 });
 

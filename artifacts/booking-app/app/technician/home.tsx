@@ -25,8 +25,14 @@ interface TechReminder { id: number; title: string; note?: string; reminderAt?: 
 interface TechPayment { id: number; customerName: string; customerPhone?: string; jobDescription?: string; amountBilled: number; amountReceived: number; status: string; createdAt: string; }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
-const api = (path: string, opts?: RequestInit) =>
-  fetch(`${getBaseUrl()}/api${path}`, { headers: { 'Content-Type': 'application/json' }, ...opts }).then(r => r.json());
+const api = async (path: string, opts?: RequestInit) => {
+  const r = await fetch(`${getBaseUrl()}/api${path}`, {
+    headers: { 'Content-Type': 'application/json' }, ...opts,
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data?.error ?? `HTTP ${r.status}`);
+  return data;
+};
 
 // ─── Tab labels ───────────────────────────────────────────────────────────────
 const TABS = [

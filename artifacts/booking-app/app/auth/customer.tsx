@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
 import { useCustomerSignup, useCustomerLogin } from '@workspace/api-client-react';
+import { useGoogleAuth, type GoogleUser } from '@/hooks/useGoogleAuth';
 
 type Mode = 'options' | 'signup' | 'login' | 'success';
 
@@ -18,7 +19,7 @@ export default function CustomerAuthScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const { login } = useAppAuth();
+  const { login, getCodeByEmail, saveEmailMapping } = useAppAuth();
 
   const [mode, setMode] = useState<Mode>('options');
   const [name, setName] = useState('');
@@ -26,12 +27,78 @@ export default function CustomerAuthScreen() {
   const [loginCode, setLoginCode] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const signup = useCustomerSignup();
   const loginMutation = useCustomerLogin();
 
-  const s = styles(colors);
+  // ── Google Auth ──────────────────────────────────────────────────
+  const { promptAsync, isConfigured } = useGoogleAuth(handleGoogleSuccess);
 
+  async function handleGoogleSuccess(gUser: GoogleUser) {
+    setGoogleLoading(true);
+    try {
+      // Check if this Google account already has a customer code
+      const existingCode = await getCodeByEmail(gUser.email);
+
+      if (existingCode) {
+        // Already registered → log in
+        const cust = await loginMutation.mutateAsync({ data: { uniqueCode: existingCode } });
+        await login({
+          userType: 'customer',
+          uniqueCode: cust.uniqueCode,
+          name: cust.name,
+          phone: cust.phone ?? undefined,
+          email: gUser.email,
+          avatar: gUser.picture,
+          loginMethod: 'google',
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace('/(tabs)' as any);
+      } else {
+        // New Google user → create account
+        const cust = await signup.mutateAsync({
+          data: { name: gUser.name, phone: undefined },
+        });
+        await saveEmailMapping(gUser.email, cust.uniqueCode);
+        await login({
+          userType: 'customer',
+          uniqueCode: cust.uniqueCode,
+          name: cust.name,
+          email: gUser.email,
+          avatar: gUser.picture,
+          loginMethod: 'google',
+        });
+        setGeneratedCode(cust.uniqueCode);
+        setMode('success');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      Alert.alert('Error', 'Google login failed। कृपया दोबारा try करें।');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
+  const handleGooglePress = async () => {
+    if (!isConfigured) {
+      Alert.alert(
+        'Google Sign-In',
+        'Google Client ID configure नहीं है। Admin से संपर्क करें या Code से login करें।',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    setGoogleLoading(true);
+    try {
+      await promptAsync();
+    } finally {
+      // loading will be cleared in handleGoogleSuccess or on cancel
+      setGoogleLoading(false);
+    }
+  };
+
+  // ── Code-based signup / login ────────────────────────────────────
   const handleSignup = async () => {
     if (!name.trim()) { Alert.alert('Required', 'Name जरूरी है।'); return; }
     setLoading(true);
@@ -42,6 +109,7 @@ export default function CustomerAuthScreen() {
         uniqueCode: cust.uniqueCode,
         name: cust.name,
         phone: cust.phone ?? undefined,
+        loginMethod: 'code',
       });
       setGeneratedCode(cust.uniqueCode);
       setMode('success');
@@ -66,6 +134,7 @@ export default function CustomerAuthScreen() {
         uniqueCode: cust.uniqueCode,
         name: cust.name,
         phone: cust.phone ?? undefined,
+        loginMethod: 'code',
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/(tabs)/more' as any);
@@ -85,13 +154,15 @@ export default function CustomerAuthScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const s = styles(colors);
+
   // ── Success screen ──
   if (mode === 'success') {
     return (
       <View style={[s.root, { backgroundColor: colors.background, paddingTop: topPad, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28 }]}>
         <View style={[s.codeCard, { borderColor: '#3b82f6' }]}>
           <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 8 }}>🎉</Text>
-          <Text style={[s.codeTitle, { color: colors.foreground }]}>Welcome, {name}!</Text>
+          <Text style={[s.codeTitle, { color: colors.foreground }]}>Welcome, {name || 'Customer'}!</Text>
           <Text style={[s.codeSub, { color: colors.mutedForeground }]}>
             अगली बार login करने के लिए यह code save करें
           </Text>
@@ -121,7 +192,7 @@ export default function CustomerAuthScreen() {
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </TouchableOpacity>
 
-        <View style={{ alignItems: 'center', paddingVertical: 28, gap: 6 }}>
+        <View style={{ alignItems: 'center', paddingVertical: 24, gap: 6 }}>
           <Text style={{ fontSize: 48 }}>👤</Text>
           <Text style={[s.codeTitle, { color: colors.foreground }]}>Customer Section</Text>
           <Text style={{ fontSize: 13, color: colors.mutedForeground, textAlign: 'center' }}>
@@ -129,15 +200,42 @@ export default function CustomerAuthScreen() {
           </Text>
         </View>
 
-        <View style={{ gap: 14 }}>
-          {/* Guest option */}
+        <View style={{ gap: 12 }}>
+          {/* ── Google Sign-In ── */}
+          <TouchableOpacity
+            style={[s.googleBtn]}
+            onPress={handleGooglePress}
+            activeOpacity={0.85}
+            disabled={googleLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                {/* Google G icon */}
+                <View style={s.googleIcon}>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#4285F4' }}>G</Text>
+                </View>
+                <Text style={s.googleBtnText}>Google / Gmail से Login</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* divider */}
+          <View style={s.dividerRow}>
+            <View style={[s.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[s.dividerText, { color: colors.mutedForeground }]}>या</Text>
+            <View style={[s.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
+          {/* Guest */}
           <TouchableOpacity
             style={[s.optCard, { borderColor: colors.border }]}
             onPress={() => { router.back(); router.back(); }}
             activeOpacity={0.8}
           >
             <View style={[s.optIcon, { backgroundColor: '#6b728022' }]}>
-              <Feather name="zap" size={24} color="#6b7280" />
+              <Feather name="zap" size={22} color="#6b7280" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.optTitle}>Guest के रूप में Book करें</Text>
@@ -153,7 +251,7 @@ export default function CustomerAuthScreen() {
             activeOpacity={0.8}
           >
             <View style={[s.optIcon, { backgroundColor: '#3b82f622' }]}>
-              <Feather name="user-plus" size={24} color="#3b82f6" />
+              <Feather name="user-plus" size={22} color="#3b82f6" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.optTitle}>नया Account बनाएं</Text>
@@ -162,17 +260,17 @@ export default function CustomerAuthScreen() {
             <Feather name="chevron-right" size={18} color="#3b82f6" />
           </TouchableOpacity>
 
-          {/* Login */}
+          {/* Login with code */}
           <TouchableOpacity
             style={[s.optCard, { borderColor: colors.border }]}
             onPress={() => setMode('login')}
             activeOpacity={0.8}
           >
             <View style={[s.optIcon, { backgroundColor: colors.card }]}>
-              <Feather name="log-in" size={24} color={colors.foreground} />
+              <Feather name="log-in" size={22} color={colors.foreground} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.optTitle}>पहले से Account है?</Text>
+              <Text style={s.optTitle}>Code से Login करें</Text>
               <Text style={s.optSub}>CUST-XXXXXX code से login करें</Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
@@ -265,13 +363,32 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   submitBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   submitText: { fontWeight: '800', fontSize: 16 },
   infoBox: { flexDirection: 'row', gap: 10, borderRadius: 10, borderWidth: 1, padding: 12, alignItems: 'flex-start' },
+
+  // Google button
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: '#1a1a1a', borderRadius: 14, borderWidth: 1.5, borderColor: '#4285F4',
+    paddingVertical: 15, paddingHorizontal: 20, minHeight: 54,
+  },
+  googleIcon: {
+    width: 30, height: 30, borderRadius: 15, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  googleBtnText: { fontSize: 15, fontWeight: '700', color: '#fff', flex: 1, textAlign: 'center', marginRight: 30 },
+
+  // Divider
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 2 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 12, fontWeight: '600' },
+
   optCard: {
     backgroundColor: c.card, borderRadius: 16, borderWidth: 1.5,
-    padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14,
+    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
   },
-  optIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  optIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   optTitle: { fontSize: 15, fontWeight: '700', color: c.foreground },
   optSub: { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
+
   // Code display
   codeCard: {
     backgroundColor: c.card, borderRadius: 20, borderWidth: 1.5,

@@ -2,12 +2,16 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@probook_user_v1';
+const GOOGLE_MAP_KEY = '@probook_google_map_v1'; // email → uniqueCode mapping
 
 export type AppUser = {
   userType: 'customer' | 'technician';
   uniqueCode: string;
   name: string;
   phone?: string;
+  email?: string;       // for Google-signed-in users
+  avatar?: string;      // Google profile picture URL
+  loginMethod?: 'code' | 'google'; // how they signed in
   professionalId?: number;
   professionType?: string;
 };
@@ -17,6 +21,10 @@ type AppAuthCtx = {
   loading: boolean;
   login: (user: AppUser) => Promise<void>;
   logout: () => Promise<void>;
+  /** Look up uniqueCode from Google email (for repeat sign-ins) */
+  getCodeByEmail: (email: string) => Promise<string | null>;
+  /** Save email → uniqueCode mapping */
+  saveEmailMapping: (email: string, code: string) => Promise<void>;
 };
 
 const AppAuthContext = createContext<AppAuthCtx>({
@@ -24,6 +32,8 @@ const AppAuthContext = createContext<AppAuthCtx>({
   loading: true,
   login: async () => {},
   logout: async () => {},
+  getCodeByEmail: async () => null,
+  saveEmailMapping: async () => {},
 });
 
 export function AppAuthProvider({ children }: { children: React.ReactNode }) {
@@ -49,8 +59,28 @@ export function AppAuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const getCodeByEmail = useCallback(async (email: string): Promise<string | null> => {
+    try {
+      const raw = await AsyncStorage.getItem(GOOGLE_MAP_KEY);
+      if (!raw) return null;
+      const map: Record<string, string> = JSON.parse(raw);
+      return map[email.toLowerCase()] ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const saveEmailMapping = useCallback(async (email: string, code: string) => {
+    try {
+      const raw = await AsyncStorage.getItem(GOOGLE_MAP_KEY);
+      const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+      map[email.toLowerCase()] = code;
+      await AsyncStorage.setItem(GOOGLE_MAP_KEY, JSON.stringify(map));
+    } catch {}
+  }, []);
+
   return (
-    <AppAuthContext.Provider value={{ user, loading, login, logout }}>
+    <AppAuthContext.Provider value={{ user, loading, login, logout, getCodeByEmail, saveEmailMapping }}>
       {children}
     </AppAuthContext.Provider>
   );

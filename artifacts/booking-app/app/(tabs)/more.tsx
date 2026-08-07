@@ -1,13 +1,12 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useGetAppRatingsSummary } from '@workspace/api-client-react';
-import { useAppAuth } from '@/contexts/AppAuthContext';
 
 function StarRow({ rating }: { rating: number }) {
   return (
@@ -19,11 +18,6 @@ function StarRow({ rating }: { rating: number }) {
   );
 }
 
-const PROF_LABELS: Record<string, string> = {
-  ac_technician: 'AC Technician', electrician: 'Electrician',
-  carpenter: 'Carpenter', plumber: 'Plumber', painter: 'Painter', repair: 'Repair',
-};
-
 export default function MoreScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -31,23 +25,15 @@ export default function MoreScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const { data: summary } = useGetAppRatingsSummary({});
-  const { user, logout } = useAppAuth();
 
   const s = styles(colors);
 
-  const COMMON_ACTIONS = [
+  const ACTIONS = [
     { icon: 'list' as const,   label: 'Market Rates', sub: 'सर्विस की दरें देखें',      path: '/rates',    color: '#3b82f6' },
     { icon: 'phone' as const,  label: 'Helpline',     sub: 'Admin को मैसेज करें',        path: '/helpline', color: '#22c55e' },
     { icon: 'star' as const,   label: 'Rate the App', sub: 'ऐप को रेट करें',            path: '/rating',   color: '#f59e0b' },
     { icon: 'shield' as const, label: 'Admin Panel',  sub: 'Admin Login (PIN required)', path: '/admin',    color: '#8b5cf6' },
   ];
-
-  const handleLogout = () => {
-    Alert.alert('Logout', `${user?.name} — logout करना चाहते हैं?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: logout },
-    ]);
-  };
 
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
@@ -60,94 +46,6 @@ export default function MoreScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 80 }}
       >
-        {/* ── User Profile / Login Card ── */}
-        {user ? (
-          <View style={[s.profileCard, { borderColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
-            <View style={[s.profileAvatar, { backgroundColor: (user.userType === 'technician' ? colors.primary : '#3b82f6') + '22' }]}>
-              <Text style={{ fontSize: 28 }}>{user.userType === 'technician' ? '🔧' : '👤'}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <Text style={s.profileName}>{user.name}</Text>
-                <View style={[s.roleBadge, { backgroundColor: (user.userType === 'technician' ? colors.primary : '#3b82f6') + '22' }]}>
-                  <Text style={[s.roleBadgeText, { color: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
-                    {user.userType === 'technician' ? 'TECHNICIAN' : 'CUSTOMER'}
-                  </Text>
-                </View>
-              </View>
-              {user.phone && <Text style={s.profilePhone}>📞 {user.phone}</Text>}
-              <Text style={[s.profileCode, { color: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
-                🔑 {user.uniqueCode}
-              </Text>
-              {user.professionType && (
-                <Text style={s.profileSpec}>{PROF_LABELS[user.professionType] ?? user.professionType}</Text>
-              )}
-            </View>
-            <TouchableOpacity onPress={handleLogout} style={s.logoutBtn}>
-              <Feather name="log-out" size={16} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[s.loginBanner, { borderColor: colors.primary }]}
-            onPress={() => router.push('/auth' as any)}
-            activeOpacity={0.85}
-          >
-            <View style={[s.loginIcon, { backgroundColor: colors.primary + '22' }]}>
-              <Feather name="user" size={24} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.loginTitle, { color: colors.foreground }]}>Login / Sign Up करें</Text>
-              <Text style={[s.loginSub, { color: colors.mutedForeground }]}>
-                Customer या Technician — अपना account बनाएं
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={18} color={colors.primary} />
-          </TouchableOpacity>
-        )}
-
-        {/* ── Technician-specific actions ── */}
-        {user?.userType === 'technician' && (
-          <>
-            <Text style={s.sectionLabel}>Technician Actions</Text>
-            <TouchableOpacity
-              style={[s.actionCard, { borderColor: colors.primary + '44' }]}
-              onPress={() => router.push('/technician/dashboard' as any)}
-              activeOpacity={0.8}
-            >
-              <View style={[s.actionIcon, { backgroundColor: colors.primary + '22' }]}>
-                <Feather name="grid" size={22} color={colors.primary} />
-              </View>
-              <View style={s.actionText}>
-                <Text style={s.actionLabel}>My Dashboard</Text>
-                <Text style={s.actionSub}>अपनी bookings, ratings, और profile देखें</Text>
-              </View>
-              <Feather name="chevron-right" size={18} color={colors.primary} />
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* ── Customer-specific actions ── */}
-        {user?.userType === 'customer' && (
-          <>
-            <Text style={s.sectionLabel}>Your Account</Text>
-            <TouchableOpacity
-              style={[s.actionCard, { borderColor: '#3b82f644' }]}
-              onPress={() => router.push('/(tabs)/bookings' as any)}
-              activeOpacity={0.8}
-            >
-              <View style={[s.actionIcon, { backgroundColor: '#3b82f622' }]}>
-                <Feather name="calendar" size={22} color="#3b82f6" />
-              </View>
-              <View style={s.actionText}>
-                <Text style={s.actionLabel}>My Bookings</Text>
-                <Text style={s.actionSub}>आपकी सभी bookings की list</Text>
-              </View>
-              <Feather name="chevron-right" size={18} color="#3b82f6" />
-            </TouchableOpacity>
-          </>
-        )}
-
         {/* ── App Rating Card ── */}
         <View style={s.ratingCard}>
           <View style={s.ratingLeft}>
@@ -175,9 +73,9 @@ export default function MoreScreen() {
           </View>
         </View>
 
-        {/* ── Common Actions ── */}
+        {/* ── Quick Actions ── */}
         <Text style={s.sectionLabel}>Quick Actions</Text>
-        {COMMON_ACTIONS.map((a) => (
+        {ACTIONS.map((a) => (
           <TouchableOpacity key={a.path} style={s.actionCard} onPress={() => router.push(a.path as any)} activeOpacity={0.8}>
             <View style={[s.actionIcon, { backgroundColor: a.color + '22' }]}>
               <Feather name={a.icon} size={22} color={a.color} />
@@ -202,31 +100,6 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   headerTitle: { fontSize: 26, fontWeight: '800', color: c.foreground },
   headerSub: { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
-
-  // Profile card (logged in)
-  profileCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: c.card, borderRadius: 16, borderWidth: 1.5, padding: 14,
-    marginBottom: 16,
-  },
-  profileAvatar: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  profileName: { fontSize: 16, fontWeight: '800', color: c.foreground },
-  roleBadge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  roleBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
-  profilePhone: { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
-  profileCode: { fontSize: 12, fontWeight: '700', marginTop: 3, letterSpacing: 1 },
-  profileSpec: { fontSize: 11, color: c.mutedForeground, marginTop: 2 },
-  logoutBtn: { padding: 6, backgroundColor: c.background, borderRadius: 8, borderWidth: 1, borderColor: c.border },
-
-  // Login banner (not logged in)
-  loginBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: c.card, borderRadius: 16, borderWidth: 1.5, padding: 16,
-    marginBottom: 16,
-  },
-  loginIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  loginTitle: { fontSize: 15, fontWeight: '700' },
-  loginSub: { fontSize: 12, marginTop: 2 },
 
   sectionLabel: { fontSize: 13, fontWeight: '700', color: c.mutedForeground, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
 

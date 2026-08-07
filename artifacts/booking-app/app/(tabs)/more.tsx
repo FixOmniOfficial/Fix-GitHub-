@@ -29,9 +29,7 @@ export default function MoreScreen() {
   const s = styles(colors);
 
   const ACTIONS = [
-    { icon: 'list' as const,   label: 'Market Rates', sub: 'सर्विस की दरें देखें',      path: '/rates',    color: '#3b82f6' },
     { icon: 'phone' as const,  label: 'Helpline',     sub: 'Admin को मैसेज करें',        path: '/helpline', color: '#22c55e' },
-    { icon: 'star' as const,   label: 'Rate the App', sub: 'ऐप को रेट करें',            path: '/rating',   color: '#f59e0b' },
     { icon: 'shield' as const, label: 'Admin Panel',  sub: 'Admin Login (PIN required)', path: '/admin',    color: '#8b5cf6' },
   ];
 

@@ -82,7 +82,7 @@ export default function TechnicianAuthScreen() {
         professionType: tech.professionType,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)/more' as any);
+      router.replace('/technician/home' as any);
     } catch (e: any) {
       if (e?.response?.status === 404) {
         Alert.alert('Invalid Code', 'यह code किसी Technician से match नहीं हुआ।');
@@ -121,7 +121,7 @@ export default function TechnicianAuthScreen() {
           </Text>
           <TouchableOpacity
             style={[s.continueBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.replace('/(tabs)/more' as any)}
+            onPress={() => router.replace('/technician/home' as any)}
           >
             <Text style={{ fontWeight: '800', color: '#000', fontSize: 16 }}>Dashboard पर जाएं</Text>
           </TouchableOpacity>

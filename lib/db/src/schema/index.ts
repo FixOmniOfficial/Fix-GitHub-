@@ -16,3 +16,6 @@ export * from "./home-config";
 export * from "./app-customers";
 export * from "./tech-form-configs";
 export * from "./tech-form-submissions";
+export * from "./tech-customers";
+export * from "./tech-reminders";
+export * from "./tech-payments";

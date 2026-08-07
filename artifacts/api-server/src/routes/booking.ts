@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, asc } from "drizzle-orm";
-import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable } from "@workspace/db";
+import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable } from "@workspace/db";
 
 // Unique code generator: prefix + 6 random uppercase alphanumeric (no confusable chars)
 function genCode(prefix: string): string {
@@ -541,6 +541,120 @@ router.get("/booking/app-ratings/summary", async (req, res): Promise<void> => {
   } catch {
     res.status(500).json({ error: "Failed to get app ratings summary" });
   }
+});
+
+// ── Tech Customers ────────────────────────────────────────────────────────────
+
+router.get("/booking/tech-customers", async (req, res): Promise<void> => {
+  try {
+    const { techCode } = req.query as Record<string, string>;
+    if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+    const rows = await db.select().from(techCustomersTable).where(eq(techCustomersTable.techCode, techCode)).orderBy(desc(techCustomersTable.createdAt));
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })));
+  } catch { res.status(500).json({ error: "Failed to fetch customers" }); }
+});
+
+router.post("/booking/tech-customers", async (req, res): Promise<void> => {
+  try {
+    const { techCode, name, phone, address, jobType, notes } = req.body;
+    if (!techCode || !name || !phone) { res.status(400).json({ error: "techCode, name, phone required" }); return; }
+    const [row] = await db.insert(techCustomersTable).values({ techCode, name, phone, address: address ?? null, jobType: jobType ?? null, notes: notes ?? null }).returning();
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch { res.status(500).json({ error: "Failed to create customer" }); }
+});
+
+router.patch("/booking/tech-customers/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [row] = await db.update(techCustomersTable).set(req.body).where(eq(techCustomersTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch { res.status(500).json({ error: "Failed to update customer" }); }
+});
+
+router.delete("/booking/tech-customers/:id", async (req, res): Promise<void> => {
+  try {
+    await db.delete(techCustomersTable).where(eq(techCustomersTable.id, parseInt(req.params.id)));
+    res.status(204).end();
+  } catch { res.status(500).json({ error: "Failed to delete customer" }); }
+});
+
+// ── Tech Reminders ────────────────────────────────────────────────────────────
+
+router.get("/booking/tech-reminders", async (req, res): Promise<void> => {
+  try {
+    const { techCode } = req.query as Record<string, string>;
+    if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+    const rows = await db.select().from(techRemindersTable).where(eq(techRemindersTable.techCode, techCode)).orderBy(desc(techRemindersTable.createdAt));
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch { res.status(500).json({ error: "Failed to fetch reminders" }); }
+});
+
+router.post("/booking/tech-reminders", async (req, res): Promise<void> => {
+  try {
+    const { techCode, title, note, reminderAt } = req.body;
+    if (!techCode || !title) { res.status(400).json({ error: "techCode, title required" }); return; }
+    const [row] = await db.insert(techRemindersTable).values({ techCode, title, note: note ?? null, reminderAt: reminderAt ?? null }).returning();
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch { res.status(500).json({ error: "Failed to create reminder" }); }
+});
+
+router.patch("/booking/tech-reminders/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [row] = await db.update(techRemindersTable).set(req.body).where(eq(techRemindersTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch { res.status(500).json({ error: "Failed to update reminder" }); }
+});
+
+router.delete("/booking/tech-reminders/:id", async (req, res): Promise<void> => {
+  try {
+    await db.delete(techRemindersTable).where(eq(techRemindersTable.id, parseInt(req.params.id)));
+    res.status(204).end();
+  } catch { res.status(500).json({ error: "Failed to delete reminder" }); }
+});
+
+// ── Tech Payments ─────────────────────────────────────────────────────────────
+
+router.get("/booking/tech-payments", async (req, res): Promise<void> => {
+  try {
+    const { techCode } = req.query as Record<string, string>;
+    if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+    const rows = await db.select().from(techPaymentsTable).where(eq(techPaymentsTable.techCode, techCode)).orderBy(desc(techPaymentsTable.createdAt));
+    res.json(rows.map(r => ({ ...r, amountBilled: parseFloat(r.amountBilled), amountReceived: parseFloat(r.amountReceived), createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })));
+  } catch { res.status(500).json({ error: "Failed to fetch payments" }); }
+});
+
+router.post("/booking/tech-payments", async (req, res): Promise<void> => {
+  try {
+    const { techCode, customerName, customerPhone, jobDescription, amountBilled, amountReceived, status } = req.body;
+    if (!techCode || !customerName) { res.status(400).json({ error: "techCode, customerName required" }); return; }
+    const [row] = await db.insert(techPaymentsTable).values({
+      techCode, customerName, customerPhone: customerPhone ?? null, jobDescription: jobDescription ?? null,
+      amountBilled: String(amountBilled ?? 0), amountReceived: String(amountReceived ?? 0), status: status ?? 'pending',
+    }).returning();
+    res.status(201).json({ ...row, amountBilled: parseFloat(row.amountBilled), amountReceived: parseFloat(row.amountReceived), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch { res.status(500).json({ error: "Failed to create payment" }); }
+});
+
+router.patch("/booking/tech-payments/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const updates: Record<string, unknown> = { ...req.body };
+    if (updates.amountBilled !== undefined) updates.amountBilled = String(updates.amountBilled);
+    if (updates.amountReceived !== undefined) updates.amountReceived = String(updates.amountReceived);
+    const [row] = await db.update(techPaymentsTable).set(updates).where(eq(techPaymentsTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...row, amountBilled: parseFloat(row.amountBilled), amountReceived: parseFloat(row.amountReceived), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch { res.status(500).json({ error: "Failed to update payment" }); }
+});
+
+router.delete("/booking/tech-payments/:id", async (req, res): Promise<void> => {
+  try {
+    await db.delete(techPaymentsTable).where(eq(techPaymentsTable.id, parseInt(req.params.id)));
+    res.status(204).end();
+  } catch { res.status(500).json({ error: "Failed to delete payment" }); }
 });
 
 // ── Tech Form Config ──────────────────────────────────────────────

@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -18,7 +19,7 @@ const PROF_LABELS: Record<string, string> = {
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface TechCustomer { id: number; name: string; phone: string; address?: string; jobType?: string; notes?: string; status: string; createdAt: string; }
+interface TechCustomer { id: number; name: string; phone: string; address?: string; jobType?: string; notes?: string; status: string; rating?: string | null; createdAt: string; }
 interface TechReminder { id: number; title: string; note?: string; reminderAt?: string; isDone: boolean; createdAt: string; }
 interface TechPayment { id: number; customerName: string; customerPhone?: string; jobDescription?: string; amountBilled: number; amountReceived: number; status: string; createdAt: string; }
 
@@ -361,6 +362,17 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
     } catch { Alert.alert('Error', 'Update नहीं हो सका'); }
   };
 
+  const markRating = async (c: TechCustomer, next: 'good' | 'bad' | null) => {
+    try {
+      await api(`/booking/tech-customers/${c.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ rating: next }),
+      });
+      setCustomers(prev => prev.map(x => x.id === c.id ? { ...x, rating: next } : x));
+      setDetail(prev => prev?.id === c.id ? { ...prev, rating: next } : prev);
+    } catch {}
+  };
+
   const deleteCustomer = (c: TechCustomer) => {
     Alert.alert('Delete', `"${c.name}" को हटाना चाहते हैं?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -423,49 +435,82 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
     setEditSaving(false);
   };
 
+  // ── Rating cycle: null → good → bad → null ────────────────────────────────
+  const cycleRating = (c: TechCustomer) => {
+    const next = c.rating === 'good' ? 'bad' : c.rating === 'bad' ? null : 'good';
+    markRating(c, next);
+  };
+  const ratingEmoji = (r?: string | null) =>
+    r === 'good' ? '👍' : r === 'bad' ? '👎' : '😐';
+  const ratingColor = (r?: string | null) =>
+    r === 'good' ? '#22c55e' : r === 'bad' ? '#ef4444' : colors.mutedForeground + '66';
+
   // ── Customer row ──────────────────────────────────────────────────────────
   const renderRow = (c: TechCustomer) => (
-    <View key={c.id} style={[s.customerRow, {
-      backgroundColor: colors.card,
-      borderColor: colors.border,
-      borderLeftColor: c.status !== 'completed' ? colors.primary : '#22c55e',
-      borderLeftWidth: 3,
-    }]}>
-      <TouchableOpacity onPress={() => setDetail(c)} style={[s.customerAvatar, { backgroundColor: colors.primary + '22' }]}>
-        <Text style={{ fontSize: 18 }}>👤</Text>
-      </TouchableOpacity>
-      <View style={{ flex: 1, gap: 1 }}>
+    <TouchableOpacity
+      key={c.id}
+      activeOpacity={0.75}
+      onPress={() => setDetail(c)}
+      style={[s.customerRow, {
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        borderLeftColor: c.status !== 'completed' ? colors.primary : '#22c55e',
+        borderLeftWidth: 3,
+      }]}
+    >
+      {/* Avatar + rating badge */}
+      <View style={{ alignItems: 'center', gap: 4 }}>
+        <View style={[s.customerAvatar, { backgroundColor: colors.primary + '22' }]}>
+          <Text style={{ fontSize: 20 }}>👤</Text>
+        </View>
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation?.(); cycleRating(c); }}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        >
+          <Text style={{ fontSize: 16 }}>{ratingEmoji(c.rating)}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Info */}
+      <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <TouchableOpacity onPress={() => setDetail(c)}>
-            <Text style={s.customerName}>{c.name}</Text>
-          </TouchableOpacity>
+          <Text style={s.customerName}>{c.name}</Text>
           {c.status !== 'completed' && (
             <View style={s.newBadge}><Text style={s.newBadgeText}>NEW</Text></View>
           )}
         </View>
-        <TouchableOpacity onLongPress={() => openDialer(c.phone)}>
-          <Text style={s.customerPhone}>📞 {c.phone}</Text>
-        </TouchableOpacity>
+        <Text style={s.customerPhone}>📞 {c.phone}</Text>
         {c.jobType ? <Text style={s.customerMeta}>🔧 {c.jobType}</Text> : null}
+        {c.address ? <Text style={s.customerMeta} numberOfLines={1}>📍 {c.address}</Text> : null}
       </View>
-      <View style={{ gap: 5, alignItems: 'center' }}>
-        <TouchableOpacity onPress={() => openWhatsApp(c.phone)} style={[s.rowIconBtn, { backgroundColor: '#25D36618' }]}>
-          <Text style={{ fontSize: 13 }}>💬</Text>
+
+      {/* Right action icons */}
+      <View style={{ gap: 6, alignItems: 'center' }}>
+        {/* WhatsApp */}
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation?.(); openWhatsApp(c.phone); }}
+          style={[s.rowIconBtn, { backgroundColor: '#25D36622' }]}
+        >
+          <FontAwesome5 name="whatsapp" size={16} color="#25D366" />
         </TouchableOpacity>
-        {c.status !== 'completed' ? (
-          <TouchableOpacity onPress={() => markStatus(c, 'completed')} style={[s.rowIconBtn, { backgroundColor: '#22c55e18' }]}>
-            <Feather name="check-circle" size={14} color="#22c55e" />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => markStatus(c, 'new')} style={[s.rowIconBtn, { backgroundColor: colors.border }]}>
-            <Feather name="refresh-ccw" size={13} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={() => setDetail(c)} style={[s.rowIconBtn, { backgroundColor: colors.primary + '18' }]}>
-          <Feather name="chevron-right" size={14} color={colors.primary} />
+
+        {/* Call */}
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation?.(); openDialer(c.phone); }}
+          style={[s.rowIconBtn, { backgroundColor: '#3b82f618' }]}
+        >
+          <Feather name="phone" size={14} color="#3b82f6" />
+        </TouchableOpacity>
+
+        {/* Form Send */}
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation?.(); shareForm(c); }}
+          style={[s.rowIconBtn, { backgroundColor: '#f59e0b18' }]}
+        >
+          <Feather name="send" size={13} color="#f59e0b" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -497,16 +542,33 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
 
             <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 80 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-              {/* Status */}
-              <View style={{ flexDirection: 'row' }}>
+              {/* Status + Rating row */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 {detail.status !== 'completed'
                   ? <View style={[s.newBadge, { paddingHorizontal: 12, paddingVertical: 5 }]}>
-                      <Text style={[s.newBadgeText, { fontSize: 11 }]}>🆕 NEW BOOKING</Text>
+                      <Text style={[s.newBadgeText, { fontSize: 11 }]}>🆕 NEW CUSTOMER</Text>
                     </View>
                   : <View style={s.doneBadge}>
                       <Text style={s.doneBadgeText}>✅ Completed</Text>
                     </View>
                 }
+                {/* Rating toggle */}
+                <View style={{ flexDirection: 'row', gap: 6, marginLeft: 'auto' }}>
+                  <TouchableOpacity
+                    onPress={() => markRating(detail, detail.rating === 'good' ? null : 'good')}
+                    style={[s.ratingBtn, { backgroundColor: detail.rating === 'good' ? '#22c55e22' : colors.card, borderColor: detail.rating === 'good' ? '#22c55e' : colors.border }]}
+                  >
+                    <Text style={{ fontSize: 18 }}>👍</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: detail.rating === 'good' ? '#22c55e' : colors.mutedForeground }}>Good</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => markRating(detail, detail.rating === 'bad' ? null : 'bad')}
+                    style={[s.ratingBtn, { backgroundColor: detail.rating === 'bad' ? '#ef444422' : colors.card, borderColor: detail.rating === 'bad' ? '#ef4444' : colors.border }]}
+                  >
+                    <Text style={{ fontSize: 18 }}>👎</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: detail.rating === 'bad' ? '#ef4444' : colors.mutedForeground }}>Bad</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Name */}
@@ -662,8 +724,10 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
         {newList.length > 0 && (
           <>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <View style={s.newBadge}><Text style={s.newBadgeText}>NEW</Text></View>
-              <Text style={[s.sectionTitle, { color: colors.primary }]}>New Bookings ({newList.length})</Text>
+              <View style={[s.newBadge, { paddingHorizontal: 8, paddingVertical: 4 }]}>
+                <Text style={[s.newBadgeText, { fontSize: 10 }]}>🆕 NEW CUSTOMER</Text>
+              </View>
+              <Text style={[s.sectionTitle, { color: colors.primary }]}>({newList.length})</Text>
             </View>
             {newList.map(renderRow)}
           </>
@@ -1170,9 +1234,9 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   // Customer row
   customerRow: { borderRadius: 12, borderWidth: 1, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   customerAvatar: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  customerName: { fontSize: 15, fontWeight: '600', color: c.foreground },
-  customerPhone: { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
-  customerMeta: { fontSize: 11, color: c.mutedForeground, marginTop: 1 },
+  customerName: { fontSize: 17, fontWeight: '700', color: c.foreground },
+  customerPhone: { fontSize: 14, color: c.mutedForeground, marginTop: 2 },
+  customerMeta: { fontSize: 12, color: c.mutedForeground, marginTop: 1 },
 
   // NEW badge
   newBadge: { backgroundColor: '#22c55e', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
@@ -1181,7 +1245,10 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   doneBadgeText: { fontSize: 11, fontWeight: '700', color: '#22c55e' },
 
   // Row icon button
-  rowIconBtn: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  rowIconBtn: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+
+  // Rating button (in detail modal)
+  ratingBtn: { alignItems: 'center', borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 8, gap: 2 },
 
   // Detail modal
   modalHeader: {

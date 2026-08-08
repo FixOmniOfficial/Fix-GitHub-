@@ -9,6 +9,7 @@ export const techCustomersTable = pgTable("tech_customers", {
   jobType: text("job_type"),
   notes: text("notes"),
   status: text("status").notNull().default("new"), // 'new' | 'completed'
+  rating: text("rating"), // 'good' | 'bad' | null
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

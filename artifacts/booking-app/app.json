@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Book — Service",
+    "name": "Book \u2014 Service",
     "slug": "bookservice",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -31,7 +31,15 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#f59e0b",
+          "sounds": []
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -11,6 +11,7 @@ import { Feather } from '@expo/vector-icons';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
+import ReminderModal, { ReminderTarget } from '@/components/ReminderModal';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const PROF_LABELS: Record<string, string> = {
@@ -376,11 +377,9 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
   // Payment form
   const [inlAmt,   setInlAmt]   = useState('');
   const [inlJob,   setInlJob]   = useState('');
-  // Reminder form
-  const [inlTitle,   setInlTitle]   = useState('');
-  const [inlNotes,   setInlNotes]   = useState('');
-  const [inlDateStr, setInlDateStr] = useState('');   // "YYYY-MM-DD"
-  const [inlTimeStr, setInlTimeStr] = useState('');   // "HH:MM"
+  // Reminder modal
+  const [reminderTarget, setReminderTarget] = useState<ReminderTarget | null>(null);
+  const [lastSavedCust,  setLastSavedCust]  = useState<ReminderTarget | null>(null); // for "add reminder?" after add
   const [inlSaving,  setInlSaving]  = useState(false);
 
   const s = styles(colors);
@@ -469,27 +468,9 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
     setInlSaving(false);
   };
 
-  // ── Inline Reminder save (stays inside modal, no tab switch) ──────────────
-  const saveInlineReminder = async () => {
-    const finalTitle = inlTitle.trim() || `Reminder — ${detail!.name}`;
-    setInlSaving(true);
-    const reminderAt = inlDateStr && inlTimeStr
-      ? `${inlDateStr.trim()} ${inlTimeStr.trim()}`
-      : (inlDateStr.trim() || inlTimeStr.trim() || null);
-    try {
-      await api('/booking/tech-reminders', {
-        method: 'POST',
-        body: JSON.stringify({
-          techCode, title: finalTitle,
-          note: inlNotes.trim() || null,
-          reminderAt, ringtone: 'default',
-          customerName: detail!.name, customerPhone: detail!.phone,
-        }),
-      });
-      setInlTitle(''); setInlNotes(''); setInlDateStr(''); setInlTimeStr(''); setInlineAction(null);
-      Alert.alert('✅', 'Reminder set हो गया!');
-    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
-    setInlSaving(false);
+  // ── Open reminder modal for a customer ────────────────────────────────────
+  const openReminder = (c: { name: string; phone: string; notes?: string | null }) => {
+    setReminderTarget({ name: c.name, phone: c.phone, notes: c.notes });
   };
 
   const save = async () => {
@@ -502,9 +483,10 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
         body: JSON.stringify({ techCode, name: name.trim(), phone: phone.trim(), address: address.trim(), jobType: jobType.trim(), notes: notes.trim() }),
       });
       setCustomers(prev => [res, ...prev]);
+      const saved = { name: name.trim(), phone: phone.trim(), notes: notes.trim() };
       setName(''); setPhone(''); setAddress(''); setJobType(''); setNotes('');
       setShowForm(false);
-      Alert.alert('✅', 'Customer जोड़ा गया!');
+      setLastSavedCust(saved); // show "Set Reminder?" prompt
     } catch (e: any) { Alert.alert('Error', e?.message ?? 'Save नहीं हो सका'); }
     setSaving(false);
   };
@@ -693,26 +675,14 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                     <Text style={{ fontSize: 11, fontWeight: '600', color: '#22c55e', textAlign: 'center' }}>Payment</Text>
                   </TouchableOpacity>
 
-                  {/* 🔔 Reminder — toggles inline form, stays in modal */}
+                  {/* 🔔 Reminder — opens full ReminderModal */}
                   <TouchableOpacity
-                    onPress={() => {
-                      setEditTarget(null);
-                      const isOpening = inlineAction !== 'reminder';
-                      setInlineAction(isOpening ? 'reminder' : null);
-                      if (isOpening) {
-                        const now = new Date();
-                        const pad = (n: number) => String(n).padStart(2, '0');
-                        setInlTitle('');
-                        setInlNotes('');
-                        setInlDateStr(`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`);
-                        setInlTimeStr(`${pad(now.getHours())}:${pad(now.getMinutes())}`);
-                      }
-                    }}
+                    onPress={() => { setEditTarget(null); setInlineAction(null); openReminder(detail); }}
                     activeOpacity={0.7}
                     hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
                     style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
                   >
-                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: inlineAction === 'reminder' ? '#f59e0b40' : '#f59e0b20', borderWidth: inlineAction === 'reminder' ? 2 : 1.5, borderColor: inlineAction === 'reminder' ? '#f59e0b' : '#f59e0b55', alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#f59e0b20', borderWidth: 1.5, borderColor: '#f59e0b55', alignItems: 'center', justifyContent: 'center' }}>
                       <Feather name="bell" size={22} color="#f59e0b" />
                     </View>
                     <Text style={{ fontSize: 11, fontWeight: '600', color: '#f59e0b', textAlign: 'center' }}>Reminder</Text>
@@ -772,94 +742,7 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                 </View>
               )}
 
-              {/* ── Inline Reminder Form — proper pickers, auto-filled customer ── */}
-              {inlineAction === 'reminder' && (
-                <View style={[s.detailCard, { backgroundColor: '#f59e0b08', borderColor: '#f59e0b55', gap: 10 }]}>
-                  {/* Header */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={[s.detailLabel, { color: '#f59e0b' }]}>🔔 REMINDER SET करें</Text>
-                    <TouchableOpacity onPress={() => setInlineAction(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Feather name="x" size={18} color={colors.mutedForeground} />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Auto-filled customer chip */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 10 }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#f59e0b22', alignItems: 'center', justifyContent: 'center' }}>
-                      <Feather name="user" size={15} color="#f59e0b" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.foreground }}>{detail.name}</Text>
-                      <Text style={{ fontSize: 11, color: colors.mutedForeground }}>{detail.phone}</Text>
-                    </View>
-                    <View style={{ backgroundColor: '#f59e0b22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '700' }}>AUTO</Text>
-                    </View>
-                  </View>
-
-                  {/* Purpose / title */}
-                  <TextInput
-                    placeholder={`Purpose / title (optional)`}
-                    placeholderTextColor={colors.mutedForeground}
-                    value={inlTitle}
-                    onChangeText={setInlTitle}
-                    style={s.input}
-                  />
-
-                  {/* Date + Time — directly editable, pre-filled with current values */}
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {/* Date */}
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 2 }}>
-                      <Feather name="calendar" size={15} color="#f59e0b" />
-                      <TextInput
-                        value={inlDateStr}
-                        onChangeText={setInlDateStr}
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor={colors.mutedForeground}
-                        keyboardType="numbers-and-punctuation"
-                        style={{ flex: 1, fontSize: 13, color: colors.foreground, fontWeight: '600', paddingVertical: 10 }}
-                      />
-                    </View>
-                    {/* Time */}
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 2 }}>
-                      <Feather name="clock" size={15} color="#f59e0b" />
-                      <TextInput
-                        value={inlTimeStr}
-                        onChangeText={setInlTimeStr}
-                        placeholder="HH:MM"
-                        placeholderTextColor={colors.mutedForeground}
-                        keyboardType="numbers-and-punctuation"
-                        style={{ flex: 1, fontSize: 13, color: colors.foreground, fontWeight: '600', paddingVertical: 10 }}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Notes */}
-                  <TextInput
-                    placeholder="Notes — meeting ka maksad, kaam ki details..."
-                    placeholderTextColor={colors.mutedForeground}
-                    value={inlNotes}
-                    onChangeText={setInlNotes}
-                    multiline
-                    numberOfLines={3}
-                    textAlignVertical="top"
-                    style={[s.input, { minHeight: 72, paddingTop: 10 }]}
-                  />
-
-                  {/* Save button */}
-                  <TouchableOpacity
-                    onPress={saveInlineReminder}
-                    activeOpacity={0.8}
-                    disabled={inlSaving}
-                    style={{ backgroundColor: '#f59e0b', borderRadius: 10, paddingVertical: 13, alignItems: 'center' }}
-                  >
-                    {inlSaving
-                      ? <ActivityIndicator color="#fff" />
-                      : <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>🔔 Reminder Save करें</Text>
-                    }
-                  </TouchableOpacity>
-                </View>
-              )}
+              {/* Reminder is now handled by ReminderModal (see bottom of component) */}
 
               {/* Status + Rating row */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -1031,6 +914,26 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
           </View>
         )}
 
+        {/* ── "Set Reminder?" prompt after adding new customer ── */}
+        {lastSavedCust && (
+          <View style={[s.formCard, { backgroundColor: '#f59e0b10', borderColor: '#f59e0b55', flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }]}>
+            <Text style={{ fontSize: 22 }}>🔔</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.foreground }}>{lastSavedCust.name} के लिए reminder?</Text>
+              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>Follow-up या service alarm set करें</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => { openReminder(lastSavedCust); setLastSavedCust(null); }}
+              style={{ backgroundColor: '#f59e0b', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 }}
+            >
+              <Text style={{ color: '#000', fontWeight: '800', fontSize: 12 }}>Set करें</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setLastSavedCust(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Feather name="x" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Search ── */}
         <View style={[s.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="search" size={15} color={colors.mutedForeground} />
@@ -1075,6 +978,16 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
         )}
 
       </ScrollView>
+
+      {/* ── ReminderModal — full-screen, auto-filled, date/time picker + alarm ── */}
+      <ReminderModal
+        visible={!!reminderTarget}
+        onClose={() => setReminderTarget(null)}
+        onSaved={() => setReminderTarget(null)}
+        target={reminderTarget}
+        techCode={techCode}
+        apiBase={process.env.EXPO_PUBLIC_API_URL ?? ''}
+      />
     </KeyboardAvoidingView>
   );
 }

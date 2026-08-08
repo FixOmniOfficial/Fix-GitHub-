@@ -54,6 +54,7 @@ export default function TechnicianHomeScreen() {
 
   const [activeTab, setActiveTab] = useState(0);
   const [prefillCustomer, setPrefillCustomer] = useState<{ name: string; phone: string } | null>(null);
+  const [prefillPayment,  setPrefillPayment]  = useState<{ name: string; phone: string } | null>(null);
   const hScrollRef = useRef<ScrollView>(null);
 
   // ── Data state ──────────────────────────────────────────────────────────────
@@ -282,10 +283,11 @@ export default function TechnicianHomeScreen() {
 
         {/* ══ TAB 1: Customers ══════════════════════════════════════════════════ */}
         <CustomerTab colors={colors} techCode={techCode} customers={customers} setCustomers={setCustomers} insets={insets} formUrl={formUrl}
-          onAddReminder={(c) => { setPrefillCustomer({ name: c.name, phone: c.phone }); goToTab(3); }} />
+          onAddReminder={(c) => { setPrefillCustomer({ name: c.name, phone: c.phone }); goToTab(3); }}
+          onAddPayment={(c) => { setPrefillPayment({ name: c.name, phone: c.phone }); goToTab(2); }} />
 
         {/* ══ TAB 2: Payments ══════════════════════════════════════════════════ */}
-        <PaymentsTab colors={colors} techCode={techCode} payments={payments} setPayments={setPayments} customers={customers} insets={insets} />
+        <PaymentsTab colors={colors} techCode={techCode} payments={payments} setPayments={setPayments} customers={customers} insets={insets} prefillPayment={prefillPayment} onPrefillConsumed={() => setPrefillPayment(null)} />
 
         {/* ══ TAB 3: Reminders ══════════════════════════════════════════════════ */}
         <RemindersTab colors={colors} techCode={techCode} reminders={reminders} setReminders={setReminders} customers={customers} insets={insets} prefillCustomer={prefillCustomer} onPrefillConsumed={() => setPrefillCustomer(null)} />
@@ -306,6 +308,7 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
   insets: any;
   formUrl: string;
   onAddReminder: (c: TechCustomer) => void;
+  onAddPayment:  (c: TechCustomer) => void;
 }) {
   const [name, setName]       = useState('');
   const [phone, setPhone]     = useState('');
@@ -537,6 +540,12 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
               <View style={{ flexDirection: 'row', gap: 2 }}>
                 <TouchableOpacity onPress={() => openEdit(detail)} style={{ padding: 6 }}>
                   <Feather name="edit-2" size={18} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { setDetail(null); setEditTarget(null); onAddPayment(detail); }}
+                  style={{ padding: 6 }}
+                >
+                  <Feather name="credit-card" size={18} color="#22c55e" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => { setDetail(null); setEditTarget(null); onAddReminder(detail); }}
@@ -778,13 +787,15 @@ function payColor(status: string) {
   return status === 'paid' ? '#22c55e' : status === 'partial' ? '#3b82f6' : '#f59e0b';
 }
 
-function PaymentsTab({ colors, techCode, payments, setPayments, customers, insets }: {
+function PaymentsTab({ colors, techCode, payments, setPayments, customers, insets, prefillPayment, onPrefillConsumed }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
   payments: TechPayment[];
   setPayments: React.Dispatch<React.SetStateAction<TechPayment[]>>;
   customers: TechCustomer[];
   insets: any;
+  prefillPayment?: { name: string; phone: string } | null;
+  onPrefillConsumed?: () => void;
 }) {
   const s = styles(colors);
 
@@ -811,6 +822,18 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
   const [historyOpen,  setHistoryOpen]  = useState(false);
 
   const todayISO = new Date().toISOString().slice(0, 10);
+
+  // ── Auto-open new-record form when parent passes a prefill customer ─────────
+  useEffect(() => {
+    if (!prefillPayment) return;
+    setCustName(prefillPayment.name);
+    setCustPhone(prefillPayment.phone);
+    setJobDesc('');
+    setBilled('');
+    setShowNewForm(true);
+    setAddEntryId(null);
+    onPrefillConsumed?.();
+  }, [prefillPayment]);
 
   // totals across ALL records
   const totalBilled   = payments.reduce((s, p) => s + Number(p.amountBilled), 0);
@@ -872,16 +895,25 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
         }),
       });
       // API returns { entry, payment } — update local state
+      const newStatus = res.payment?.status ?? 'pending';
       setPayments(prev => prev.map(p => {
         if (p.id !== addEntryId) return p;
         return {
           ...p,
           amountReceived: res.payment?.amountReceived ?? p.amountReceived,
-          status: res.payment?.status ?? p.status,
+          status: newStatus,
           entries: [res.entry, ...p.entries],
         };
       }));
       setAddEntryId(null);
+      // Confirmation popup when fully paid
+      if (newStatus === 'paid') {
+        Alert.alert(
+          '🎉 Payment Complete!',
+          'पूरा payment मिल गया। यह record अब "Paid History" में move हो जाएगा।',
+          [{ text: 'ठीक है', style: 'default' }]
+        );
+      }
     } catch { Alert.alert('Error', 'Entry save नहीं हो सकी'); }
     setSavingEntry(false);
   };

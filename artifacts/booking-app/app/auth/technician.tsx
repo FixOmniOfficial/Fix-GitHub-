@@ -53,11 +53,12 @@ export default function TechnicianAuthScreen() {
   const signup = useTechnicianSignup();
 
   // ── OTP login state ───────────────────────────────────
-  const [techCode, setTechCode]       = useState('');
-  const [techName, setTechName]       = useState('');
-  const [techPhone, setTechPhone]     = useState('');
-  const [demoOtp, setDemoOtp]         = useState('');   // shown in UI (demo mode)
-  const [otpInput, setOtpInput]       = useState('');
+  const [techCode, setTechCode]         = useState('');
+  const [techLoginPhone, setLoginPhone] = useState('');   // user-entered phone for verification
+  const [techName, setTechName]         = useState('');
+  const [maskedPhone, setMaskedPhone]   = useState('');   // XXXXXX4321 — from server response
+  const [demoOtp, setDemoOtp]           = useState('');   // shown in UI (demo mode)
+  const [otpInput, setOtpInput]         = useState('');
   const otpRef = useRef<TextInput>(null);
 
   // ── Signup ────────────────────────────────────────────
@@ -84,24 +85,28 @@ export default function TechnicianAuthScreen() {
     } finally { setLoading(false); }
   };
 
-  // ── Step 1: validate code + request OTP ───────────────
+  // ── Step 1: validate code + phone → request OTP ──────
   const handleRequestOtp = async () => {
     const code = techCode.trim().toUpperCase();
     if (!code.startsWith('TECH-') || code.length < 10) {
       Alert.alert('Invalid Code', 'TECH- से शुरू होने वाला valid code दर्ज करें।'); return;
     }
+    const ph = techLoginPhone.trim().replace(/\D/g, '');
+    if (ph.length < 10) {
+      Alert.alert('Invalid Number', 'Account से registered 10-digit mobile number दर्ज करें।'); return;
+    }
     setLoading(true);
     try {
-      const res = await api('/booking/technician/request-otp', { uniqueCode: code });
+      const res = await api('/booking/technician/request-otp', { uniqueCode: code, phone: ph });
       setTechName(res.name);
-      setTechPhone(res.phone ?? '');
-      setDemoOtp(res.demoOtp ?? '');   // demo: show OTP in UI
+      setMaskedPhone(res.maskedPhone ?? '');  // e.g. XXXXXX4321
+      setDemoOtp(res.demoOtp ?? '');
       setOtpInput('');
       setScreen('login_otp');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setTimeout(() => otpRef.current?.focus(), 400);
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'Code verify नहीं हो सका।');
+      Alert.alert('Verification Failed', e.message ?? 'Code या number verify नहीं हो सका।');
     } finally { setLoading(false); }
   };
 
@@ -288,10 +293,10 @@ export default function TechnicianAuthScreen() {
             <Text style={[s.mutedText, { color: colors.mutedForeground, marginLeft: 6 }]}>Code → OTP</Text>
           </View>
 
-          <View style={[s.infoBox, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '44' }]}>
-            <Feather name="info" size={16} color={colors.primary} />
-            <Text style={{ color: colors.primary, fontSize: 13, flex: 1, lineHeight: 18 }}>
-              Signup के समय मिला TECH-XXXXXX code दर्ज करें।
+          <View style={[s.infoBox, { backgroundColor: '#1c0a00', borderColor: '#f59e0b55' }]}>
+            <Feather name="shield" size={16} color="#f59e0b" />
+            <Text style={{ color: '#f59e0b', fontSize: 13, flex: 1, lineHeight: 18 }}>
+              Security: OTP केवल account से registered mobile number पर भेजा जाएगा।
             </Text>
           </View>
 
@@ -303,8 +308,16 @@ export default function TechnicianAuthScreen() {
             autoCapitalize="characters" autoCorrect={false}
           />
 
-          <TouchableOpacity style={[s.submitBtn, { backgroundColor: colors.primary }, (!techCode.trim() || loading) && { opacity: 0.5 }]}
-            onPress={handleRequestOtp} disabled={!techCode.trim() || loading}>
+          <Text style={[s.label, { color: colors.mutedForeground }]}>Registered Mobile Number *</Text>
+          <TextInput
+            style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, fontSize: 17, letterSpacing: 1, textAlign: 'center' }]}
+            value={techLoginPhone} onChangeText={setLoginPhone}
+            placeholder="Account वाला 10-digit number" placeholderTextColor={colors.mutedForeground}
+            keyboardType="phone-pad" maxLength={10}
+          />
+
+          <TouchableOpacity style={[s.submitBtn, { backgroundColor: colors.primary }, (!techCode.trim() || !techLoginPhone.trim() || loading) && { opacity: 0.5 }]}
+            onPress={handleRequestOtp} disabled={!techCode.trim() || !techLoginPhone.trim() || loading}>
             {loading
               ? <ActivityIndicator color="#000" />
               : <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -353,11 +366,15 @@ export default function TechnicianAuthScreen() {
 
         {/* Who is logging in */}
         <View style={[s.infoBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Feather name="user" size={16} color={colors.primary} />
+          <Feather name="user-check" size={16} color={colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 14 }}>{techName}</Text>
-            {techPhone ? <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{techPhone}</Text> : null}
-            <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{techCode.toUpperCase()}</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+              📱 {maskedPhone}  ·  {techCode.toUpperCase()}
+            </Text>
+            <Text style={{ color: '#22c55e', fontSize: 11, marginTop: 2 }}>
+              ✅ Mobile number verified — OTP भेजा गया
+            </Text>
           </View>
         </View>
 

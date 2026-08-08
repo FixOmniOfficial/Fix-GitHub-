@@ -314,18 +314,41 @@ router.post("/booking/technician/login", async (req, res): Promise<void> => {
 // Step 1 — validate TECH code, issue OTP (returned in response for demo; replace with SMS in production)
 router.post("/booking/technician/request-otp", async (req, res): Promise<void> => {
   try {
-    const { uniqueCode } = req.body;
+    const { uniqueCode, phone } = req.body;
     if (!uniqueCode) { res.status(400).json({ error: "uniqueCode required" }); return; }
+    if (!phone?.trim()) { res.status(400).json({ error: "Registered mobile number जरूरी है" }); return; }
+
     const [row] = await db.select().from(professionalsTable)
       .where(eq(professionalsTable.uniqueCode, uniqueCode.trim().toUpperCase())).limit(1);
-    if (!row) { res.status(404).json({ error: "Invalid technician code" }); return; }
+
+    // Use a generic error so attackers can't enumerate valid TECH codes via phone mismatch
+    const MISMATCH_ERR = "TECH code या mobile number गलत है। Account से registered number दर्ज करें।";
+
+    if (!row) { res.status(401).json({ error: MISMATCH_ERR }); return; }
+
+    // Account must have a registered phone — no phone = cannot use OTP login
+    if (!row.phone) {
+      res.status(403).json({ error: "इस account में mobile number register नहीं है। Admin से संपर्क करें।" }); return;
+    }
+
+    // Normalize both to last 10 digits and compare
+    const normProvided  = phone.trim().replace(/\D/g, '').slice(-10);
+    const normRegistered = row.phone.replace(/\D/g, '').slice(-10);
+    if (normProvided !== normRegistered) {
+      res.status(401).json({ error: MISMATCH_ERR }); return;
+    }
+
     const otp = genOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
     await db.update(professionalsTable)
       .set({ otpCode: otp, otpExpiresAt: expiresAt, otpAttempts: 0 } as any)
       .where(eq(professionalsTable.id, row.id));
+
+    // Mask phone for response: show only last 4 digits  e.g. XXXXXX4321
+    const masked = normRegistered.slice(0, -4).replace(/\d/g, 'X') + normRegistered.slice(-4);
+
     // TODO: send via SMS (e.g. MSG91/Twilio) — for now returned in response (demo mode)
-    res.json({ success: true, name: row.name, phone: row.phone, demoOtp: otp });
+    res.json({ success: true, name: row.name, maskedPhone: masked, demoOtp: otp });
   } catch { res.status(500).json({ error: "OTP request failed" }); }
 });
 

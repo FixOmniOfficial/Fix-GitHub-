@@ -1,4 +1,4 @@
-import { pgTable, text, serial, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, boolean, timestamp, numeric, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -20,6 +20,9 @@ export const professionalsTable = pgTable("professionals", {
   visitingCharge: numeric("visiting_charge", { precision: 10, scale: 2 }),
   uniqueCode: text("unique_code").unique(),
   isActive: boolean("is_active").notNull().default(true),
+  otpCode: text("otp_code"),
+  otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }),
+  otpAttempts: integer("otp_attempts").default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

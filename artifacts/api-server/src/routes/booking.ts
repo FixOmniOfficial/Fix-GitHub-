@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, asc, inArray } from "drizzle-orm";
 import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable, techPaymentEntriesTable } from "@workspace/db";
+import bcrypt from "bcryptjs";
+
+// OTP helper — generates 6-digit code, returns plain text (demo: returned to client)
+function genOtp(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
 
 // Unique code generator: prefix + 6 random uppercase alphanumeric (no confusable chars)
 function genCode(prefix: string): string {
@@ -305,6 +311,45 @@ router.post("/booking/technician/login", async (req, res): Promise<void> => {
   }
 });
 
+// Step 1 — validate TECH code, issue OTP (returned in response for demo; replace with SMS in production)
+router.post("/booking/technician/request-otp", async (req, res): Promise<void> => {
+  try {
+    const { uniqueCode } = req.body;
+    if (!uniqueCode) { res.status(400).json({ error: "uniqueCode required" }); return; }
+    const [row] = await db.select().from(professionalsTable)
+      .where(eq(professionalsTable.uniqueCode, uniqueCode.trim().toUpperCase())).limit(1);
+    if (!row) { res.status(404).json({ error: "Invalid technician code" }); return; }
+    const otp = genOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    await db.update(professionalsTable)
+      .set({ otpCode: otp, otpExpiresAt: expiresAt, otpAttempts: 0 } as any)
+      .where(eq(professionalsTable.id, row.id));
+    // TODO: send via SMS (e.g. MSG91/Twilio) — for now returned in response (demo mode)
+    res.json({ success: true, name: row.name, phone: row.phone, demoOtp: otp });
+  } catch { res.status(500).json({ error: "OTP request failed" }); }
+});
+
+// Step 2 — verify OTP and return technician profile
+router.post("/booking/technician/verify-otp", async (req, res): Promise<void> => {
+  try {
+    const { uniqueCode, otp } = req.body;
+    if (!uniqueCode || !otp) { res.status(400).json({ error: "uniqueCode and otp required" }); return; }
+    const [row] = await db.select().from(professionalsTable)
+      .where(eq(professionalsTable.uniqueCode, uniqueCode.trim().toUpperCase())).limit(1);
+    if (!row) { res.status(404).json({ error: "Invalid code" }); return; }
+    if (!row.otpCode || !row.otpExpiresAt) { res.status(400).json({ error: "OTP not requested" }); return; }
+    if (new Date() > row.otpExpiresAt) { res.status(400).json({ error: "OTP expired — please request a new one" }); return; }
+    if ((row.otpAttempts ?? 0) >= 5) { res.status(429).json({ error: "Too many attempts — please request a new OTP" }); return; }
+    if (row.otpCode !== otp.trim()) {
+      await db.update(professionalsTable).set({ otpAttempts: (row.otpAttempts ?? 0) + 1 } as any).where(eq(professionalsTable.id, row.id));
+      res.status(401).json({ error: "Incorrect OTP" }); return;
+    }
+    // Clear OTP after successful verification
+    await db.update(professionalsTable).set({ otpCode: null, otpExpiresAt: null, otpAttempts: 0 } as any).where(eq(professionalsTable.id, row.id));
+    res.json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString() });
+  } catch { res.status(500).json({ error: "OTP verification failed" }); }
+});
+
 // ── Customer Auth ──────────────────────────────────────────────
 
 router.post("/booking/customer/signup", async (req, res): Promise<void> => {
@@ -336,6 +381,87 @@ router.post("/booking/customer/login", async (req, res): Promise<void> => {
   } catch {
     res.status(500).json({ error: "Login failed" });
   }
+});
+
+// Email + Password signup
+router.post("/booking/customer/signup-email", async (req, res): Promise<void> => {
+  try {
+    const { name, email, password, phone } = req.body;
+    if (!name?.trim()) { res.status(400).json({ error: "name required" }); return; }
+    if (!email?.trim()) { res.status(400).json({ error: "email required" }); return; }
+    if (!password || password.length < 6) { res.status(400).json({ error: "Password कम से कम 6 characters का होना चाहिए" }); return; }
+    const norm = email.trim().toLowerCase();
+    const existing = await db.select().from(appCustomersTable).where(eq(appCustomersTable.email, norm)).limit(1);
+    if (existing.length) { res.status(409).json({ error: "यह email already registered है" }); return; }
+    const passwordHash = await bcrypt.hash(password, 10);
+    let uniqueCode: string;
+    for (;;) {
+      uniqueCode = genCode('CUST');
+      const ex = await db.select().from(appCustomersTable).where(eq(appCustomersTable.uniqueCode, uniqueCode)).limit(1);
+      if (!ex.length) break;
+    }
+    const [row] = await db.insert(appCustomersTable).values({ name: name.trim(), email: norm, passwordHash, phone: phone?.trim() || null, uniqueCode }).returning();
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch { res.status(500).json({ error: "Signup failed" }); }
+});
+
+// Email + Password login
+router.post("/booking/customer/login-email", async (req, res): Promise<void> => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) { res.status(400).json({ error: "email and password required" }); return; }
+    const [row] = await db.select().from(appCustomersTable).where(eq(appCustomersTable.email, email.trim().toLowerCase())).limit(1);
+    if (!row || !row.passwordHash) { res.status(401).json({ error: "Email या Password गलत है" }); return; }
+    const match = await bcrypt.compare(password, row.passwordHash);
+    if (!match) { res.status(401).json({ error: "Email या Password गलत है" }); return; }
+    res.json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch { res.status(500).json({ error: "Login failed" }); }
+});
+
+// Phone OTP — request (finds or creates customer by phone)
+router.post("/booking/customer/request-otp", async (req, res): Promise<void> => {
+  try {
+    const { phone } = req.body;
+    if (!phone?.trim()) { res.status(400).json({ error: "phone required" }); return; }
+    const norm = phone.trim().replace(/\D/g, '').slice(-10);
+    if (norm.length < 10) { res.status(400).json({ error: "Valid 10-digit phone number दर्ज करें" }); return; }
+    let [row] = await db.select().from(appCustomersTable).where(eq(appCustomersTable.phone, norm)).limit(1);
+    if (!row) {
+      // Auto-create account for new phone number
+      let uniqueCode: string;
+      for (;;) {
+        uniqueCode = genCode('CUST');
+        const ex = await db.select().from(appCustomersTable).where(eq(appCustomersTable.uniqueCode, uniqueCode)).limit(1);
+        if (!ex.length) break;
+      }
+      [row] = await db.insert(appCustomersTable).values({ name: `User ${norm.slice(-4)}`, phone: norm, uniqueCode }).returning();
+    }
+    const otp = genOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await db.update(appCustomersTable).set({ otpCode: otp, otpExpiresAt: expiresAt, otpAttempts: 0 } as any).where(eq(appCustomersTable.id, row.id));
+    // TODO: deliver via SMS — returning in response for demo mode
+    res.json({ success: true, isNew: !row.passwordHash && !row.email, demoOtp: otp });
+  } catch { res.status(500).json({ error: "OTP request failed" }); }
+});
+
+// Phone OTP — verify
+router.post("/booking/customer/verify-otp", async (req, res): Promise<void> => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) { res.status(400).json({ error: "phone and otp required" }); return; }
+    const norm = phone.trim().replace(/\D/g, '').slice(-10);
+    const [row] = await db.select().from(appCustomersTable).where(eq(appCustomersTable.phone, norm)).limit(1);
+    if (!row) { res.status(404).json({ error: "Phone number not found" }); return; }
+    if (!row.otpCode || !row.otpExpiresAt) { res.status(400).json({ error: "OTP not requested" }); return; }
+    if (new Date() > row.otpExpiresAt) { res.status(400).json({ error: "OTP expired — please request a new one" }); return; }
+    if ((row.otpAttempts ?? 0) >= 5) { res.status(429).json({ error: "Too many attempts" }); return; }
+    if (row.otpCode !== otp.trim()) {
+      await db.update(appCustomersTable).set({ otpAttempts: (row.otpAttempts ?? 0) + 1 } as any).where(eq(appCustomersTable.id, row.id));
+      res.status(401).json({ error: "Incorrect OTP" }); return;
+    }
+    await db.update(appCustomersTable).set({ otpCode: null, otpExpiresAt: null, otpAttempts: 0 } as any).where(eq(appCustomersTable.id, row.id));
+    res.json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch { res.status(500).json({ error: "OTP verification failed" }); }
 });
 
 // ── Service Categories ──────────────────────────────────────────────

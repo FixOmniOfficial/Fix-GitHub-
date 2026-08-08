@@ -381,9 +381,9 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
   };
 
   const deleteCustomer = (c: TechCustomer) => {
-    Alert.alert('Delete', `"${c.name}" को हटाना चाहते हैं?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+    Alert.alert('🗑️ Customer हटाएं?', `"${c.name}" को permanently delete करना चाहते हैं?`, [
+      { text: 'नहीं', style: 'cancel' },
+      { text: 'हाँ, Delete करें', style: 'destructive', onPress: async () => {
         try {
           await api(`/booking/tech-customers/${c.id}`, { method: 'DELETE' });
           setCustomers(prev => prev.filter(x => x.id !== c.id));
@@ -928,9 +928,9 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
 
   // ── Delete a partial entry ─────────────────────────────────────────────────
   const deleteEntry = (entry: PaymentEntry) => {
-    Alert.alert('Delete Entry?', `₹${entry.amount} की entry हटाएं?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+    Alert.alert('🗑️ Entry हटाएं?', `₹${entry.amount} की payment entry delete करना चाहते हैं?`, [
+      { text: 'नहीं', style: 'cancel' },
+      { text: 'हाँ, Delete करें', style: 'destructive', onPress: async () => {
         try {
           const res = await api(`/booking/tech-payment-entries/${entry.id}`, { method: 'DELETE' });
           setPayments(prev => prev.map(p => {
@@ -949,9 +949,9 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
 
   // ── Delete entire payment record ───────────────────────────────────────────
   const deleteRecord = (p: TechPayment) => {
-    Alert.alert('Delete Record?', `${p.customerName} का पूरा payment record हटाएं?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+    Alert.alert('🗑️ Record हटाएं?', `${p.customerName} का पूरा payment record permanently delete करना चाहते हैं?`, [
+      { text: 'नहीं', style: 'cancel' },
+      { text: 'हाँ, Delete करें', style: 'destructive', onPress: async () => {
         try {
           await api(`/booking/tech-payments/${p.id}`, { method: 'DELETE' });
           setPayments(prev => prev.filter(x => x.id !== p.id));
@@ -1490,9 +1490,9 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
   };
 
   const deleteReminder = (id: number) => {
-    Alert.alert('Delete?', 'यह reminder हटाना चाहते हैं?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+    Alert.alert('🗑️ Reminder हटाएं?', 'यह reminder permanently delete करना चाहते हैं?', [
+      { text: 'नहीं', style: 'cancel' },
+      { text: 'हाँ, Delete करें', style: 'destructive', onPress: async () => {
         try {
           await api(`/booking/tech-reminders/${id}`, { method: 'DELETE' });
           setReminders(prev => prev.filter(r => r.id !== id));

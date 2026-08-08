@@ -52,6 +52,7 @@ export default function TechnicianHomeScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const [activeTab, setActiveTab] = useState(0);
+  const [prefillCustomer, setPrefillCustomer] = useState<{ name: string; phone: string } | null>(null);
   const hScrollRef = useRef<ScrollView>(null);
 
   // ── Data state ──────────────────────────────────────────────────────────────
@@ -279,13 +280,14 @@ export default function TechnicianHomeScreen() {
         </ScrollView>
 
         {/* ══ TAB 1: Customers ══════════════════════════════════════════════════ */}
-        <CustomerTab colors={colors} techCode={techCode} customers={customers} setCustomers={setCustomers} insets={insets} formUrl={formUrl} />
+        <CustomerTab colors={colors} techCode={techCode} customers={customers} setCustomers={setCustomers} insets={insets} formUrl={formUrl}
+          onAddReminder={(c) => { setPrefillCustomer({ name: c.name, phone: c.phone }); goToTab(3); }} />
 
         {/* ══ TAB 2: Payments ══════════════════════════════════════════════════ */}
         <PaymentsTab colors={colors} techCode={techCode} payments={payments} setPayments={setPayments} customers={customers} insets={insets} />
 
         {/* ══ TAB 3: Reminders ══════════════════════════════════════════════════ */}
-        <RemindersTab colors={colors} techCode={techCode} reminders={reminders} setReminders={setReminders} customers={customers} insets={insets} />
+        <RemindersTab colors={colors} techCode={techCode} reminders={reminders} setReminders={setReminders} customers={customers} insets={insets} prefillCustomer={prefillCustomer} onPrefillConsumed={() => setPrefillCustomer(null)} />
 
       </ScrollView>
     </View>
@@ -295,13 +297,14 @@ export default function TechnicianHomeScreen() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: CUSTOMERS
 // ═══════════════════════════════════════════════════════════════════════════════
-function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUrl }: {
+function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUrl, onAddReminder }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
   customers: TechCustomer[];
   setCustomers: React.Dispatch<React.SetStateAction<TechCustomer[]>>;
   insets: any;
   formUrl: string;
+  onAddReminder: (c: TechCustomer) => void;
 }) {
   const [name, setName]       = useState('');
   const [phone, setPhone]     = useState('');
@@ -533,6 +536,12 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
               <View style={{ flexDirection: 'row', gap: 2 }}>
                 <TouchableOpacity onPress={() => openEdit(detail)} style={{ padding: 6 }}>
                   <Feather name="edit-2" size={18} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { setDetail(null); setEditTarget(null); onAddReminder(detail); }}
+                  style={{ padding: 6 }}
+                >
+                  <Feather name="bell" size={18} color="#f59e0b" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => deleteCustomer(detail)} style={{ padding: 6 }}>
                   <Feather name="trash-2" size={18} color="#ef4444" />
@@ -1016,13 +1025,15 @@ const RINGTONES = [
   { id: 'silent',  label: '🔕 Silent' },
 ];
 
-function RemindersTab({ colors, techCode, reminders, setReminders, customers, insets }: {
+function RemindersTab({ colors, techCode, reminders, setReminders, customers, insets, prefillCustomer, onPrefillConsumed }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
   reminders: TechReminder[];
   setReminders: React.Dispatch<React.SetStateAction<TechReminder[]>>;
   customers: TechCustomer[];
   insets: any;
+  prefillCustomer?: { name: string; phone: string } | null;
+  onPrefillConsumed?: () => void;
 }) {
   const s = styles(colors);
 
@@ -1037,6 +1048,22 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
   const [custSearch, setCustSearch] = useState('');
   const [selCust,    setSelCust]    = useState<TechCustomer | null>(null);
   const [saving,     setSaving]     = useState(false);
+
+  // ── Auto-open form when parent passes a prefill customer ──────────────────
+  useEffect(() => {
+    if (!prefillCustomer) return;
+    setEditId(null);
+    setTitle('');
+    setNote('');
+    setDate('');
+    setTime('');
+    setRingtone('default');
+    const fake: TechCustomer = { id: -1, name: prefillCustomer.name, phone: prefillCustomer.phone, status: '', createdAt: '', rating: null };
+    setSelCust(fake);
+    setCustSearch(prefillCustomer.name);
+    setShowForm(true);
+    onPrefillConsumed?.();
+  }, [prefillCustomer]);
 
   const filteredCusts = custSearch.length > 0 && !selCust
     ? customers.filter(c =>

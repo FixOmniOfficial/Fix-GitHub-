@@ -19,3 +19,4 @@ export * from "./tech-form-submissions";
 export * from "./tech-customers";
 export * from "./tech-reminders";
 export * from "./tech-payments";
+export * from "./tech-payment-entries";

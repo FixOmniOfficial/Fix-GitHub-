@@ -21,7 +21,8 @@ const PROF_LABELS: Record<string, string> = {
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface TechCustomer { id: number; name: string; phone: string; address?: string; jobType?: string; notes?: string; status: string; rating?: string | null; createdAt: string; }
 interface TechReminder { id: number; title: string; note?: string | null; reminderAt?: string | null; ringtone?: string | null; isEnabled: boolean; isDone: boolean; customerName?: string | null; customerPhone?: string | null; createdAt: string; }
-interface TechPayment { id: number; customerName: string; customerPhone?: string; jobDescription?: string; amountBilled: number; amountReceived: number; status: string; createdAt: string; }
+interface PaymentEntry { id: number; paymentId: number; amount: number; paymentMethod: string; paidAt: string; note?: string | null; createdAt: string; }
+interface TechPayment { id: number; customerName: string; customerPhone?: string; jobDescription?: string; amountBilled: number; amountReceived: number; status: string; createdAt: string; entries: PaymentEntry[]; }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 const api = async (path: string, opts?: RequestInit) => {
@@ -772,6 +773,11 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: PAYMENTS
 // ═══════════════════════════════════════════════════════════════════════════════
+// HELPER: payment status colours
+function payColor(status: string) {
+  return status === 'paid' ? '#22c55e' : status === 'partial' ? '#3b82f6' : '#f59e0b';
+}
+
 function PaymentsTab({ colors, techCode, payments, setPayments, customers, insets }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
@@ -780,115 +786,421 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
   customers: TechCustomer[];
   insets: any;
 }) {
-  const [custName, setCustName] = useState('');
-  const [custPhone, setCustPhone] = useState('');
-  const [jobDesc, setJobDesc] = useState('');
-  const [billed, setBilled] = useState('');
-  const [received, setReceived] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'paid' | 'partial'>('all');
-
   const s = styles(colors);
 
-  const balance = (parseFloat(billed) || 0) - (parseFloat(received) || 0);
+  // ── New payment record form ────────────────────────────────────────────────
+  const [showNewForm,  setShowNewForm]  = useState(false);
+  const [custName,     setCustName]     = useState('');
+  const [custPhone,    setCustPhone]    = useState('');
+  const [jobDesc,      setJobDesc]      = useState('');
+  const [billed,       setBilled]       = useState('');
+  const [savingNew,    setSavingNew]    = useState(false);
 
-  const computeStatus = (b: number, r: number) => {
-    if (r <= 0) return 'pending';
-    if (r >= b) return 'paid';
-    return 'partial';
-  };
+  // ── Add partial payment (per record) ──────────────────────────────────────
+  const [addEntryId,   setAddEntryId]   = useState<number | null>(null); // which record is open
+  const [entryAmount,  setEntryAmount]  = useState('');
+  const [entryMethod,  setEntryMethod]  = useState<'cash' | 'online'>('cash');
+  const [entryDate,    setEntryDate]    = useState('');
+  const [entryNote,    setEntryNote]    = useState('');
+  const [savingEntry,  setSavingEntry]  = useState(false);
 
-  const save = async () => {
-    if (!custName.trim()) { Alert.alert('', 'Customer नाम जरूरी है'); return; }
-    if (!billed.trim()) { Alert.alert('', 'Billed amount जरूरी है'); return; }
-    setSaving(true);
-    try {
-      const b = parseFloat(billed) || 0;
-      const r = parseFloat(received) || 0;
-      const res = await api('/booking/tech-payments', {
-        method: 'POST',
-        body: JSON.stringify({
-          techCode, customerName: custName.trim(), customerPhone: custPhone.trim() || undefined,
-          jobDescription: jobDesc.trim() || undefined,
-          amountBilled: b, amountReceived: r,
-          status: computeStatus(b, r),
-        }),
-      });
-      setPayments(prev => [res, ...prev]);
-      setCustName(''); setCustPhone(''); setJobDesc(''); setBilled(''); setReceived('');
-      setShowForm(false);
-      Alert.alert('✅', 'Payment record जोड़ा गया!');
-    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
-    setSaving(false);
-  };
+  // ── Expanded state per record (show entries) ───────────────────────────────
+  const [expanded,     setExpanded]     = useState<Set<number>>(new Set());
 
-  const markPaid = async (id: number) => {
-    const p = payments.find(x => x.id === id);
-    if (!p) return;
-    try {
-      const res = await api(`/booking/tech-payments/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ amountReceived: p.amountBilled, status: 'paid' }),
-      });
-      setPayments(prev => prev.map(x => x.id === id ? res : x));
-    } catch {}
-  };
+  // ── History accordion open ────────────────────────────────────────────────
+  const [historyOpen,  setHistoryOpen]  = useState(false);
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+
+  // totals across ALL records
   const totalBilled   = payments.reduce((s, p) => s + Number(p.amountBilled), 0);
   const totalReceived = payments.reduce((s, p) => s + Number(p.amountReceived), 0);
   const totalBalance  = totalBilled - totalReceived;
 
-  const filtered = payments.filter(p => filter === 'all' ? true : p.status === filter);
+  const active  = payments.filter(p => p.status !== 'paid');
+  const history = payments.filter(p => p.status === 'paid');
+
+  // ── Create new payment record ──────────────────────────────────────────────
+  const saveNewRecord = async () => {
+    if (!custName.trim()) { Alert.alert('', 'Customer नाम जरूरी है'); return; }
+    if (!billed.trim() || isNaN(parseFloat(billed))) { Alert.alert('', 'Amount जरूरी है'); return; }
+    setSavingNew(true);
+    try {
+      const res = await api('/booking/tech-payments', {
+        method: 'POST',
+        body: JSON.stringify({
+          techCode,
+          customerName: custName.trim(),
+          customerPhone: custPhone.trim() || undefined,
+          jobDescription: jobDesc.trim() || undefined,
+          amountBilled: parseFloat(billed),
+          amountReceived: 0,
+          status: 'pending',
+        }),
+      });
+      setPayments(prev => [{ ...res, entries: [] }, ...prev]);
+      setCustName(''); setCustPhone(''); setJobDesc(''); setBilled('');
+      setShowNewForm(false);
+    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
+    setSavingNew(false);
+  };
+
+  // ── Add a partial payment entry ────────────────────────────────────────────
+  const openAddEntry = (payId: number) => {
+    setAddEntryId(payId);
+    setEntryAmount('');
+    setEntryMethod('cash');
+    setEntryDate(todayISO);
+    setEntryNote('');
+    // auto-expand that record
+    setExpanded(prev => { const s = new Set(prev); s.add(payId); return s; });
+  };
+
+  const saveEntry = async () => {
+    if (!entryAmount.trim() || isNaN(parseFloat(entryAmount))) { Alert.alert('', 'Amount जरूरी है'); return; }
+    if (!entryDate.trim()) { Alert.alert('', 'Date जरूरी है'); return; }
+    setSavingEntry(true);
+    try {
+      const res = await api('/booking/tech-payment-entries', {
+        method: 'POST',
+        body: JSON.stringify({
+          paymentId: addEntryId,
+          amount: parseFloat(entryAmount),
+          paymentMethod: entryMethod,
+          paidAt: entryDate,
+          note: entryNote.trim() || undefined,
+        }),
+      });
+      // API returns { entry, payment } — update local state
+      setPayments(prev => prev.map(p => {
+        if (p.id !== addEntryId) return p;
+        return {
+          ...p,
+          amountReceived: res.payment?.amountReceived ?? p.amountReceived,
+          status: res.payment?.status ?? p.status,
+          entries: [res.entry, ...p.entries],
+        };
+      }));
+      setAddEntryId(null);
+    } catch { Alert.alert('Error', 'Entry save नहीं हो सकी'); }
+    setSavingEntry(false);
+  };
+
+  // ── Delete a partial entry ─────────────────────────────────────────────────
+  const deleteEntry = (entry: PaymentEntry) => {
+    Alert.alert('Delete Entry?', `₹${entry.amount} की entry हटाएं?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          const res = await api(`/booking/tech-payment-entries/${entry.id}`, { method: 'DELETE' });
+          setPayments(prev => prev.map(p => {
+            if (p.id !== entry.paymentId) return p;
+            return {
+              ...p,
+              amountReceived: res.payment?.amountReceived ?? p.amountReceived,
+              status: res.payment?.status ?? p.status,
+              entries: p.entries.filter(e => e.id !== entry.id),
+            };
+          }));
+        } catch {}
+      }},
+    ]);
+  };
+
+  // ── Delete entire payment record ───────────────────────────────────────────
+  const deleteRecord = (p: TechPayment) => {
+    Alert.alert('Delete Record?', `${p.customerName} का पूरा payment record हटाएं?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          await api(`/booking/tech-payments/${p.id}`, { method: 'DELETE' });
+          setPayments(prev => prev.filter(x => x.id !== p.id));
+        } catch {}
+      }},
+    ]);
+  };
+
+  // ── Toggle expand ─────────────────────────────────────────────────────────
+  const toggleExpand = (id: number) => {
+    setExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  };
+
+  // Web date input style
+  const webDateStyle = {
+    background: '#1e1e1e', color: colors.foreground,
+    border: `1.5px solid ${colors.border}`, borderRadius: 10,
+    padding: '10px 12px', fontSize: 14, width: '100%', outline: 'none',
+    boxSizing: 'border-box',
+  } as any;
+
+  // ── Payment card ──────────────────────────────────────────────────────────
+  const renderCard = (p: TechPayment) => {
+    const balance  = p.amountBilled - p.amountReceived;
+    const pct      = p.amountBilled > 0 ? Math.min(100, (p.amountReceived / p.amountBilled) * 100) : 0;
+    const col      = payColor(p.status);
+    const isOpen   = expanded.has(p.id);
+    const addingHere = addEntryId === p.id;
+
+    return (
+      <View key={p.id} style={{
+        backgroundColor: colors.card, borderRadius: 16,
+        borderWidth: 1, borderColor: p.status === 'paid' ? '#22c55e44' : colors.border,
+        borderLeftWidth: 4, borderLeftColor: col,
+        overflow: 'hidden',
+      }}>
+        {/* ── Card header ── */}
+        <TouchableOpacity activeOpacity={0.7} onPress={() => toggleExpand(p.id)}
+          style={{ padding: 14, gap: 8 }}>
+
+          {/* Name row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.foreground }}>{p.customerName}</Text>
+              {p.customerPhone ? <Text style={{ fontSize: 12, color: colors.mutedForeground }}>📞 {p.customerPhone}</Text> : null}
+              {p.jobDescription ? <Text style={{ fontSize: 12, color: colors.mutedForeground }}>🔧 {p.jobDescription}</Text> : null}
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 4 }}>
+              <View style={{ backgroundColor: col + '22', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: col }}>{p.status.toUpperCase()}</Text>
+              </View>
+              <Feather name={isOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+            </View>
+          </View>
+
+          {/* Amount row */}
+          <View style={{ flexDirection: 'row', gap: 0 }}>
+            <View style={{ flex: 1, alignItems: 'center', padding: 8, backgroundColor: '#3b82f611', borderRadius: 8 }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#3b82f6' }}>₹{Number(p.amountBilled).toLocaleString('en-IN')}</Text>
+              <Text style={{ fontSize: 10, color: colors.mutedForeground, marginTop: 1 }}>Total Billed</Text>
+            </View>
+            <View style={{ width: 8 }} />
+            <View style={{ flex: 1, alignItems: 'center', padding: 8, backgroundColor: '#22c55e11', borderRadius: 8 }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#22c55e' }}>₹{Number(p.amountReceived).toLocaleString('en-IN')}</Text>
+              <Text style={{ fontSize: 10, color: colors.mutedForeground, marginTop: 1 }}>Received</Text>
+            </View>
+            <View style={{ width: 8 }} />
+            <View style={{ flex: 1, alignItems: 'center', padding: 8, backgroundColor: (balance > 0 ? '#f59e0b' : '#22c55e') + '11', borderRadius: 8 }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: balance > 0 ? '#f59e0b' : '#22c55e' }}>₹{balance.toLocaleString('en-IN')}</Text>
+              <Text style={{ fontSize: 10, color: colors.mutedForeground, marginTop: 1 }}>Balance</Text>
+            </View>
+          </View>
+
+          {/* Progress bar */}
+          <View style={{ height: 6, backgroundColor: colors.border, borderRadius: 4 }}>
+            <View style={{ height: 6, width: `${pct}%` as any, backgroundColor: col, borderRadius: 4 }} />
+          </View>
+          <Text style={{ fontSize: 10, color: colors.mutedForeground, textAlign: 'right' }}>{Math.round(pct)}% paid</Text>
+        </TouchableOpacity>
+
+        {/* ── Expanded: entries + add entry form ── */}
+        {isOpen && (
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+
+            {/* Entry list */}
+            {p.entries.length > 0 && (
+              <View style={{ padding: 12, gap: 6 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.mutedForeground, marginBottom: 2 }}>📋 Payment History</Text>
+                {p.entries.map(e => (
+                  <View key={e.id} style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 8,
+                    backgroundColor: e.paymentMethod === 'cash' ? '#f59e0b0d' : '#3b82f60d',
+                    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+                    borderWidth: 1,
+                    borderColor: e.paymentMethod === 'cash' ? '#f59e0b33' : '#3b82f633',
+                  }}>
+                    <Text style={{ fontSize: 18 }}>{e.paymentMethod === 'cash' ? '💵' : '📲'}</Text>
+                    <View style={{ flex: 1, gap: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#22c55e' }}>+₹{Number(e.amount).toLocaleString('en-IN')}</Text>
+                      <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                        {e.paidAt}  ·  {e.paymentMethod === 'cash' ? 'Cash' : 'Online'}
+                      </Text>
+                      {e.note ? <Text style={{ fontSize: 11, color: colors.mutedForeground }} numberOfLines={1}>{e.note}</Text> : null}
+                    </View>
+                    <TouchableOpacity onPress={() => deleteEntry(e)} style={{ padding: 4 }}>
+                      <Feather name="trash-2" size={13} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {p.entries.length === 0 && !addingHere && (
+              <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: 'center', paddingVertical: 12 }}>
+                कोई payment entry नहीं
+              </Text>
+            )}
+
+            {/* Add Entry Form */}
+            {addingHere && (
+              <View style={{ padding: 12, gap: 10, borderTopWidth: p.entries.length > 0 ? 1 : 0, borderTopColor: colors.border }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>💳 Partial Payment Add करें</Text>
+
+                {/* Amount + Date row */}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={s.fieldLabel}>Amount (₹) *</Text>
+                    <TextInput style={s.input} placeholder={`Max ₹${balance.toLocaleString('en-IN')}`}
+                      placeholderTextColor={colors.mutedForeground}
+                      value={entryAmount} onChangeText={setEntryAmount} keyboardType="numeric" />
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={s.fieldLabel}>📅 Date *</Text>
+                    {Platform.OS === 'web'
+                      ? <input type="date" value={entryDate} onChange={(e: any) => setEntryDate(e.target.value)} style={webDateStyle} />
+                      : <TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor={colors.mutedForeground}
+                          value={entryDate} onChangeText={setEntryDate} keyboardType="numbers-and-punctuation" />}
+                  </View>
+                </View>
+
+                {/* Payment Method */}
+                <View style={{ gap: 4 }}>
+                  <Text style={s.fieldLabel}>💳 Payment Method</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {(['cash', 'online'] as const).map(m => (
+                      <TouchableOpacity key={m} onPress={() => setEntryMethod(m)} style={{
+                        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                        gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 2,
+                        borderColor: entryMethod === m ? colors.primary : colors.border,
+                        backgroundColor: entryMethod === m ? colors.primary + '18' : colors.card,
+                      }}>
+                        <Text style={{ fontSize: 16 }}>{m === 'cash' ? '💵' : '📲'}</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: entryMethod === m ? colors.primary : colors.mutedForeground }}>
+                          {m === 'cash' ? 'Cash' : 'Online'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Note */}
+                <View style={{ gap: 4 }}>
+                  <Text style={s.fieldLabel}>📝 Note (optional)</Text>
+                  <TextInput style={s.input} placeholder="UPI, NEFT, cheque no…"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={entryNote} onChangeText={setEntryNote} />
+                </View>
+
+                {/* Live remaining preview */}
+                {entryAmount ? (() => {
+                  const entered = parseFloat(entryAmount) || 0;
+                  const newBal  = Math.max(0, balance - entered);
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8,
+                      backgroundColor: newBal === 0 ? '#22c55e18' : '#f59e0b18',
+                      borderRadius: 10, padding: 10, borderWidth: 1,
+                      borderColor: newBal === 0 ? '#22c55e' : '#f59e0b' }}>
+                      <Feather name={newBal === 0 ? 'check-circle' : 'alert-circle'} size={16} color={newBal === 0 ? '#22c55e' : '#f59e0b'} />
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: newBal === 0 ? '#22c55e' : '#f59e0b' }}>
+                        {newBal === 0 ? '🎉 Fully Paid!' : `Remaining: ₹${newBal.toLocaleString('en-IN')}`}
+                      </Text>
+                    </View>
+                  );
+                })() : null}
+
+                {/* Save / Cancel */}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={() => setAddEntryId(null)}
+                    style={{ flex: 1, padding: 11, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.mutedForeground }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={saveEntry} disabled={savingEntry}
+                    style={{ flex: 2, padding: 11, borderRadius: 10, backgroundColor: colors.primary,
+                      alignItems: 'center', opacity: savingEntry ? 0.7 : 1 }}>
+                    {savingEntry ? <ActivityIndicator color="#000" size="small" />
+                      : <Text style={{ fontSize: 13, fontWeight: '800', color: '#000' }}>💾 Save Entry</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Card footer actions */}
+            {!addingHere && p.status !== 'paid' && (
+              <View style={{ flexDirection: 'row', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <TouchableOpacity onPress={() => openAddEntry(p.id)} style={{
+                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                  gap: 6, padding: 10, borderRadius: 10, backgroundColor: colors.primary + '18',
+                  borderWidth: 1, borderColor: colors.primary,
+                }}>
+                  <Feather name="plus-circle" size={14} color={colors.primary} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Add Payment</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deleteRecord(p)} style={{
+                  padding: 10, borderRadius: 10, backgroundColor: '#ef444415',
+                  borderWidth: 1, borderColor: '#ef444433',
+                }}>
+                  <Feather name="trash-2" size={15} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {!addingHere && p.status === 'paid' && (
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <TouchableOpacity onPress={() => deleteRecord(p)} style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  padding: 8, borderRadius: 8, backgroundColor: '#ef444415',
+                }}>
+                  <Feather name="trash-2" size={13} color="#ef4444" />
+                  <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: '600' }}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <KeyboardAvoidingView style={{ width: SCREEN_WIDTH, flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}>
 
-        {/* Balance Summary */}
-        <View style={[s.summaryCard, { backgroundColor: colors.card, borderColor: colors.primary + '55' }]}>
-          <Text style={[s.summaryTitle, { color: colors.primary }]}>💰 Auto Balance Calculation</Text>
-          <View style={s.summaryRow}>
-            <View style={s.summaryItem}>
-              <Text style={[s.summaryNum, { color: '#3b82f6' }]}>₹{totalBilled.toLocaleString('en-IN')}</Text>
-              <Text style={s.summaryLabel}>Total Billed</Text>
+        {/* ── Global summary card ─────────────────────────────────────────── */}
+        <View style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.primary + '44', padding: 16, gap: 10 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>💰 Overall Balance</Text>
+          <View style={{ flexDirection: 'row', gap: 0 }}>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={{ fontSize: 18, fontWeight: '900', color: '#3b82f6' }}>₹{totalBilled.toLocaleString('en-IN')}</Text>
+              <Text style={{ fontSize: 10, color: colors.mutedForeground }}>Total Billed</Text>
             </View>
-            <Text style={{ color: colors.mutedForeground, fontSize: 18, marginTop: 4 }}>−</Text>
-            <View style={s.summaryItem}>
-              <Text style={[s.summaryNum, { color: '#22c55e' }]}>₹{totalReceived.toLocaleString('en-IN')}</Text>
-              <Text style={s.summaryLabel}>Received</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 20, alignSelf: 'center' }}>−</Text>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={{ fontSize: 18, fontWeight: '900', color: '#22c55e' }}>₹{totalReceived.toLocaleString('en-IN')}</Text>
+              <Text style={{ fontSize: 10, color: colors.mutedForeground }}>Received</Text>
             </View>
-            <Text style={{ color: colors.mutedForeground, fontSize: 18, marginTop: 4 }}>=</Text>
-            <View style={s.summaryItem}>
-              <Text style={[s.summaryNum, { color: totalBalance > 0 ? '#f59e0b' : '#22c55e', fontWeight: '900' }]}>
+            <Text style={{ color: colors.mutedForeground, fontSize: 20, alignSelf: 'center' }}>=</Text>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={{ fontSize: 18, fontWeight: '900', color: totalBalance > 0 ? '#f59e0b' : '#22c55e' }}>
                 ₹{totalBalance.toLocaleString('en-IN')}
               </Text>
-              <Text style={s.summaryLabel}>Balance Due</Text>
+              <Text style={{ fontSize: 10, color: colors.mutedForeground }}>Due</Text>
             </View>
           </View>
         </View>
 
-        {/* Add Payment Button */}
-        <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]} onPress={() => setShowForm(v => !v)}>
-          <Feather name={showForm ? 'x' : 'plus-circle'} size={17} color="#000" />
-          <Text style={s.addBtnText}>{showForm ? 'Form बंद करें' : 'नया Payment जोड़ें'}</Text>
+        {/* ── Add new record button ────────────────────────────────────────── */}
+        <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]}
+          onPress={() => { setShowNewForm(v => !v); setAddEntryId(null); }}>
+          <Feather name={showNewForm ? 'x' : 'plus-circle'} size={17} color="#000" />
+          <Text style={s.addBtnText}>{showNewForm ? 'Form बंद करें' : 'नया Payment Record बनाएं'}</Text>
         </TouchableOpacity>
 
-        {/* Payment Form */}
-        {showForm && (
-          <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={s.formTitle}>Payment Details</Text>
+        {/* ── New record form ──────────────────────────────────────────────── */}
+        {showNewForm && (
+          <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.primary + '44', gap: 12 }]}>
+            <Text style={[s.formTitle, { color: colors.primary }]}>📋 नया Payment Record</Text>
 
+            {/* Customer quick-chips */}
             {customers.length > 0 && (
               <View style={{ gap: 4 }}>
-                <Text style={s.fieldLabel}>Customer चुनें (quick fill)</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {customers.slice(0, 8).map(c => (
-                      <TouchableOpacity key={c.id} style={[s.quickChip, { borderColor: colors.border, backgroundColor: colors.secondary }]}
-                        onPress={() => { setCustName(c.name); setCustPhone(c.phone); }}>
-                        <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: '600' }}>{c.name}</Text>
+                <Text style={s.fieldLabel}>👤 Customer Quick Select</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row', gap: 7 }}>
+                    {customers.slice(0, 10).map(c => (
+                      <TouchableOpacity key={c.id} onPress={() => { setCustName(c.name); setCustPhone(c.phone); }}
+                        style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
+                          backgroundColor: custName === c.name ? colors.primary + '22' : colors.card,
+                          borderWidth: 1.5, borderColor: custName === c.name ? colors.primary : colors.border }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: custName === c.name ? colors.primary : colors.foreground }}>{c.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -896,90 +1208,63 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
               </View>
             )}
 
-            {[
-              { label: 'Customer नाम *', val: custName, set: setCustName, placeholder: 'नाम', kb: 'default' as const },
-              { label: 'Phone', val: custPhone, set: setCustPhone, placeholder: 'Phone number', kb: 'phone-pad' as const },
-              { label: 'Job Description', val: jobDesc, set: setJobDesc, placeholder: 'AC service, repair…', kb: 'default' as const },
-            ].map(f => (
-              <View key={f.label} style={{ gap: 4 }}>
-                <Text style={s.fieldLabel}>{f.label}</Text>
-                <TextInput style={s.input} placeholder={f.placeholder} placeholderTextColor={colors.mutedForeground}
-                  value={f.val} onChangeText={f.set} keyboardType={f.kb} />
-              </View>
-            ))}
-
-            <View style={s.row2}>
-              <View style={[{ flex: 1 }, { gap: 4 }]}>
-                <Text style={s.fieldLabel}>Amount Billed (₹) *</Text>
-                <TextInput style={s.input} placeholder="0" placeholderTextColor={colors.mutedForeground}
-                  value={billed} onChangeText={setBilled} keyboardType="numeric" />
-              </View>
-              <View style={[{ flex: 1 }, { gap: 4 }]}>
-                <Text style={s.fieldLabel}>Amount Received (₹)</Text>
-                <TextInput style={s.input} placeholder="0" placeholderTextColor={colors.mutedForeground}
-                  value={received} onChangeText={setReceived} keyboardType="numeric" />
-              </View>
+            <View style={{ gap: 4 }}>
+              <Text style={s.fieldLabel}>Customer नाम *</Text>
+              <TextInput style={s.input} placeholder="नाम लिखें" placeholderTextColor={colors.mutedForeground} value={custName} onChangeText={setCustName} />
+            </View>
+            <View style={{ gap: 4 }}>
+              <Text style={s.fieldLabel}>Phone</Text>
+              <TextInput style={s.input} placeholder="Phone number" placeholderTextColor={colors.mutedForeground} value={custPhone} onChangeText={setCustPhone} keyboardType="phone-pad" />
+            </View>
+            <View style={{ gap: 4 }}>
+              <Text style={s.fieldLabel}>Job Description</Text>
+              <TextInput style={s.input} placeholder="AC service, repair…" placeholderTextColor={colors.mutedForeground} value={jobDesc} onChangeText={setJobDesc} />
+            </View>
+            <View style={{ gap: 4 }}>
+              <Text style={s.fieldLabel}>Total Amount Billed (₹) *</Text>
+              <TextInput style={s.input} placeholder="0" placeholderTextColor={colors.mutedForeground} value={billed} onChangeText={setBilled} keyboardType="numeric" />
             </View>
 
-            {/* Live Balance Preview */}
-            {billed ? (
-              <View style={[s.balancePreview, { backgroundColor: balance > 0 ? '#f59e0b22' : '#22c55e22', borderColor: balance > 0 ? '#f59e0b' : '#22c55e' }]}>
-                <Feather name={balance > 0 ? 'alert-circle' : 'check-circle'} size={16} color={balance > 0 ? '#f59e0b' : '#22c55e'} />
-                <Text style={{ fontSize: 14, fontWeight: '800', color: balance > 0 ? '#f59e0b' : '#22c55e' }}>
-                  Balance: ₹{balance.toLocaleString('en-IN')} {balance <= 0 ? '✅ PAID' : '⏳ PENDING'}
-                </Text>
-              </View>
-            ) : null}
-
-            <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Save करें</Text>}
+            <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: savingNew ? 0.7 : 1 }]}
+              onPress={saveNewRecord} disabled={savingNew}>
+              {savingNew ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Record बनाएं →</Text>}
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Filter Tabs */}
-        <View style={s.filterRow}>
-          {(['all', 'pending', 'partial', 'paid'] as const).map(f => (
-            <TouchableOpacity key={f} style={[s.filterChip, filter === f && { backgroundColor: colors.primary }]} onPress={() => setFilter(f)}>
-              <Text style={[s.filterText, filter === f && { color: '#000' }]}>
-                {f === 'all' ? 'All' : f === 'pending' ? 'Pending' : f === 'partial' ? 'Partial' : 'Paid'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* ── Active tracking panel ────────────────────────────────────────── */}
+        {active.length > 0 && (
+          <Text style={s.sectionTitle}>⏳ Active Tracking ({active.length})</Text>
+        )}
+        {active.map(renderCard)}
 
-        {filtered.length === 0 ? (
+        {active.length === 0 && history.length === 0 && (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="credit-card" size={32} color={colors.mutedForeground} />
             <Text style={s.emptyText}>कोई payment record नहीं</Text>
+            <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: 'center', marginTop: 4 }}>
+              "नया Payment Record बनाएं" tap करें
+            </Text>
           </View>
-        ) : filtered.map(p => (
-          <View key={p.id} style={[s.payRow, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: p.status === 'paid' ? '#22c55e' : p.status === 'partial' ? '#3b82f6' : '#f59e0b' }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.payName}>{p.customerName}</Text>
-              {p.customerPhone ? <Text style={s.payMeta}>📞 {p.customerPhone}</Text> : null}
-              {p.jobDescription ? <Text style={s.payMeta}>🔧 {p.jobDescription}</Text> : null}
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
-                <Text style={{ fontSize: 12, color: '#3b82f6', fontWeight: '700' }}>Billed ₹{Number(p.amountBilled).toLocaleString('en-IN')}</Text>
-                <Text style={{ fontSize: 12, color: '#22c55e', fontWeight: '700' }}>Recd ₹{Number(p.amountReceived).toLocaleString('en-IN')}</Text>
-                <Text style={{ fontSize: 12, color: '#f59e0b', fontWeight: '700' }}>Bal ₹{(Number(p.amountBilled) - Number(p.amountReceived)).toLocaleString('en-IN')}</Text>
-              </View>
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: 6 }}>
-              <View style={[s.statusBadge, { backgroundColor: p.status === 'paid' ? '#22c55e22' : p.status === 'partial' ? '#3b82f622' : '#f59e0b22' }]}>
-                <Text style={[s.statusText, { color: p.status === 'paid' ? '#22c55e' : p.status === 'partial' ? '#3b82f6' : '#f59e0b' }]}>
-                  {p.status.toUpperCase()}
-                </Text>
-              </View>
-              {p.status !== 'paid' && (
-                <TouchableOpacity style={[s.paidBtn, { borderColor: '#22c55e' }]} onPress={() => markPaid(p.id)}>
-                  <Feather name="check" size={12} color="#22c55e" />
-                  <Text style={{ fontSize: 10, color: '#22c55e', fontWeight: '700' }}>Mark Paid</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        ))}
+        )}
+
+        {/* ── History: fully paid records ──────────────────────────────────── */}
+        {history.length > 0 && (
+          <>
+            <TouchableOpacity onPress={() => setHistoryOpen(v => !v)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: '#22c55e11', borderRadius: 12, padding: 12,
+                borderWidth: 1, borderColor: '#22c55e33' }}>
+              <Feather name="archive" size={16} color="#22c55e" />
+              <Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: '#22c55e' }}>
+                ✅ Paid History ({history.length} records)
+              </Text>
+              <Feather name={historyOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#22c55e" />
+            </TouchableOpacity>
+            {historyOpen && history.map(renderCard)}
+          </>
+        )}
+
       </ScrollView>
     </KeyboardAvoidingView>
   );

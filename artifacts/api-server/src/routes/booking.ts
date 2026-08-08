@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, asc } from "drizzle-orm";
-import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable } from "@workspace/db";
+import { eq, desc, and, asc, inArray } from "drizzle-orm";
+import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable, techPaymentEntriesTable } from "@workspace/db";
 
 // Unique code generator: prefix + 6 random uppercase alphanumeric (no confusable chars)
 function genCode(prefix: string): string {
@@ -622,7 +622,28 @@ router.get("/booking/tech-payments", async (req, res): Promise<void> => {
     const { techCode } = req.query as Record<string, string>;
     if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
     const rows = await db.select().from(techPaymentsTable).where(eq(techPaymentsTable.techCode, techCode)).orderBy(desc(techPaymentsTable.createdAt));
-    res.json(rows.map(r => ({ ...r, amountBilled: parseFloat(r.amountBilled), amountReceived: parseFloat(r.amountReceived), createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })));
+    // Fetch all entries for these payment IDs in one query
+    const ids = rows.map(r => r.id);
+    const entries = ids.length > 0
+      ? await db.select().from(techPaymentEntriesTable).where(inArray(techPaymentEntriesTable.paymentId, ids)).orderBy(desc(techPaymentEntriesTable.createdAt))
+      : [];
+    const entryMap: Record<number, typeof entries> = {};
+    for (const e of entries) {
+      if (!entryMap[e.paymentId]) entryMap[e.paymentId] = [];
+      entryMap[e.paymentId].push(e);
+    }
+    res.json(rows.map(r => ({
+      ...r,
+      amountBilled: parseFloat(r.amountBilled),
+      amountReceived: parseFloat(r.amountReceived),
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      entries: (entryMap[r.id] ?? []).map(e => ({
+        ...e,
+        amount: parseFloat(e.amount),
+        createdAt: e.createdAt.toISOString(),
+      })),
+    })));
   } catch { res.status(500).json({ error: "Failed to fetch payments" }); }
 });
 
@@ -655,6 +676,67 @@ router.delete("/booking/tech-payments/:id", async (req, res): Promise<void> => {
     await db.delete(techPaymentsTable).where(eq(techPaymentsTable.id, parseInt(req.params.id)));
     res.status(204).end();
   } catch { res.status(500).json({ error: "Failed to delete payment" }); }
+});
+
+// ── Tech Payment Entries (partial payments) ───────────────────────────────────
+
+// Helper: recalculate amountReceived + status for a payment record
+async function recalcPayment(paymentId: number) {
+  const entries = await db.select().from(techPaymentEntriesTable).where(eq(techPaymentEntriesTable.paymentId, paymentId));
+  const totalReceived = entries.reduce((s, e) => s + parseFloat(e.amount), 0);
+  const [payment] = await db.select().from(techPaymentsTable).where(eq(techPaymentsTable.id, paymentId)).limit(1);
+  if (!payment) return null;
+  const billed = parseFloat(payment.amountBilled);
+  const status = totalReceived <= 0 ? 'pending' : totalReceived >= billed ? 'paid' : 'partial';
+  const [updated] = await db.update(techPaymentsTable)
+    .set({ amountReceived: String(totalReceived), status })
+    .where(eq(techPaymentsTable.id, paymentId))
+    .returning();
+  return updated;
+}
+
+router.post("/booking/tech-payment-entries", async (req, res): Promise<void> => {
+  try {
+    const { paymentId, amount, paymentMethod, paidAt, note } = req.body;
+    if (!paymentId || !amount || !paidAt) { res.status(400).json({ error: "paymentId, amount, paidAt required" }); return; }
+    const [entry] = await db.insert(techPaymentEntriesTable).values({
+      paymentId: parseInt(paymentId),
+      amount: String(amount),
+      paymentMethod: paymentMethod ?? 'cash',
+      paidAt,
+      note: note ?? null,
+    }).returning();
+    const updatedPayment = await recalcPayment(parseInt(paymentId));
+    res.status(201).json({
+      entry: { ...entry, amount: parseFloat(entry.amount), createdAt: entry.createdAt.toISOString() },
+      payment: updatedPayment ? {
+        ...updatedPayment,
+        amountBilled: parseFloat(updatedPayment.amountBilled),
+        amountReceived: parseFloat(updatedPayment.amountReceived),
+        createdAt: updatedPayment.createdAt.toISOString(),
+        updatedAt: updatedPayment.updatedAt.toISOString(),
+      } : null,
+    });
+  } catch { res.status(500).json({ error: "Failed to add entry" }); }
+});
+
+router.delete("/booking/tech-payment-entries/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [entry] = await db.select().from(techPaymentEntriesTable).where(eq(techPaymentEntriesTable.id, id)).limit(1);
+    if (!entry) { res.status(404).json({ error: "Not found" }); return; }
+    await db.delete(techPaymentEntriesTable).where(eq(techPaymentEntriesTable.id, id));
+    const updatedPayment = await recalcPayment(entry.paymentId);
+    res.json({
+      payment: updatedPayment ? {
+        ...updatedPayment,
+        amountBilled: parseFloat(updatedPayment.amountBilled),
+        amountReceived: parseFloat(updatedPayment.amountReceived),
+        createdAt: updatedPayment.createdAt.toISOString(),
+        updatedAt: updatedPayment.updatedAt.toISOString(),
+      } : null,
+    });
+  } catch { res.status(500).json({ error: "Failed to delete entry" }); }
 });
 
 // ── Tech Form Config ──────────────────────────────────────────────

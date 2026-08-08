@@ -1,47 +1,45 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, appCustomersTable, techCustomersTable } from "@workspace/db";
+import { db, professionalsTable, techCustomersTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
 /* ── GET /public/customer-form/:techCode ──
    Called by the customer-facing form page to validate the link
-   and optionally return the technician's visiting charge.          */
+   and return the technician's visiting charge.                    */
 router.get("/public/customer-form/:techCode", async (req, res): Promise<void> => {
   const { techCode } = req.params;
   if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
 
-  const [tech] = await db
+  const [professional] = await db
     .select()
-    .from(appCustomersTable)
-    .where(eq(appCustomersTable.uniqueCode, techCode));
+    .from(professionalsTable)
+    .where(eq(professionalsTable.uniqueCode, techCode.toUpperCase()));
 
-  if (!tech) {
+  if (!professional) {
     res.status(404).json({ error: "लिंक अमान्य है। कृपया technician से नया link लें।" });
     return;
   }
 
-  // visitingAmount is not stored per app-customer yet; return null so the
-  // form still renders (the banner is hidden when visitingAmount is null).
   res.json({
-    techName: tech.name,
-    visitingAmount: null,
+    techName: professional.name,
+    visitingAmount: professional.visitingCharge ? Number(professional.visitingCharge) : null,
   });
 });
 
 /* ── POST /public/customer-form/:techCode ──
    Customer submits their details → creates a new entry in
-   the technician's customer list (tech_customers table).            */
+   the technician's customer list (tech_customers table).          */
 router.post("/public/customer-form/:techCode", async (req, res): Promise<void> => {
   const { techCode } = req.params;
   if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
 
-  const [tech] = await db
+  const [professional] = await db
     .select()
-    .from(appCustomersTable)
-    .where(eq(appCustomersTable.uniqueCode, techCode));
+    .from(professionalsTable)
+    .where(eq(professionalsTable.uniqueCode, techCode.toUpperCase()));
 
-  if (!tech) {
+  if (!professional) {
     res.status(404).json({ error: "लिंक अमान्य है। कृपया technician से नया link लें।" });
     return;
   }
@@ -62,7 +60,7 @@ router.post("/public/customer-form/:techCode", async (req, res): Promise<void> =
   const notes = extraParts.length ? extraParts.join(" | ") : null;
 
   await db.insert(techCustomersTable).values({
-    techCode,
+    techCode: techCode.toUpperCase(),
     name:    name.trim(),
     phone:   phone.trim(),
     address: address?.trim() || null,

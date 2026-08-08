@@ -5,8 +5,12 @@ export const techRemindersTable = pgTable("tech_reminders", {
   techCode: text("tech_code").notNull(),
   title: text("title").notNull(),
   note: text("note"),
-  reminderAt: text("reminder_at"), // ISO string, optional date/time
+  reminderAt: text("reminder_at"),    // "YYYY-MM-DD HH:MM"
+  ringtone: text("ringtone").default("default"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
   isDone: boolean("is_done").notNull().default(false),
+  customerName: text("customer_name"),
+  customerPhone: text("customer_phone"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

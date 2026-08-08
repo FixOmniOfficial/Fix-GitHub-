@@ -20,7 +20,7 @@ const PROF_LABELS: Record<string, string> = {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface TechCustomer { id: number; name: string; phone: string; address?: string; jobType?: string; notes?: string; status: string; rating?: string | null; createdAt: string; }
-interface TechReminder { id: number; title: string; note?: string; reminderAt?: string; isDone: boolean; createdAt: string; }
+interface TechReminder { id: number; title: string; note?: string | null; reminderAt?: string | null; ringtone?: string | null; isEnabled: boolean; isDone: boolean; customerName?: string | null; customerPhone?: string | null; createdAt: string; }
 interface TechPayment { id: number; customerName: string; customerPhone?: string; jobDescription?: string; amountBilled: number; amountReceived: number; status: string; createdAt: string; }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
@@ -285,7 +285,7 @@ export default function TechnicianHomeScreen() {
         <PaymentsTab colors={colors} techCode={techCode} payments={payments} setPayments={setPayments} customers={customers} insets={insets} />
 
         {/* ══ TAB 3: Reminders ══════════════════════════════════════════════════ */}
-        <RemindersTab colors={colors} techCode={techCode} reminders={reminders} setReminders={setReminders} insets={insets} />
+        <RemindersTab colors={colors} techCode={techCode} reminders={reminders} setReminders={setReminders} customers={customers} insets={insets} />
 
       </ScrollView>
     </View>
@@ -979,44 +979,132 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: REMINDERS
 // ═══════════════════════════════════════════════════════════════════════════════
-function RemindersTab({ colors, techCode, reminders, setReminders, insets }: {
+// ── Reminder card + action button helpers (outside component to avoid re-creation) ──
+function remCardBorder(colors: ReturnType<typeof useColors>, r: TechReminder) {
+  return {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: r.isDone ? colors.border : (r.isEnabled ? colors.primary + '44' : colors.border),
+    borderLeftWidth: 4,
+    borderLeftColor: r.isDone ? '#22c55e' : (r.isEnabled ? colors.primary : colors.mutedForeground + '66'),
+    borderRadius: 14,
+    padding: 14,
+  } as const;
+}
+function remActionBtn(colors: ReturnType<typeof useColors>, bg?: string) {
+  return {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: bg ?? colors.card,
+  } as const;
+}
+
+const RINGTONES = [
+  { id: 'default', label: '🔔 Default' },
+  { id: 'loud',    label: '📣 Loud Alarm' },
+  { id: 'melody',  label: '🎵 Melody' },
+  { id: 'classic', label: '⏰ Classic' },
+  { id: 'horn',    label: '📯 Horn' },
+  { id: 'vibrate', label: '📳 Vibrate' },
+  { id: 'silent',  label: '🔕 Silent' },
+];
+
+function RemindersTab({ colors, techCode, reminders, setReminders, customers, insets }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
   reminders: TechReminder[];
   setReminders: React.Dispatch<React.SetStateAction<TechReminder[]>>;
+  customers: TechCustomer[];
   insets: any;
 }) {
-  const [title, setTitle] = useState('');
-  const [note, setNote] = useState('');
-  const [reminderAt, setReminderAt] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-
   const s = styles(colors);
 
+  // ── Form state ─────────────────────────────────────────────────────────────
+  const [showForm,   setShowForm]   = useState(false);
+  const [editId,     setEditId]     = useState<number | null>(null);
+  const [title,      setTitle]      = useState('');
+  const [note,       setNote]       = useState('');
+  const [date,       setDate]       = useState('');   // YYYY-MM-DD
+  const [time,       setTime]       = useState('');   // HH:MM
+  const [ringtone,   setRingtone]   = useState('default');
+  const [custSearch, setCustSearch] = useState('');
+  const [selCust,    setSelCust]    = useState<TechCustomer | null>(null);
+  const [saving,     setSaving]     = useState(false);
+
+  const filteredCusts = custSearch.length > 0 && !selCust
+    ? customers.filter(c =>
+        c.name.toLowerCase().includes(custSearch.toLowerCase()) ||
+        c.phone.includes(custSearch)
+      ).slice(0, 5)
+    : [];
+
+  const resetForm = () => {
+    setTitle(''); setNote(''); setDate(''); setTime('');
+    setRingtone('default'); setCustSearch(''); setSelCust(null);
+    setEditId(null); setShowForm(false);
+  };
+
+  const openEdit = (r: TechReminder) => {
+    setEditId(r.id);
+    setTitle(r.title);
+    setNote(r.note ?? '');
+    if (r.reminderAt) {
+      const [d = '', t = ''] = r.reminderAt.split(' ');
+      setDate(d); setTime(t);
+    } else { setDate(''); setTime(''); }
+    setRingtone(r.ringtone ?? 'default');
+    if (r.customerName) {
+      const fake = { id: -1, name: r.customerName, phone: r.customerPhone ?? '', status: '', createdAt: '', rating: null };
+      setSelCust(fake); setCustSearch(r.customerName);
+    } else { setSelCust(null); setCustSearch(''); }
+    setShowForm(true);
+  };
+
   const save = async () => {
-    if (!title.trim()) { Alert.alert('', 'Reminder title जरूरी है'); return; }
+    const finalTitle = title.trim() || (selCust ? `Payment — ${selCust.name}` : '');
+    if (!finalTitle) { Alert.alert('', 'Purpose / title जरूरी है'); return; }
     setSaving(true);
+    const reminderAt = date && time ? `${date} ${time}` : (date || time || undefined);
+    const body: Record<string, any> = {
+      title: finalTitle, note: note.trim() || null,
+      reminderAt: reminderAt ?? null, ringtone,
+      customerName: selCust?.name ?? null, customerPhone: selCust?.phone ?? null,
+    };
     try {
-      const res = await api('/booking/tech-reminders', {
-        method: 'POST',
-        body: JSON.stringify({ techCode, title: title.trim(), note: note.trim() || undefined, reminderAt: reminderAt.trim() || undefined }),
-      });
-      setReminders(prev => [res, ...prev]);
-      setTitle(''); setNote(''); setReminderAt('');
-      setShowForm(false);
+      if (editId) {
+        const res = await api(`/booking/tech-reminders/${editId}`, { method: 'PATCH', body: JSON.stringify(body) });
+        setReminders(prev => prev.map(r => r.id === editId ? res : r));
+      } else {
+        const res = await api('/booking/tech-reminders', { method: 'POST', body: JSON.stringify({ techCode, ...body }) });
+        setReminders(prev => [res, ...prev]);
+      }
+      resetForm();
     } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
     setSaving(false);
   };
 
-  const toggleDone = async (id: number, isDone: boolean) => {
+  const toggleEnabled = async (r: TechReminder) => {
     try {
-      const res = await api(`/booking/tech-reminders/${id}`, { method: 'PATCH', body: JSON.stringify({ isDone: !isDone }) });
-      setReminders(prev => prev.map(r => r.id === id ? res : r));
+      const res = await api(`/booking/tech-reminders/${r.id}`, { method: 'PATCH', body: JSON.stringify({ isEnabled: !r.isEnabled }) });
+      setReminders(prev => prev.map(x => x.id === r.id ? res : x));
     } catch {}
   };
 
-  const deleteReminder = async (id: number) => {
+  const toggleDone = async (r: TechReminder) => {
+    try {
+      const res = await api(`/booking/tech-reminders/${r.id}`, { method: 'PATCH', body: JSON.stringify({ isDone: !r.isDone }) });
+      setReminders(prev => prev.map(x => x.id === r.id ? res : x));
+    } catch {}
+  };
+
+  const deleteReminder = (id: number) => {
     Alert.alert('Delete?', 'यह reminder हटाना चाहते हैं?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
@@ -1028,73 +1116,210 @@ function RemindersTab({ colors, techCode, reminders, setReminders, insets }: {
     ]);
   };
 
+  // ── Reminder card ──────────────────────────────────────────────────────────
+  const renderCard = (r: TechReminder) => (
+    <View key={r.id} style={[remCardBorder(colors, r), { opacity: r.isDone ? 0.6 : 1 }]}>
+      {/* Top row */}
+      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+        <View style={{ flex: 1, gap: 3 }}>
+          {(r.customerName || r.customerPhone) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {r.customerName && (
+                <View style={{ backgroundColor: colors.primary + '20', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>👤 {r.customerName}</Text>
+                </View>
+              )}
+              {r.customerPhone && (
+                <Text style={{ fontSize: 11, color: colors.mutedForeground }}>📞 {r.customerPhone}</Text>
+              )}
+            </View>
+          )}
+          <Text style={{
+            fontSize: 15, fontWeight: '700',
+            color: r.isDone ? colors.mutedForeground : colors.foreground,
+            textDecorationLine: r.isDone ? 'line-through' : 'none',
+          }}>{r.title}</Text>
+          {r.note ? <Text style={{ fontSize: 12, color: colors.mutedForeground, lineHeight: 17 }} numberOfLines={2}>{r.note}</Text> : null}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>
+            {r.reminderAt ? <Text style={{ fontSize: 11, color: '#f59e0b', fontWeight: '700' }}>📅 {r.reminderAt}</Text> : null}
+            {r.ringtone && r.ringtone !== 'silent' ? (
+              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                {RINGTONES.find(x => x.id === r.ringtone)?.label ?? '🔔 ' + r.ringtone}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        {/* ON/OFF toggle */}
+        <TouchableOpacity onPress={() => toggleEnabled(r)} style={{ alignItems: 'center', gap: 3, paddingTop: 2 }}>
+          <View style={{
+            width: 48, height: 27, borderRadius: 14,
+            backgroundColor: r.isEnabled && !r.isDone ? colors.primary : colors.border,
+            justifyContent: 'center', paddingHorizontal: 3,
+          }}>
+            <View style={{
+              width: 21, height: 21, borderRadius: 11, backgroundColor: '#fff',
+              alignSelf: r.isEnabled && !r.isDone ? 'flex-end' : 'flex-start',
+              shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 3, elevation: 3,
+            }} />
+          </View>
+          <Text style={{ fontSize: 9, fontWeight: '700', color: r.isEnabled && !r.isDone ? colors.primary : colors.mutedForeground }}>
+            {r.isEnabled && !r.isDone ? 'ON' : 'OFF'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Action row */}
+      <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+        <TouchableOpacity onPress={() => openEdit(r)} style={[remActionBtn(colors, colors.primary + '15'), { flex: 1 }]}>
+          <Feather name="edit-2" size={12} color={colors.primary} />
+          <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => toggleDone(r)} style={[remActionBtn(colors, r.isDone ? colors.card : '#22c55e15'), { flex: 1 }]}>
+          <Feather name={r.isDone ? 'refresh-ccw' : 'check-circle'} size={12} color={r.isDone ? colors.mutedForeground : '#22c55e'} />
+          <Text style={{ fontSize: 11, fontWeight: '700', color: r.isDone ? colors.mutedForeground : '#22c55e' }}>
+            {r.isDone ? 'Reopen' : 'Done ✓'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => deleteReminder(r.id)} style={remActionBtn(colors, '#ef444415')}>
+          <Feather name="trash-2" size={13} color="#ef4444" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const pending   = reminders.filter(r => !r.isDone);
   const completed = reminders.filter(r =>  r.isDone);
+
+  // Web date/time input style
+  const webInputStyle = {
+    background: '#1e1e1e', color: colors.foreground,
+    border: `1.5px solid ${colors.border}`, borderRadius: 10,
+    padding: '10px 12px', fontSize: 14, width: '100%', outline: 'none',
+    boxSizing: 'border-box',
+  } as any;
 
   return (
     <KeyboardAvoidingView style={{ width: SCREEN_WIDTH, flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}>
 
-        <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]} onPress={() => setShowForm(v => !v)}>
+        {/* ── Add / Cancel button ─────────────────────────────────────────── */}
+        <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]}
+          onPress={() => showForm ? resetForm() : setShowForm(true)}>
           <Feather name={showForm ? 'x' : 'bell-plus' as any} size={17} color="#000" />
           <Text style={s.addBtnText}>{showForm ? 'Form बंद करें' : 'नया Reminder जोड़ें'}</Text>
         </TouchableOpacity>
 
+        {/* ── Form ───────────────────────────────────────────────────────── */}
         {showForm && (
-          <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={s.formTitle}>Reminder</Text>
-            <View style={{ gap: 4 }}>
-              <Text style={s.fieldLabel}>Title *</Text>
-              <TextInput style={s.input} placeholder="Reminder का नाम" placeholderTextColor={colors.mutedForeground} value={title} onChangeText={setTitle} />
+          <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.primary + '55', gap: 14 }]}>
+            <Text style={[s.formTitle, { color: colors.primary, fontSize: 16 }]}>
+              {editId ? '✏️ Reminder Edit करें' : '🔔 नया Reminder'}
+            </Text>
+
+            {/* Customer search */}
+            <View style={{ gap: 6 }}>
+              <Text style={s.fieldLabel}>👤 Customer (optional)</Text>
+              <TextInput style={s.input} placeholder="नाम या phone से ढूंढें…"
+                placeholderTextColor={colors.mutedForeground}
+                value={custSearch}
+                onChangeText={t => { setCustSearch(t); if (!t) setSelCust(null); }} />
+              {selCust && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '18', borderRadius: 9, padding: 9, gap: 8 }}>
+                  <Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: colors.primary }}>
+                    ✅ {selCust.name}  📞 {selCust.phone}
+                  </Text>
+                  <TouchableOpacity onPress={() => { setSelCust(null); setCustSearch(''); }}>
+                    <Feather name="x" size={14} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {filteredCusts.length > 0 && (
+                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, overflow: 'hidden' }}>
+                  {filteredCusts.map(c => (
+                    <TouchableOpacity key={c.id} onPress={() => { setSelCust(c); setCustSearch(c.name); }}
+                      style={{ padding: 11, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.foreground }}>{c.name}</Text>
+                      <Text style={{ fontSize: 12, color: colors.mutedForeground }}>📞 {c.phone}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
+
+            {/* Purpose / Title */}
             <View style={{ gap: 4 }}>
-              <Text style={s.fieldLabel}>Note (optional)</Text>
-              <TextInput style={[s.input, { height: 68, textAlignVertical: 'top' }]} placeholder="Extra details…" placeholderTextColor={colors.mutedForeground} value={note} onChangeText={setNote} multiline />
+              <Text style={s.fieldLabel}>📌 Purpose / Title</Text>
+              <TextInput style={s.input} placeholder="e.g. Payment लेना, AC service check…"
+                placeholderTextColor={colors.mutedForeground} value={title} onChangeText={setTitle} />
             </View>
+
+            {/* Date + Time */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={s.fieldLabel}>📅 Date</Text>
+                {Platform.OS === 'web'
+                  ? <input type="date" value={date} onChange={(e: any) => setDate(e.target.value)} style={webInputStyle} />
+                  : <TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor={colors.mutedForeground}
+                      value={date} onChangeText={setDate} keyboardType="numbers-and-punctuation" />}
+              </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={s.fieldLabel}>⏰ Time</Text>
+                {Platform.OS === 'web'
+                  ? <input type="time" value={time} onChange={(e: any) => setTime(e.target.value)} style={webInputStyle} />
+                  : <TextInput style={s.input} placeholder="HH:MM" placeholderTextColor={colors.mutedForeground}
+                      value={time} onChangeText={setTime} keyboardType="numbers-and-punctuation" />}
+              </View>
+            </View>
+
+            {/* Ringtone chips */}
+            <View style={{ gap: 6 }}>
+              <Text style={s.fieldLabel}>🎵 Ringtone / Alarm Type</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7 }}>
+                {RINGTONES.map(rt => {
+                  const active = ringtone === rt.id;
+                  return (
+                    <TouchableOpacity key={rt.id} onPress={() => setRingtone(rt.id)} style={{
+                      paddingHorizontal: 13, paddingVertical: 9, borderRadius: 22, borderWidth: 1.5,
+                      borderColor: active ? colors.primary : colors.border,
+                      backgroundColor: active ? colors.primary + '22' : colors.card,
+                    }}>
+                      <Text style={{ fontSize: 12, fontWeight: active ? '700' : '400',
+                        color: active ? colors.primary : colors.mutedForeground }}>{rt.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Note */}
             <View style={{ gap: 4 }}>
-              <Text style={s.fieldLabel}>Date / Time (optional)</Text>
-              <TextInput style={s.input} placeholder="e.g. 10 Aug 2:00 PM" placeholderTextColor={colors.mutedForeground} value={reminderAt} onChangeText={setReminderAt} />
+              <Text style={s.fieldLabel}>📝 Note (optional)</Text>
+              <TextInput style={[s.input, { height: 76, textAlignVertical: 'top' }]}
+                placeholder="Amount, reason, extra details…"
+                placeholderTextColor={colors.mutedForeground}
+                value={note} onChangeText={setNote} multiline />
             </View>
-            <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Save करें</Text>}
+
+            <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]}
+              onPress={save} disabled={saving}>
+              {saving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>{editId ? '✅ Update करें' : '💾 Save करें'}</Text>}
             </TouchableOpacity>
           </View>
         )}
 
-        {pending.length > 0 && <Text style={s.sectionTitle}>🔔 Pending ({pending.length})</Text>}
-        {pending.map(r => (
-          <View key={r.id} style={[s.reminderRow, { backgroundColor: colors.card, borderColor: '#f59e0b55', borderLeftColor: '#f59e0b', borderLeftWidth: 4 }]}>
-            <TouchableOpacity style={s.reminderCheck} onPress={() => toggleDone(r.id, r.isDone)}>
-              <Feather name="circle" size={22} color="#f59e0b" />
-            </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <Text style={s.reminderTitle}>{r.title}</Text>
-              {r.note ? <Text style={s.reminderNote}>{r.note}</Text> : null}
-              {r.reminderAt ? <Text style={[s.reminderDate, { color: colors.primary }]}>📅 {r.reminderAt}</Text> : null}
-            </View>
-            <TouchableOpacity onPress={() => deleteReminder(r.id)} style={{ padding: 4 }}>
-              <Feather name="trash-2" size={15} color="#ef4444" />
-            </TouchableOpacity>
-          </View>
-        ))}
+        {/* ── Pending ─────────────────────────────────────────────────────── */}
+        {pending.length > 0 && (
+          <Text style={s.sectionTitle}>🔔 Active Reminders ({pending.length})</Text>
+        )}
+        {pending.map(renderCard)}
 
+        {/* ── Completed ───────────────────────────────────────────────────── */}
         {completed.length > 0 && (
           <>
-            <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>✅ Done ({completed.length})</Text>
-            {completed.map(r => (
-              <View key={r.id} style={[s.reminderRow, { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.5 }]}>
-                <TouchableOpacity style={s.reminderCheck} onPress={() => toggleDone(r.id, r.isDone)}>
-                  <Feather name="check-circle" size={22} color="#22c55e" />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.reminderTitle, { textDecorationLine: 'line-through', color: colors.mutedForeground }]}>{r.title}</Text>
-                </View>
-                <TouchableOpacity onPress={() => deleteReminder(r.id)} style={{ padding: 4 }}>
-                  <Feather name="trash-2" size={15} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
-            ))}
+            <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>✅ Completed ({completed.length})</Text>
+            {completed.map(renderCard)}
           </>
         )}
 
@@ -1102,6 +1327,9 @@ function RemindersTab({ colors, techCode, reminders, setReminders, insets }: {
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="bell-off" size={32} color={colors.mutedForeground} />
             <Text style={s.emptyText}>कोई reminder नहीं</Text>
+            <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: 'center', marginTop: 4 }}>
+              "नया Reminder जोड़ें" tap करें
+            </Text>
           </View>
         )}
       </ScrollView>

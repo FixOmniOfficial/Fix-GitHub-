@@ -31,6 +31,7 @@ const api = async (path: string, opts?: RequestInit) => {
     headers: { 'Content-Type': 'application/json', ...((opts?.headers as Record<string,string>) ?? {}) },
     ...opts,
   });
+  if (r.status === 204) return null;          // No Content — DELETE responses
   const data = await r.json();
   if (!r.ok) throw new Error(data?.error ?? `HTTP ${r.status}`);
   return data;

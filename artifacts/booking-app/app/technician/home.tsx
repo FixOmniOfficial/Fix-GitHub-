@@ -939,24 +939,6 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
     setSavingEntry(false);
   };
 
-  // ── Delete a partial entry ─────────────────────────────────────────────────
-  const deleteEntry = async (entry: PaymentEntry) => {
-    const ok = await confirmDelete(`₹${entry.amount} की payment entry delete करना चाहते हैं?`);
-    if (!ok) return;
-    try {
-      const res = await api(`/booking/tech-payment-entries/${entry.id}`, { method: 'DELETE' });
-      setPayments(prev => prev.map(p => {
-        if (p.id !== entry.paymentId) return p;
-        return {
-          ...p,
-          amountReceived: res.payment?.amountReceived ?? p.amountReceived,
-          status: res.payment?.status ?? p.status,
-          entries: p.entries.filter(e => e.id !== entry.id),
-        };
-      }));
-    } catch { Alert.alert('Error', 'Entry delete नहीं हो सकी'); }
-  };
-
   // ── Delete entire payment record ───────────────────────────────────────────
   const deleteRecord = async (p: TechPayment) => {
     const ok = await confirmDelete(`${p.customerName} का पूरा payment record permanently delete करना चाहते हैं?`);
@@ -1074,9 +1056,6 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
                       </Text>
                       {e.note ? <Text style={{ fontSize: 11, color: colors.mutedForeground }} numberOfLines={1}>{e.note}</Text> : null}
                     </View>
-                    <TouchableOpacity onPress={() => deleteEntry(e)} style={{ padding: 4 }}>
-                      <Feather name="trash-2" size={13} color="#ef4444" />
-                    </TouchableOpacity>
                   </View>
                 ))}
               </View>
@@ -1194,32 +1173,28 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
             )}
 
             {/* Card footer actions */}
-            {!addingHere && p.status !== 'paid' && (
+            {!addingHere && (
               <View style={{ flexDirection: 'row', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
-                <TouchableOpacity onPress={() => openAddEntry(p.id)} style={{
-                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                  gap: 6, padding: 10, borderRadius: 10, backgroundColor: colors.primary + '18',
-                  borderWidth: 1, borderColor: colors.primary,
-                }}>
-                  <Feather name="plus-circle" size={14} color={colors.primary} />
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Add Payment</Text>
-                </TouchableOpacity>
+                {p.status !== 'paid' && (
+                  <TouchableOpacity onPress={() => openAddEntry(p.id)} style={{
+                    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                    gap: 6, padding: 10, borderRadius: 10, backgroundColor: colors.primary + '18',
+                    borderWidth: 1, borderColor: colors.primary,
+                  }}>
+                    <Feather name="plus-circle" size={14} color={colors.primary} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Add Payment</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity onPress={() => deleteRecord(p)} style={{
-                  padding: 10, borderRadius: 10, backgroundColor: '#ef444415',
-                  borderWidth: 1, borderColor: '#ef444433',
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10,
+                  backgroundColor: '#ef444415', borderWidth: 1, borderColor: '#ef444444',
+                  ...(p.status === 'paid' ? { flex: 1 } : {}),
                 }}>
-                  <Feather name="trash-2" size={15} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {!addingHere && p.status === 'paid' && (
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
-                <TouchableOpacity onPress={() => deleteRecord(p)} style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 4,
-                  padding: 8, borderRadius: 8, backgroundColor: '#ef444415',
-                }}>
-                  <Feather name="trash-2" size={13} color="#ef4444" />
-                  <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: '600' }}>Delete</Text>
+                  <Feather name="trash-2" size={14} color="#ef4444" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#ef4444' }}>
+                    {p.status === 'paid' ? 'Delete History' : 'Delete Record'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}

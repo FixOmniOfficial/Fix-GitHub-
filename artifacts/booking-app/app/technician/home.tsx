@@ -5,7 +5,6 @@ import {
   Dimensions, NativeScrollEvent, NativeSyntheticEvent,
   KeyboardAvoidingView, Linking, Share, Modal,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -378,11 +377,11 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
   const [inlAmt,   setInlAmt]   = useState('');
   const [inlJob,   setInlJob]   = useState('');
   // Reminder form
-  const [inlTitle,    setInlTitle]    = useState('');
-  const [inlNotes,    setInlNotes]    = useState('');
-  const [inlDateTime, setInlDateTime] = useState<Date>(new Date());
-  const [inlPickerMode, setInlPickerMode] = useState<'date' | 'time' | null>(null);
-  const [inlSaving, setInlSaving] = useState(false);
+  const [inlTitle,   setInlTitle]   = useState('');
+  const [inlNotes,   setInlNotes]   = useState('');
+  const [inlDateStr, setInlDateStr] = useState('');   // "YYYY-MM-DD"
+  const [inlTimeStr, setInlTimeStr] = useState('');   // "HH:MM"
+  const [inlSaving,  setInlSaving]  = useState(false);
 
   const s = styles(colors);
 
@@ -474,9 +473,9 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
   const saveInlineReminder = async () => {
     const finalTitle = inlTitle.trim() || `Reminder — ${detail!.name}`;
     setInlSaving(true);
-    // Format date as "YYYY-MM-DD HH:MM"
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const reminderAt = `${inlDateTime.getFullYear()}-${pad(inlDateTime.getMonth()+1)}-${pad(inlDateTime.getDate())} ${pad(inlDateTime.getHours())}:${pad(inlDateTime.getMinutes())}`;
+    const reminderAt = inlDateStr && inlTimeStr
+      ? `${inlDateStr.trim()} ${inlTimeStr.trim()}`
+      : (inlDateStr.trim() || inlTimeStr.trim() || null);
     try {
       await api('/booking/tech-reminders', {
         method: 'POST',
@@ -487,7 +486,7 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
           customerName: detail!.name, customerPhone: detail!.phone,
         }),
       });
-      setInlTitle(''); setInlNotes(''); setInlDateTime(new Date()); setInlPickerMode(null); setInlineAction(null);
+      setInlTitle(''); setInlNotes(''); setInlDateStr(''); setInlTimeStr(''); setInlineAction(null);
       Alert.alert('✅', 'Reminder set हो गया!');
     } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
     setInlSaving(false);
@@ -696,7 +695,19 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
 
                   {/* 🔔 Reminder — toggles inline form, stays in modal */}
                   <TouchableOpacity
-                    onPress={() => { setEditTarget(null); setInlineAction(inlineAction === 'reminder' ? null : 'reminder'); setInlTitle(''); setInlNotes(''); setInlDateTime(new Date()); setInlPickerMode(null); }}
+                    onPress={() => {
+                      setEditTarget(null);
+                      const isOpening = inlineAction !== 'reminder';
+                      setInlineAction(isOpening ? 'reminder' : null);
+                      if (isOpening) {
+                        const now = new Date();
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        setInlTitle('');
+                        setInlNotes('');
+                        setInlDateStr(`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`);
+                        setInlTimeStr(`${pad(now.getHours())}:${pad(now.getMinutes())}`);
+                      }
+                    }}
                     activeOpacity={0.7}
                     hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
                     style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
@@ -767,7 +778,7 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                   {/* Header */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Text style={[s.detailLabel, { color: '#f59e0b' }]}>🔔 REMINDER SET करें</Text>
-                    <TouchableOpacity onPress={() => { setInlineAction(null); setInlPickerMode(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <TouchableOpacity onPress={() => setInlineAction(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Feather name="x" size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
@@ -795,47 +806,33 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                     style={s.input}
                   />
 
-                  {/* Date + Time pickers */}
+                  {/* Date + Time — directly editable, pre-filled with current values */}
                   <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {/* Date button */}
-                    <TouchableOpacity
-                      onPress={() => setInlPickerMode(inlPickerMode === 'date' ? null : 'date')}
-                      activeOpacity={0.8}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: inlPickerMode === 'date' ? '#f59e0b22' : colors.card, borderWidth: 1.5, borderColor: inlPickerMode === 'date' ? '#f59e0b' : colors.border, borderRadius: 10, padding: 12 }}
-                    >
-                      <Feather name="calendar" size={16} color="#f59e0b" />
-                      <Text style={{ fontSize: 13, color: colors.foreground, fontWeight: '600' }}>
-                        {`${inlDateTime.getFullYear()}-${String(inlDateTime.getMonth()+1).padStart(2,'0')}-${String(inlDateTime.getDate()).padStart(2,'0')}`}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Time button */}
-                    <TouchableOpacity
-                      onPress={() => setInlPickerMode(inlPickerMode === 'time' ? null : 'time')}
-                      activeOpacity={0.8}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: inlPickerMode === 'time' ? '#f59e0b22' : colors.card, borderWidth: 1.5, borderColor: inlPickerMode === 'time' ? '#f59e0b' : colors.border, borderRadius: 10, padding: 12 }}
-                    >
-                      <Feather name="clock" size={16} color="#f59e0b" />
-                      <Text style={{ fontSize: 13, color: colors.foreground, fontWeight: '600' }}>
-                        {`${String(inlDateTime.getHours()).padStart(2,'0')}:${String(inlDateTime.getMinutes()).padStart(2,'0')}`}
-                      </Text>
-                    </TouchableOpacity>
+                    {/* Date */}
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 2 }}>
+                      <Feather name="calendar" size={15} color="#f59e0b" />
+                      <TextInput
+                        value={inlDateStr}
+                        onChangeText={setInlDateStr}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={colors.mutedForeground}
+                        keyboardType="numbers-and-punctuation"
+                        style={{ flex: 1, fontSize: 13, color: colors.foreground, fontWeight: '600', paddingVertical: 10 }}
+                      />
+                    </View>
+                    {/* Time */}
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 2 }}>
+                      <Feather name="clock" size={15} color="#f59e0b" />
+                      <TextInput
+                        value={inlTimeStr}
+                        onChangeText={setInlTimeStr}
+                        placeholder="HH:MM"
+                        placeholderTextColor={colors.mutedForeground}
+                        keyboardType="numbers-and-punctuation"
+                        style={{ flex: 1, fontSize: 13, color: colors.foreground, fontWeight: '600', paddingVertical: 10 }}
+                      />
+                    </View>
                   </View>
-
-                  {/* Native DateTimePicker — Android shows as dialog; iOS inline */}
-                  {inlPickerMode !== null && (
-                    <DateTimePicker
-                      value={inlDateTime}
-                      mode={inlPickerMode}
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(_e, picked) => {
-                        if (picked) setInlDateTime(picked);
-                        if (Platform.OS === 'android') setInlPickerMode(null);
-                      }}
-                      minimumDate={new Date()}
-                      style={{ alignSelf: 'stretch' }}
-                    />
-                  )}
 
                   {/* Notes */}
                   <TextInput

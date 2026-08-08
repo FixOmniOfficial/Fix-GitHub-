@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
-import { getBaseUrl } from '@workspace/api-client-react';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 interface TechInfo {
   id: number;
@@ -55,7 +55,7 @@ export default function TechFormScreen() {
 
   useEffect(() => {
     if (!techCode) return;
-    fetch(`${getBaseUrl()}/api/booking/tech-form-config/${techCode}`)
+    fetch(`${API_BASE}/api/booking/tech-form-config/${techCode}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) { setError('Technician नहीं मिला'); return; }
@@ -73,7 +73,7 @@ export default function TechFormScreen() {
     if (!fullAddress.trim()) { Alert.alert('', 'पता डालें'); return; }
     setSubmitting(true);
     try {
-      const res = await fetch(`${getBaseUrl()}/api/booking/tech-form-submit/${techCode}`, {
+      const res = await fetch(`${API_BASE}/api/booking/tech-form-submit/${techCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerName, phone, fullAddress, sector, floorNumber, houseNumber, location, visitingCharge: parseFloat(visitingCharge) || 0, notes }),

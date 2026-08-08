@@ -9,7 +9,8 @@ import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
 import { useListBookings } from '@workspace/api-client-react';
-import { getBaseUrl } from '@workspace/api-client-react';
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 const PROF_LABELS: Record<string, string> = {
   ac_technician: 'AC Technician', electrician: 'Electrician',
@@ -35,7 +36,7 @@ export default function TechnicianDashboardScreen() {
   const fetchPending = useCallback(async () => {
     if (!techCode) return;
     try {
-      const res = await fetch(`${getBaseUrl()}/api/booking/tech-form-submissions?techCode=${techCode}`);
+      const res = await fetch(`${API_BASE}/api/booking/tech-form-submissions?techCode=${techCode}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setPendingCount(data.filter((s: any) => s.status === 'pending').length);

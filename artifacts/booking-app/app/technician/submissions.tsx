@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, TextInput, ActivityIndicator, Alert, RefreshControl,
@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
-import { getBaseUrl } from '@workspace/api-client-react';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 interface Submission {
   id: number;
@@ -111,7 +111,7 @@ export default function SubmissionsScreen() {
     if (!techCode) return;
     setLoading(true);
     try {
-      const url = `${getBaseUrl()}/api/booking/tech-form-submissions?techCode=${techCode}${phone ? `&phone=${phone}` : ''}`;
+      const url = `${API_BASE}/api/booking/tech-form-submissions?techCode=${techCode}${phone ? `&phone=${phone}` : ''}`;
       const res = await fetch(url);
       const data = await res.json();
       setSubmissions(Array.isArray(data) ? data : []);
@@ -144,7 +144,7 @@ export default function SubmissionsScreen() {
       {
         text: 'हाँ, Done है', onPress: async () => {
           try {
-            await fetch(`${getBaseUrl()}/api/booking/tech-form-submissions/${id}`, {
+            await fetch(`${API_BASE}/api/booking/tech-form-submissions/${id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ status: 'completed' }),

@@ -10,8 +10,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
-import { getBaseUrl } from '@workspace/api-client-react';
-
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const PROF_LABELS: Record<string, string> = {
@@ -26,8 +24,10 @@ interface TechPayment { id: number; customerName: string; customerPhone?: string
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 const api = async (path: string, opts?: RequestInit) => {
-  const r = await fetch(`${getBaseUrl()}/api${path}`, {
-    headers: { 'Content-Type': 'application/json' }, ...opts,
+  const base = process.env.EXPO_PUBLIC_API_URL ?? '';
+  const r = await fetch(`${base}/api${path}`, {
+    headers: { 'Content-Type': 'application/json', ...((opts?.headers as Record<string,string>) ?? {}) },
+    ...opts,
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data?.error ?? `HTTP ${r.status}`);

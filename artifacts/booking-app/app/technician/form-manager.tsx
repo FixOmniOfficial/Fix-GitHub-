@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
-import { getBaseUrl } from '@workspace/api-client-react';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 export default function FormManagerScreen() {
   const colors = useColors();
@@ -28,12 +28,12 @@ export default function FormManagerScreen() {
   // Service-center (customer-facing) is hosted at root path of EXPO_PUBLIC_DOMAIN
   const serviceCenterBase = process.env.EXPO_PUBLIC_DOMAIN
     ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-    : getBaseUrl().replace('/api', '');
+    : API_BASE;
   const formUrl = `${serviceCenterBase}/customer-form/${techCode}`;
 
   useEffect(() => {
     if (!techCode) return;
-    fetch(`${getBaseUrl()}/api/booking/tech-form-config/${techCode}`)
+    fetch(`${API_BASE}/api/booking/tech-form-config/${techCode}`)
       .then(r => r.json())
       .then(data => {
         if (data.config) {
@@ -49,7 +49,7 @@ export default function FormManagerScreen() {
     setSaving(true);
     setSaved(false);
     try {
-      const res = await fetch(`${getBaseUrl()}/api/booking/tech-form-config`, {
+      const res = await fetch(`${API_BASE}/api/booking/tech-form-config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ techCode, defaultVisitingCharge: parseFloat(defaultVisitingCharge) || 0, customMessage }),

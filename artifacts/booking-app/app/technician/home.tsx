@@ -479,70 +479,87 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
 
   // ── Customer row ──────────────────────────────────────────────────────────
   const renderRow = (c: TechCustomer) => (
-    <TouchableOpacity
+    // Outer container is a plain View — no outer TouchableOpacity means
+    // icon taps can NEVER bubble up and accidentally open the detail modal.
+    <View
       key={c.id}
-      activeOpacity={0.75}
-      onPress={() => setDetail(c)}
       style={[s.customerRow, {
         backgroundColor: colors.card,
         borderColor: colors.border,
         borderLeftColor: c.status !== 'completed' ? colors.primary : '#22c55e',
         borderLeftWidth: 3,
+        flexDirection: 'row',
+        alignItems: 'center',
       }]}
     >
-      {/* Avatar + rating badge */}
-      <View style={{ alignItems: 'center', gap: 4 }}>
-        <View style={[s.customerAvatar, { backgroundColor: colors.primary + '22' }]}>
-          <Text style={{ fontSize: 20 }}>👤</Text>
+      {/* ── Left tappable zone: avatar + info → opens detail ── */}
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={() => setDetail(c)}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+      >
+        {/* Avatar + rating badge */}
+        <View style={{ alignItems: 'center', gap: 4 }}>
+          <View style={[s.customerAvatar, { backgroundColor: colors.primary + '22' }]}>
+            <Text style={{ fontSize: 20 }}>👤</Text>
+          </View>
+          {/* Rating tap stops here — separate Pressable inside left zone */}
+          <TouchableOpacity
+            onPress={() => cycleRating(c)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            // Prevent this inner tap from reaching the outer left-zone TouchableOpacity
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={{ fontSize: 16 }}>{ratingEmoji(c.rating)}</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={(e) => { e.stopPropagation?.(); cycleRating(c); }}
-          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-        >
-          <Text style={{ fontSize: 16 }}>{ratingEmoji(c.rating)}</Text>
-        </TouchableOpacity>
-      </View>
 
-      {/* Info */}
-      <View style={{ flex: 1, gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <Text style={s.customerName}>{c.name}</Text>
-          {c.status !== 'completed' && (
-            <View style={s.newBadge}><Text style={s.newBadgeText}>NEW</Text></View>
-          )}
+        {/* Info */}
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Text style={s.customerName}>{c.name}</Text>
+            {c.status !== 'completed' && (
+              <View style={s.newBadge}><Text style={s.newBadgeText}>NEW</Text></View>
+            )}
+          </View>
+          <Text style={s.customerPhone}>📞 {c.phone}</Text>
+          {c.jobType ? <Text style={s.customerMeta}>🔧 {c.jobType}</Text> : null}
+          {c.address ? <Text style={s.customerMeta} numberOfLines={1}>📍 {c.address}</Text> : null}
         </View>
-        <Text style={s.customerPhone}>📞 {c.phone}</Text>
-        {c.jobType ? <Text style={s.customerMeta}>🔧 {c.jobType}</Text> : null}
-        {c.address ? <Text style={s.customerMeta} numberOfLines={1}>📍 {c.address}</Text> : null}
-      </View>
+      </TouchableOpacity>
 
-      {/* Right action icons */}
-      <View style={{ gap: 6, alignItems: 'center' }}>
+      {/* ── Right icon zone: completely separate from left zone ── */}
+      {/* These are siblings (not children) of the detail-opening TouchableOpacity,
+          so their taps NEVER propagate to open the detail modal. */}
+      <View style={{ gap: 6, alignItems: 'center', paddingLeft: 8 }}>
         {/* WhatsApp */}
         <TouchableOpacity
-          onPress={(e) => { e.stopPropagation?.(); openWhatsApp(c.phone); }}
+          onPress={() => openWhatsApp(c.phone)}
           style={[s.rowIconBtn, { backgroundColor: '#25D36622' }]}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <FontAwesome5 name="whatsapp" size={16} color="#25D366" />
         </TouchableOpacity>
 
         {/* Call */}
         <TouchableOpacity
-          onPress={(e) => { e.stopPropagation?.(); openDialer(c.phone); }}
+          onPress={() => openDialer(c.phone)}
           style={[s.rowIconBtn, { backgroundColor: '#3b82f618' }]}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <Feather name="phone" size={14} color="#3b82f6" />
         </TouchableOpacity>
 
         {/* Form Send */}
         <TouchableOpacity
-          onPress={(e) => { e.stopPropagation?.(); shareForm(c); }}
+          onPress={() => shareForm(c)}
           style={[s.rowIconBtn, { backgroundColor: '#f59e0b18' }]}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <Feather name="send" size={13} color="#f59e0b" />
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   return (

@@ -179,7 +179,7 @@ export default function CustomerFormPage() {
           <div className="w-14 h-14 rounded-2xl bg-amber-500 flex items-center justify-center mx-auto shadow-md">
             <Wrench className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Service Center</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Service Booking Form</h1>
           <p className="text-sm text-muted-foreground">Please fill in your details and submit</p>
         </div>
 

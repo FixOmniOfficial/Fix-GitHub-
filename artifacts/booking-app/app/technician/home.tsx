@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, TextInput, Alert, ActivityIndicator,
   Dimensions, NativeScrollEvent, NativeSyntheticEvent,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView, Linking, Share, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +18,7 @@ const PROF_LABELS: Record<string, string> = {
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface TechCustomer { id: number; name: string; phone: string; address?: string; jobType?: string; notes?: string; createdAt: string; }
+interface TechCustomer { id: number; name: string; phone: string; address?: string; jobType?: string; notes?: string; status: string; createdAt: string; }
 interface TechReminder { id: number; title: string; note?: string; reminderAt?: string; isDone: boolean; createdAt: string; }
 interface TechPayment { id: number; customerName: string; customerPhone?: string; jobDescription?: string; amountBilled: number; amountReceived: number; status: string; createdAt: string; }
 
@@ -60,6 +60,10 @@ export default function TechnicianHomeScreen() {
   const [loadingData, setLoadingData] = useState(true);
 
   const techCode = user?.uniqueCode ?? '';
+  const serviceCenterBase = process.env.EXPO_PUBLIC_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+    : (process.env.EXPO_PUBLIC_API_URL ?? '');
+  const formUrl = `${serviceCenterBase}/customer-form/${techCode}`;
 
   // ── Load all data ────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
@@ -116,6 +120,7 @@ export default function TechnicianHomeScreen() {
   const totalReceived = payments.reduce((s, p) => s + Number(p.amountReceived), 0);
   const totalBalance  = totalBilled - totalReceived;
   const pendingReminders = reminders.filter(r => !r.isDone).length;
+  const newCustomers = customers.filter(c => c.status !== 'completed').length;
 
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
@@ -142,6 +147,9 @@ export default function TechnicianHomeScreen() {
             <Text style={[s.tabLabel, { color: activeTab === i ? colors.primary : colors.mutedForeground }]}>{tab.label}</Text>
             {tab.key === 'reminders' && pendingReminders > 0 && (
               <View style={s.tabBadge}><Text style={s.tabBadgeText}>{pendingReminders}</Text></View>
+            )}
+            {tab.key === 'customers' && newCustomers > 0 && (
+              <View style={[s.tabBadge, { backgroundColor: '#22c55e' }]}><Text style={s.tabBadgeText}>{newCustomers}</Text></View>
             )}
           </TouchableOpacity>
         ))}
@@ -270,7 +278,7 @@ export default function TechnicianHomeScreen() {
         </ScrollView>
 
         {/* ══ TAB 1: Customers ══════════════════════════════════════════════════ */}
-        <CustomerTab colors={colors} techCode={techCode} customers={customers} setCustomers={setCustomers} insets={insets} />
+        <CustomerTab colors={colors} techCode={techCode} customers={customers} setCustomers={setCustomers} insets={insets} formUrl={formUrl} />
 
         {/* ══ TAB 2: Payments ══════════════════════════════════════════════════ */}
         <PaymentsTab colors={colors} techCode={techCode} payments={payments} setPayments={setPayments} customers={customers} insets={insets} />
@@ -286,14 +294,14 @@ export default function TechnicianHomeScreen() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: CUSTOMERS
 // ═══════════════════════════════════════════════════════════════════════════════
-function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
+function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUrl }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
   customers: TechCustomer[];
   setCustomers: React.Dispatch<React.SetStateAction<TechCustomer[]>>;
   insets: any;
+  formUrl: string;
 }) {
-  // ── Add form state ────────────────────────────────────────────────────────
   const [name, setName]       = useState('');
   const [phone, setPhone]     = useState('');
   const [address, setAddress] = useState('');
@@ -302,8 +310,7 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
   const [saving, setSaving]   = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch]   = useState('');
-
-  // ── Edit state ────────────────────────────────────────────────────────────
+  const [detail, setDetail]   = useState<TechCustomer | null>(null);
   const [editTarget, setEditTarget]   = useState<TechCustomer | null>(null);
   const [editName, setEditName]       = useState('');
   const [editPhone, setEditPhone]     = useState('');
@@ -314,18 +321,59 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
 
   const s = styles(colors);
 
-  const openEdit = (c: TechCustomer) => {
-    setEditTarget(c);
-    setEditName(c.name);
-    setEditPhone(c.phone);
-    setEditAddress(c.address ?? '');
-    setEditJobType(c.jobType ?? '');
-    setEditNotes(c.notes ?? '');
+  // ── Lists ──────────────────────────────────────────────────────────────────
+  const filtered = customers.filter(c =>
+    search ? (c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search)) : true
+  );
+  const newList  = filtered.filter(c => c.status !== 'completed');
+  const doneList = filtered.filter(c => c.status === 'completed');
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+  const openWhatsApp = (ph: string) => {
+    const clean = ph.replace(/\D/g, '');
+    Linking.openURL(`https://wa.me/${clean.length === 10 ? '91' + clean : clean}`).catch(() => {});
   };
 
-  const closeEdit = () => setEditTarget(null);
+  const openDialer = (ph: string) => {
+    Linking.openURL(`tel:${ph}`).catch(() => {});
+  };
 
-  // ── Save new customer ─────────────────────────────────────────────────────
+  const shareForm = (customer?: TechCustomer) => {
+    const msg = `🛠️ *Service Booking Form*\n\nकृपया अपनी बुकिंग confirm करने के लिए यह form भरें:\n👉 ${formUrl}`;
+    if (customer) {
+      const clean = customer.phone.replace(/\D/g, '');
+      Linking.openURL(
+        `https://wa.me/${clean.length === 10 ? '91' + clean : clean}?text=${encodeURIComponent(msg)}`
+      ).catch(() => Share.share({ message: msg }));
+    } else {
+      Share.share({ message: msg, url: formUrl }).catch(() => {});
+    }
+  };
+
+  const markStatus = async (c: TechCustomer, status: 'new' | 'completed') => {
+    try {
+      await api(`/booking/tech-customers/${c.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      setCustomers(prev => prev.map(x => x.id === c.id ? { ...x, status } : x));
+      setDetail(prev => prev?.id === c.id ? { ...prev, status } : prev);
+    } catch { Alert.alert('Error', 'Update नहीं हो सका'); }
+  };
+
+  const deleteCustomer = (c: TechCustomer) => {
+    Alert.alert('Delete', `"${c.name}" को हटाना चाहते हैं?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          await api(`/booking/tech-customers/${c.id}`, { method: 'DELETE' });
+          setCustomers(prev => prev.filter(x => x.id !== c.id));
+          setDetail(null);
+        } catch { Alert.alert('Error', 'Delete नहीं हो सका'); }
+      }},
+    ]);
+  };
+
   const save = async () => {
     if (!name.trim())  { Alert.alert('', 'नाम जरूरी है'); return; }
     if (!phone.trim()) { Alert.alert('', 'Phone number जरूरी है'); return; }
@@ -343,7 +391,15 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
     setSaving(false);
   };
 
-  // ── Update existing customer ──────────────────────────────────────────────
+  const openEdit = (c: TechCustomer) => {
+    setEditTarget(c);
+    setEditName(c.name);
+    setEditPhone(c.phone);
+    setEditAddress(c.address ?? '');
+    setEditJobType(c.jobType ?? '');
+    setEditNotes(c.notes ?? '');
+  };
+
   const saveEdit = async () => {
     if (!editTarget) return;
     if (!editName.trim())  { Alert.alert('', 'नाम जरूरी है'); return; }
@@ -353,49 +409,222 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
       const res = await api(`/booking/tech-customers/${editTarget.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          name: editName.trim(),
-          phone: editPhone.trim(),
+          name: editName.trim(), phone: editPhone.trim(),
           address: editAddress.trim() || null,
           jobType: editJobType.trim() || null,
           notes: editNotes.trim() || null,
         }),
       });
       setCustomers(prev => prev.map(c => c.id === editTarget.id ? { ...c, ...res } : c));
-      closeEdit();
+      setDetail(prev => prev?.id === editTarget.id ? { ...prev, ...res } : prev);
+      setEditTarget(null);
       Alert.alert('✅', 'Details update हो गई!');
     } catch (e: any) { Alert.alert('Error', e?.message ?? 'Update नहीं हो सका'); }
     setEditSaving(false);
   };
 
-  const deleteCustomer = (c: TechCustomer) => {
-    Alert.alert('Delete', `"${c.name}" को हटाना चाहते हैं?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try {
-          await api(`/booking/tech-customers/${c.id}`, { method: 'DELETE' });
-          setCustomers(prev => prev.filter(x => x.id !== c.id));
-        } catch { Alert.alert('Error', 'Delete नहीं हो सका'); }
-      }},
-    ]);
-  };
-
-  const filtered = customers.filter(c =>
-    search ? (c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search)) : true
+  // ── Customer row ──────────────────────────────────────────────────────────
+  const renderRow = (c: TechCustomer) => (
+    <View key={c.id} style={[s.customerRow, {
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+      borderLeftColor: c.status !== 'completed' ? colors.primary : '#22c55e',
+      borderLeftWidth: 3,
+    }]}>
+      <TouchableOpacity onPress={() => setDetail(c)} style={[s.customerAvatar, { backgroundColor: colors.primary + '22' }]}>
+        <Text style={{ fontSize: 18 }}>👤</Text>
+      </TouchableOpacity>
+      <View style={{ flex: 1, gap: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <TouchableOpacity onPress={() => setDetail(c)}>
+            <Text style={s.customerName}>{c.name}</Text>
+          </TouchableOpacity>
+          {c.status !== 'completed' && (
+            <View style={s.newBadge}><Text style={s.newBadgeText}>NEW</Text></View>
+          )}
+        </View>
+        <TouchableOpacity onLongPress={() => openDialer(c.phone)}>
+          <Text style={s.customerPhone}>📞 {c.phone}</Text>
+        </TouchableOpacity>
+        {c.jobType ? <Text style={s.customerMeta}>🔧 {c.jobType}</Text> : null}
+      </View>
+      <View style={{ gap: 5, alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => openWhatsApp(c.phone)} style={[s.rowIconBtn, { backgroundColor: '#25D36618' }]}>
+          <Text style={{ fontSize: 13 }}>💬</Text>
+        </TouchableOpacity>
+        {c.status !== 'completed' ? (
+          <TouchableOpacity onPress={() => markStatus(c, 'completed')} style={[s.rowIconBtn, { backgroundColor: '#22c55e18' }]}>
+            <Feather name="check-circle" size={14} color="#22c55e" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => markStatus(c, 'new')} style={[s.rowIconBtn, { backgroundColor: colors.border }]}>
+            <Feather name="refresh-ccw" size={13} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => setDetail(c)} style={[s.rowIconBtn, { backgroundColor: colors.primary + '18' }]}>
+          <Feather name="chevron-right" size={14} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   return (
     <KeyboardAvoidingView style={{ width: SCREEN_WIDTH, flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+
+      {/* ── Detail Modal ── */}
+      <Modal
+        visible={!!detail}
+        animationType="slide"
+        onRequestClose={() => { setDetail(null); setEditTarget(null); }}
+      >
+        {detail && (
+          <View style={{ flex: 1, backgroundColor: colors.background }}>
+            {/* Header */}
+            <View style={[s.modalHeader, { paddingTop: Platform.OS === 'web' ? 16 : insets.top + 8, borderBottomColor: colors.border }]}>
+              <TouchableOpacity onPress={() => { setDetail(null); setEditTarget(null); }} style={{ padding: 6 }}>
+                <Feather name="arrow-left" size={20} color={colors.foreground} />
+              </TouchableOpacity>
+              <Text style={[s.modalTitle, { color: colors.foreground }]}>Customer Details</Text>
+              <View style={{ flexDirection: 'row', gap: 2 }}>
+                <TouchableOpacity onPress={() => openEdit(detail)} style={{ padding: 6 }}>
+                  <Feather name="edit-2" size={18} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deleteCustomer(detail)} style={{ padding: 6 }}>
+                  <Feather name="trash-2" size={18} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 80 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+              {/* Status */}
+              <View style={{ flexDirection: 'row' }}>
+                {detail.status !== 'completed'
+                  ? <View style={[s.newBadge, { paddingHorizontal: 12, paddingVertical: 5 }]}>
+                      <Text style={[s.newBadgeText, { fontSize: 11 }]}>🆕 NEW BOOKING</Text>
+                    </View>
+                  : <View style={s.doneBadge}>
+                      <Text style={s.doneBadgeText}>✅ Completed</Text>
+                    </View>
+                }
+              </View>
+
+              {/* Name */}
+              <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={s.detailLabel}>CUSTOMER NAME</Text>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: colors.foreground, marginTop: 4 }}>{detail.name}</Text>
+              </View>
+
+              {/* Contact + actions */}
+              <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={s.detailLabel}>CONTACT</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: colors.foreground, marginTop: 4, marginBottom: 12 }}>{detail.phone}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={() => openDialer(detail.phone)}
+                    style={[s.detailActionBtn, { backgroundColor: '#3b82f618', borderColor: '#3b82f6' }]}>
+                    <Feather name="phone" size={15} color="#3b82f6" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#3b82f6' }}>Call</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => openWhatsApp(detail.phone)}
+                    style={[s.detailActionBtn, { backgroundColor: '#25D36618', borderColor: '#25D366' }]}>
+                    <Text style={{ fontSize: 14 }}>💬</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#25D366' }}>WhatsApp</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => shareForm(detail)}
+                    style={[s.detailActionBtn, { backgroundColor: '#f59e0b18', borderColor: '#f59e0b', flex: 1 }]}>
+                    <Feather name="send" size={13} color="#f59e0b" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#f59e0b' }}>Form Send</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Details */}
+              {(detail.address || detail.jobType || detail.notes) && (
+                <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  {detail.jobType ? <View style={{ marginBottom: 10 }}>
+                    <Text style={s.detailLabel}>JOB TYPE</Text>
+                    <Text style={{ fontSize: 15, color: colors.foreground, marginTop: 3 }}>🔧 {detail.jobType}</Text>
+                  </View> : null}
+                  {detail.address ? <View style={{ marginBottom: 10 }}>
+                    <Text style={s.detailLabel}>ADDRESS</Text>
+                    <Text style={{ fontSize: 15, color: colors.foreground, marginTop: 3 }}>📍 {detail.address}</Text>
+                  </View> : null}
+                  {detail.notes ? <View>
+                    <Text style={s.detailLabel}>NOTES</Text>
+                    <Text style={{ fontSize: 14, color: colors.foreground, marginTop: 3, lineHeight: 20 }}>{detail.notes}</Text>
+                  </View> : null}
+                </View>
+              )}
+
+              {/* Mark status button */}
+              {detail.status !== 'completed' ? (
+                <TouchableOpacity style={[s.saveBtn, { backgroundColor: '#22c55e' }]} onPress={() => markStatus(detail, 'completed')}>
+                  <Feather name="check-circle" size={18} color="#fff" />
+                  <Text style={[s.saveBtnText, { color: '#fff' }]}>Mark as Completed ✓</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
+                  onPress={() => markStatus(detail, 'new')}>
+                  <Feather name="refresh-ccw" size={15} color={colors.mutedForeground} />
+                  <Text style={[s.saveBtnText, { color: colors.mutedForeground }]}>Move back to New</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Edit form */}
+              {editTarget?.id === detail.id && (
+                <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.primary + '88' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={s.formTitle}>✏️ Edit Details</Text>
+                    <TouchableOpacity onPress={() => setEditTarget(null)}><Feather name="x" size={18} color={colors.mutedForeground} /></TouchableOpacity>
+                  </View>
+                  {[
+                    { label: 'नाम *', val: editName, set: setEditName, kb: 'default' as const },
+                    { label: 'Phone *', val: editPhone, set: setEditPhone, kb: 'phone-pad' as const },
+                    { label: 'Address', val: editAddress, set: setEditAddress, kb: 'default' as const },
+                    { label: 'Job Type', val: editJobType, set: setEditJobType, kb: 'default' as const },
+                  ].map(f => (
+                    <View key={f.label} style={{ gap: 4 }}>
+                      <Text style={s.fieldLabel}>{f.label}</Text>
+                      <TextInput style={s.input} value={f.val} onChangeText={f.set} keyboardType={f.kb}
+                        placeholderTextColor={colors.mutedForeground} placeholder={f.label.replace(' *', '')} />
+                    </View>
+                  ))}
+                  <View style={{ gap: 4 }}>
+                    <Text style={s.fieldLabel}>Notes</Text>
+                    <TextInput style={[s.input, { height: 60, textAlignVertical: 'top' }]} value={editNotes}
+                      onChangeText={setEditNotes} multiline placeholderTextColor={colors.mutedForeground} placeholder="Extra details…" />
+                  </View>
+                  <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: editSaving ? 0.7 : 1 }]}
+                    onPress={saveEdit} disabled={editSaving}>
+                    {editSaving ? <ActivityIndicator color="#000" /> : <><Feather name="check" size={16} color="#000" /><Text style={s.saveBtnText}>Update करें</Text></>}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+            </ScrollView>
+          </View>
+        )}
+      </Modal>
+
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}>
 
-        {/* ── Add Button ── */}
-        <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]} onPress={() => { setShowForm(v => !v); setEditTarget(null); }} activeOpacity={0.85}>
-          <Feather name={showForm ? 'x' : 'user-plus'} size={17} color="#000" />
-          <Text style={s.addBtnText}>{showForm ? 'Form बंद करें' : 'नया Customer जोड़ें'}</Text>
-        </TouchableOpacity>
+        {/* ── Top row: Form Send + Add ── */}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity style={[s.addBtn, { backgroundColor: '#25D366', flex: 1 }]}
+            onPress={() => shareForm()} activeOpacity={0.85}>
+            <Text style={{ fontSize: 15 }}>💬</Text>
+            <Text style={[s.addBtnText, { color: '#fff' }]}>Form Send</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary, flex: 1 }]}
+            onPress={() => setShowForm(v => !v)} activeOpacity={0.85}>
+            <Feather name={showForm ? 'x' : 'user-plus'} size={17} color="#000" />
+            <Text style={s.addBtnText}>{showForm ? 'बंद करें' : 'जोड़ें'}</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* ── Add Form ── */}
-        {showForm && !editTarget && (
+        {showForm && (
           <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={s.formTitle}>नया Customer जोड़ें</Text>
             {[
@@ -421,36 +650,6 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
           </View>
         )}
 
-        {/* ── Edit Form ── */}
-        {editTarget && (
-          <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.primary + '88' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={s.formTitle}>✏️ Edit: {editTarget.name}</Text>
-              <TouchableOpacity onPress={closeEdit}><Feather name="x" size={18} color={colors.mutedForeground} /></TouchableOpacity>
-            </View>
-            {[
-              { label: 'नाम *', val: editName, set: setEditName, placeholder: 'Customer का नाम', kb: 'default' as const },
-              { label: 'Contact Number *', val: editPhone, set: setEditPhone, placeholder: '10-digit mobile number', kb: 'phone-pad' as const },
-              { label: 'पता / Address', val: editAddress, set: setEditAddress, placeholder: 'House, Street, Area', kb: 'default' as const },
-              { label: 'Job Type', val: editJobType, set: setEditJobType, placeholder: 'AC Service / Repair / Install…', kb: 'default' as const },
-            ].map(f => (
-              <View key={f.label} style={{ gap: 4 }}>
-                <Text style={s.fieldLabel}>{f.label}</Text>
-                <TextInput style={s.input} placeholder={f.placeholder} placeholderTextColor={colors.mutedForeground}
-                  value={f.val} onChangeText={f.set} keyboardType={f.kb} />
-              </View>
-            ))}
-            <View style={{ gap: 4 }}>
-              <Text style={s.fieldLabel}>Notes</Text>
-              <TextInput style={[s.input, { height: 60, textAlignVertical: 'top' }]} placeholder="Extra details…"
-                placeholderTextColor={colors.mutedForeground} value={editNotes} onChangeText={setEditNotes} multiline />
-            </View>
-            <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: editSaving ? 0.7 : 1 }]} onPress={saveEdit} disabled={editSaving}>
-              {editSaving ? <ActivityIndicator color="#000" /> : <><Feather name="check" size={16} color="#000" /><Text style={s.saveBtnText}>Update करें</Text></>}
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* ── Search ── */}
         <View style={[s.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="search" size={15} color={colors.mutedForeground} />
@@ -459,36 +658,39 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
           {search ? <TouchableOpacity onPress={() => setSearch('')}><Feather name="x" size={15} color={colors.mutedForeground} /></TouchableOpacity> : null}
         </View>
 
-        <Text style={s.sectionTitle}>{filtered.length} Customer{filtered.length !== 1 ? 's' : ''}</Text>
+        {/* ── NEW BOOKINGS section ── */}
+        {newList.length > 0 && (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <View style={s.newBadge}><Text style={s.newBadgeText}>NEW</Text></View>
+              <Text style={[s.sectionTitle, { color: colors.primary }]}>New Bookings ({newList.length})</Text>
+            </View>
+            {newList.map(renderRow)}
+          </>
+        )}
 
-        {filtered.length === 0 ? (
+        {/* ── ALL CONTACTS section ── */}
+        {doneList.length > 0 && (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: newList.length ? 12 : 4 }}>
+              <Feather name="users" size={14} color={colors.mutedForeground} />
+              <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>All Contacts ({doneList.length})</Text>
+            </View>
+            {doneList.map(renderRow)}
+          </>
+        )}
+
+        {/* ── Empty ── */}
+        {filtered.length === 0 && (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="users" size={32} color={colors.mutedForeground} />
             <Text style={s.emptyText}>कोई customer नहीं मिला</Text>
+            <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: 'center', marginTop: 4 }}>
+              "Form Send" से customers form भरेंगे तो यहाँ दिखेंगे
+            </Text>
           </View>
-        ) : filtered.map(c => (
-          <TouchableOpacity key={c.id} activeOpacity={0.8}
-            onPress={() => { setShowForm(false); openEdit(c); }}
-            style={[s.customerRow, { backgroundColor: editTarget?.id === c.id ? colors.primary + '11' : colors.card, borderColor: editTarget?.id === c.id ? colors.primary : colors.border }]}>
-            <View style={[s.customerAvatar, { backgroundColor: colors.primary + '22' }]}>
-              <Text style={{ fontSize: 18 }}>👤</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.customerName}>{c.name}</Text>
-              <Text style={s.customerPhone}>📞 {c.phone}</Text>
-              {c.address ? <Text style={s.customerMeta}>📍 {c.address}</Text> : null}
-              {c.jobType ? <Text style={s.customerMeta}>🔧 {c.jobType}</Text> : null}
-            </View>
-            <View style={{ gap: 6 }}>
-              <TouchableOpacity onPress={() => { setShowForm(false); openEdit(c); }} style={{ padding: 6 }}>
-                <Feather name="edit-2" size={15} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => deleteCustomer(c)} style={{ padding: 6 }}>
-                <Feather name="trash-2" size={15} color="#ef4444" />
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        ))}
+        )}
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -971,6 +1173,28 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   customerName: { fontSize: 15, fontWeight: '600', color: c.foreground },
   customerPhone: { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
   customerMeta: { fontSize: 11, color: c.mutedForeground, marginTop: 1 },
+
+  // NEW badge
+  newBadge: { backgroundColor: '#22c55e', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
+  newBadgeText: { fontSize: 9, fontWeight: '900', color: '#fff', letterSpacing: 0.5 },
+  doneBadge: { backgroundColor: '#22c55e22', borderRadius: 5, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#22c55e55' },
+  doneBadgeText: { fontSize: 11, fontWeight: '700', color: '#22c55e' },
+
+  // Row icon button
+  rowIconBtn: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+
+  // Detail modal
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingBottom: 12, borderBottomWidth: 1,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '800', flex: 1, textAlign: 'center' },
+  detailCard: { borderRadius: 14, borderWidth: 1, padding: 14 },
+  detailLabel: { fontSize: 10, fontWeight: '700', color: c.mutedForeground, letterSpacing: 0.8 },
+  detailActionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, borderRadius: 10, borderWidth: 1.5, paddingVertical: 10,
+  },
 
   // Reminder row
   reminderRow: { borderRadius: 12, borderWidth: 1, padding: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },

@@ -140,15 +140,30 @@ router.patch("/customers/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const parsed = UpdateCustomerBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  // Accept all columns the DB supports (manual pick — avoids OpenAPI-generated subset limitation)
+  const body = req.body as Record<string, unknown>;
+  const allowed = ['name','phone','whatsappPhone','houseNumber','floorNumber','address','location','visitingAmount','dpUrl','notes','serviceType'] as const;
+  const updateData: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(body, key)) {
+      updateData[key] = body[key];
+    }
+  }
+  // Normalize visitingAmount: store as numeric string for Drizzle
+  if (typeof updateData.visitingAmount === 'number') {
+    updateData.visitingAmount = String(updateData.visitingAmount);
+  } else if (updateData.visitingAmount === '' || updateData.visitingAmount === undefined) {
+    updateData.visitingAmount = null;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
     return;
   }
 
   const [customer] = await db
     .update(customersTable)
-    .set(parsed.data)
+    .set(updateData as any)
     .where(eq(customersTable.id, params.data.id))
     .returning();
 
@@ -163,13 +178,15 @@ router.patch("/customers/:id", async (req, res): Promise<void> => {
     .filter((j) => j.paymentStatus !== "paid")
     .reduce((sum, j) => sum + (parseFloat(j.amount as string) - parseFloat(j.paidAmount as string)), 0);
 
-  res.json(UpdateCustomerResponse.parse({
+  // Return all DB columns (not just the OpenAPI-generated subset)
+  res.json({
     ...customer,
     createdAt: customer.createdAt.toISOString(),
+    visitingAmount: customer.visitingAmount != null ? parseFloat(customer.visitingAmount as string) : null,
     totalJobs,
     unpaidAmount,
     lastJobDate: null,
-  }));
+  });
 });
 
 router.delete("/customers/:id", async (req, res): Promise<void> => {

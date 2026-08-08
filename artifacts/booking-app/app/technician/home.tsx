@@ -293,32 +293,90 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
   setCustomers: React.Dispatch<React.SetStateAction<TechCustomer[]>>;
   insets: any;
 }) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  // ── Add form state ────────────────────────────────────────────────────────
+  const [name, setName]       = useState('');
+  const [phone, setPhone]     = useState('');
   const [address, setAddress] = useState('');
   const [jobType, setJobType] = useState('');
-  const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [notes, setNotes]     = useState('');
+  const [saving, setSaving]   = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch]   = useState('');
+
+  // ── Edit state ────────────────────────────────────────────────────────────
+  const [editTarget, setEditTarget]   = useState<TechCustomer | null>(null);
+  const [editName, setEditName]       = useState('');
+  const [editPhone, setEditPhone]     = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editJobType, setEditJobType] = useState('');
+  const [editNotes, setEditNotes]     = useState('');
+  const [editSaving, setEditSaving]   = useState(false);
 
   const s = styles(colors);
 
+  const openEdit = (c: TechCustomer) => {
+    setEditTarget(c);
+    setEditName(c.name);
+    setEditPhone(c.phone);
+    setEditAddress(c.address ?? '');
+    setEditJobType(c.jobType ?? '');
+    setEditNotes(c.notes ?? '');
+  };
+
+  const closeEdit = () => setEditTarget(null);
+
+  // ── Save new customer ─────────────────────────────────────────────────────
   const save = async () => {
-    if (!name.trim()) { Alert.alert('', 'नाम जरूरी है'); return; }
+    if (!name.trim())  { Alert.alert('', 'नाम जरूरी है'); return; }
     if (!phone.trim()) { Alert.alert('', 'Phone number जरूरी है'); return; }
     setSaving(true);
     try {
       const res = await api('/booking/tech-customers', {
         method: 'POST',
-        body: JSON.stringify({ techCode, name: name.trim(), phone: phone.trim(), address, jobType, notes }),
+        body: JSON.stringify({ techCode, name: name.trim(), phone: phone.trim(), address: address.trim(), jobType: jobType.trim(), notes: notes.trim() }),
       });
       setCustomers(prev => [res, ...prev]);
       setName(''); setPhone(''); setAddress(''); setJobType(''); setNotes('');
       setShowForm(false);
       Alert.alert('✅', 'Customer जोड़ा गया!');
-    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
+    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Save नहीं हो सका'); }
     setSaving(false);
+  };
+
+  // ── Update existing customer ──────────────────────────────────────────────
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    if (!editName.trim())  { Alert.alert('', 'नाम जरूरी है'); return; }
+    if (!editPhone.trim()) { Alert.alert('', 'Phone number जरूरी है'); return; }
+    setEditSaving(true);
+    try {
+      const res = await api(`/booking/tech-customers/${editTarget.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editName.trim(),
+          phone: editPhone.trim(),
+          address: editAddress.trim() || null,
+          jobType: editJobType.trim() || null,
+          notes: editNotes.trim() || null,
+        }),
+      });
+      setCustomers(prev => prev.map(c => c.id === editTarget.id ? { ...c, ...res } : c));
+      closeEdit();
+      Alert.alert('✅', 'Details update हो गई!');
+    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Update नहीं हो सका'); }
+    setEditSaving(false);
+  };
+
+  const deleteCustomer = (c: TechCustomer) => {
+    Alert.alert('Delete', `"${c.name}" को हटाना चाहते हैं?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          await api(`/booking/tech-customers/${c.id}`, { method: 'DELETE' });
+          setCustomers(prev => prev.filter(x => x.id !== c.id));
+        } catch { Alert.alert('Error', 'Delete नहीं हो सका'); }
+      }},
+    ]);
   };
 
   const filtered = customers.filter(c =>
@@ -330,19 +388,19 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}>
 
-        {/* Add Customer Button */}
-        <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]} onPress={() => setShowForm(v => !v)} activeOpacity={0.85}>
+        {/* ── Add Button ── */}
+        <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]} onPress={() => { setShowForm(v => !v); setEditTarget(null); }} activeOpacity={0.85}>
           <Feather name={showForm ? 'x' : 'user-plus'} size={17} color="#000" />
           <Text style={s.addBtnText}>{showForm ? 'Form बंद करें' : 'नया Customer जोड़ें'}</Text>
         </TouchableOpacity>
 
-        {/* Form */}
-        {showForm && (
+        {/* ── Add Form ── */}
+        {showForm && !editTarget && (
           <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={s.formTitle}>Customer Details</Text>
+            <Text style={s.formTitle}>नया Customer जोड़ें</Text>
             {[
               { label: 'नाम *', val: name, set: setName, placeholder: 'Customer का नाम', kb: 'default' as const },
-              { label: 'Phone *', val: phone, set: setPhone, placeholder: '10-digit number', kb: 'phone-pad' as const },
+              { label: 'Contact Number *', val: phone, set: setPhone, placeholder: '10-digit mobile number', kb: 'phone-pad' as const },
               { label: 'पता / Address', val: address, set: setAddress, placeholder: 'House, Street, Area', kb: 'default' as const },
               { label: 'Job Type', val: jobType, set: setJobType, placeholder: 'AC Service / Repair / Install…', kb: 'default' as const },
             ].map(f => (
@@ -358,12 +416,42 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
                 placeholderTextColor={colors.mutedForeground} value={notes} onChangeText={setNotes} multiline />
             </View>
             <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Save करें</Text>}
+              {saving ? <ActivityIndicator color="#000" /> : <><Feather name="user-plus" size={16} color="#000" /><Text style={s.saveBtnText}>Save करें</Text></>}
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Search */}
+        {/* ── Edit Form ── */}
+        {editTarget && (
+          <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.primary + '88' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={s.formTitle}>✏️ Edit: {editTarget.name}</Text>
+              <TouchableOpacity onPress={closeEdit}><Feather name="x" size={18} color={colors.mutedForeground} /></TouchableOpacity>
+            </View>
+            {[
+              { label: 'नाम *', val: editName, set: setEditName, placeholder: 'Customer का नाम', kb: 'default' as const },
+              { label: 'Contact Number *', val: editPhone, set: setEditPhone, placeholder: '10-digit mobile number', kb: 'phone-pad' as const },
+              { label: 'पता / Address', val: editAddress, set: setEditAddress, placeholder: 'House, Street, Area', kb: 'default' as const },
+              { label: 'Job Type', val: editJobType, set: setEditJobType, placeholder: 'AC Service / Repair / Install…', kb: 'default' as const },
+            ].map(f => (
+              <View key={f.label} style={{ gap: 4 }}>
+                <Text style={s.fieldLabel}>{f.label}</Text>
+                <TextInput style={s.input} placeholder={f.placeholder} placeholderTextColor={colors.mutedForeground}
+                  value={f.val} onChangeText={f.set} keyboardType={f.kb} />
+              </View>
+            ))}
+            <View style={{ gap: 4 }}>
+              <Text style={s.fieldLabel}>Notes</Text>
+              <TextInput style={[s.input, { height: 60, textAlignVertical: 'top' }]} placeholder="Extra details…"
+                placeholderTextColor={colors.mutedForeground} value={editNotes} onChangeText={setEditNotes} multiline />
+            </View>
+            <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: editSaving ? 0.7 : 1 }]} onPress={saveEdit} disabled={editSaving}>
+              {editSaving ? <ActivityIndicator color="#000" /> : <><Feather name="check" size={16} color="#000" /><Text style={s.saveBtnText}>Update करें</Text></>}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── Search ── */}
         <View style={[s.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="search" size={15} color={colors.mutedForeground} />
           <TextInput style={s.searchInput} placeholder="नाम या phone से ढूंढें…" placeholderTextColor={colors.mutedForeground}
@@ -376,10 +464,12 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
         {filtered.length === 0 ? (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="users" size={32} color={colors.mutedForeground} />
-            <Text style={s.emptyText}>कोई customer नहीं</Text>
+            <Text style={s.emptyText}>कोई customer नहीं मिला</Text>
           </View>
         ) : filtered.map(c => (
-          <View key={c.id} style={[s.customerRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TouchableOpacity key={c.id} activeOpacity={0.8}
+            onPress={() => { setShowForm(false); openEdit(c); }}
+            style={[s.customerRow, { backgroundColor: editTarget?.id === c.id ? colors.primary + '11' : colors.card, borderColor: editTarget?.id === c.id ? colors.primary : colors.border }]}>
             <View style={[s.customerAvatar, { backgroundColor: colors.primary + '22' }]}>
               <Text style={{ fontSize: 18 }}>👤</Text>
             </View>
@@ -389,7 +479,15 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets }: {
               {c.address ? <Text style={s.customerMeta}>📍 {c.address}</Text> : null}
               {c.jobType ? <Text style={s.customerMeta}>🔧 {c.jobType}</Text> : null}
             </View>
-          </View>
+            <View style={{ gap: 6 }}>
+              <TouchableOpacity onPress={() => { setShowForm(false); openEdit(c); }} style={{ padding: 6 }}>
+                <Feather name="edit-2" size={15} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => deleteCustomer(c)} style={{ padding: 6 }}>
+                <Feather name="trash-2" size={15} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </KeyboardAvoidingView>

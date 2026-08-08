@@ -519,12 +519,10 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
           <View style={[s.customerAvatar, { backgroundColor: colors.primary + '22' }]}>
             <Text style={{ fontSize: 20 }}>👤</Text>
           </View>
-          {/* Rating tap stops here — separate Pressable inside left zone */}
+          {/* Rating — inner TouchableOpacity wins over outer one natively */}
           <TouchableOpacity
             onPress={() => cycleRating(c)}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            // Prevent this inner tap from reaching the outer left-zone TouchableOpacity
-            onStartShouldSetResponder={() => true}
           >
             <Text style={{ fontSize: 16 }}>{ratingEmoji(c.rating)}</Text>
           </TouchableOpacity>
@@ -589,32 +587,18 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
       >
         {detail && (
           <View style={{ flex: 1, backgroundColor: colors.background }}>
-            {/* Header */}
+            {/* ── Modal Header — back arrow + title only ── */}
             <View style={[s.modalHeader, { paddingTop: Platform.OS === 'web' ? 16 : insets.top + 8, borderBottomColor: colors.border }]}>
-              <TouchableOpacity onPress={() => { setDetail(null); setEditTarget(null); }} style={{ padding: 6 }}>
-                <Feather name="arrow-left" size={20} color={colors.foreground} />
+              <TouchableOpacity
+                onPress={() => { setDetail(null); setEditTarget(null); }}
+                style={{ padding: 10 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name="arrow-left" size={22} color={colors.foreground} />
               </TouchableOpacity>
               <Text style={[s.modalTitle, { color: colors.foreground }]}>Customer Details</Text>
-              <View style={{ flexDirection: 'row', gap: 2 }}>
-                <TouchableOpacity onPress={() => openEdit(detail)} style={{ padding: 6 }}>
-                  <Feather name="edit-2" size={18} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => { setDetail(null); setEditTarget(null); onAddPayment(detail); }}
-                  style={{ padding: 6 }}
-                >
-                  <Feather name="credit-card" size={18} color="#22c55e" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => { setDetail(null); setEditTarget(null); onAddReminder(detail); }}
-                  style={{ padding: 6 }}
-                >
-                  <Feather name="bell" size={18} color="#f59e0b" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => deleteCustomer(detail)} style={{ padding: 6 }}>
-                  <Feather name="trash-2" size={18} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
+              {/* Spacer — keeps title centred */}
+              <View style={{ width: 42 }} />
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 80 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -652,6 +636,74 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
               <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Text style={s.detailLabel}>CUSTOMER NAME</Text>
                 <Text style={{ fontSize: 22, fontWeight: '800', color: colors.foreground, marginTop: 4 }}>{detail.name}</Text>
+              </View>
+
+              {/* ── Quick Actions ────────────────────────────────────────────────
+                  Each button has a distinct color, icon AND label, and a 48px
+                  min-height touch target — zero chance of tapping the wrong one.
+                  Edit stays in-modal. Payment / Reminder navigate away.          */}
+              <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border, gap: 8 }]}>
+                <Text style={s.detailLabel}>QUICK ACTIONS</Text>
+
+                {/* ✏️ Edit — opens inline edit form inside this modal */}
+                <TouchableOpacity
+                  onPress={() => openEdit(detail)}
+                  activeOpacity={0.75}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                    backgroundColor: colors.primary + '15',
+                    borderWidth: 1.5, borderColor: colors.primary + '55',
+                    borderRadius: 12, paddingVertical: 13, paddingHorizontal: 16,
+                    minHeight: 48,
+                  }}
+                >
+                  <Feather name="edit-2" size={18} color={colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.primary }}>Edit Details</Text>
+                    <Text style={{ fontSize: 11, color: colors.mutedForeground, marginTop: 1 }}>नाम, phone, address, notes बदलें</Text>
+                  </View>
+                  <Feather name="chevron-right" size={16} color={colors.primary} />
+                </TouchableOpacity>
+
+                {/* 💳 Payment Tracking — closes modal, opens Payments tab prefilled */}
+                <TouchableOpacity
+                  onPress={() => { setDetail(null); setEditTarget(null); onAddPayment(detail); }}
+                  activeOpacity={0.75}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                    backgroundColor: '#22c55e15',
+                    borderWidth: 1.5, borderColor: '#22c55e55',
+                    borderRadius: 12, paddingVertical: 13, paddingHorizontal: 16,
+                    minHeight: 48,
+                  }}
+                >
+                  <Feather name="credit-card" size={18} color="#22c55e" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#22c55e' }}>Payment Tracking</Text>
+                    <Text style={{ fontSize: 11, color: colors.mutedForeground, marginTop: 1 }}>इस customer का payment record add करें</Text>
+                  </View>
+                  <Feather name="chevron-right" size={16} color="#22c55e" />
+                </TouchableOpacity>
+
+                {/* 🔔 Reminder — closes modal, opens Reminders tab prefilled */}
+                <TouchableOpacity
+                  onPress={() => { setDetail(null); setEditTarget(null); onAddReminder(detail); }}
+                  activeOpacity={0.75}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                    backgroundColor: '#f59e0b15',
+                    borderWidth: 1.5, borderColor: '#f59e0b55',
+                    borderRadius: 12, paddingVertical: 13, paddingHorizontal: 16,
+                    minHeight: 48,
+                  }}
+                >
+                  <Feather name="bell" size={18} color="#f59e0b" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#f59e0b' }}>Set Reminder</Text>
+                    <Text style={{ fontSize: 11, color: colors.mutedForeground, marginTop: 1 }}>Follow-up या service reminder schedule करें</Text>
+                  </View>
+                  <Feather name="chevron-right" size={16} color="#f59e0b" />
+                </TouchableOpacity>
               </View>
 
               {/* Contact + actions */}
@@ -739,6 +791,27 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                   </TouchableOpacity>
                 </View>
               )}
+
+              {/* ── Danger Zone — visually separated, full-width, unmistakable ── */}
+              <View style={{
+                borderTopWidth: 1, borderTopColor: '#ef444433',
+                marginTop: 8, paddingTop: 16,
+              }}>
+                <Text style={[s.detailLabel, { color: '#ef4444', marginBottom: 10 }]}>DANGER ZONE</Text>
+                <TouchableOpacity
+                  onPress={() => deleteCustomer(detail)}
+                  activeOpacity={0.8}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    backgroundColor: '#ef444415',
+                    borderWidth: 1.5, borderColor: '#ef444488',
+                    borderRadius: 12, paddingVertical: 14, minHeight: 52,
+                  }}
+                >
+                  <Feather name="trash-2" size={18} color="#ef4444" />
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#ef4444' }}>Delete Contact</Text>
+                </TouchableOpacity>
+              </View>
 
             </ScrollView>
           </View>

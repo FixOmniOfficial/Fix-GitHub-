@@ -632,12 +632,6 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                 </View>
               </View>
 
-              {/* Name */}
-              <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={s.detailLabel}>CUSTOMER NAME</Text>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: colors.foreground, marginTop: 4 }}>{detail.name}</Text>
-              </View>
-
               {/* ── Action Icons Row ──────────────────────────────────────────────
                   4 equally-spaced icon buttons. Each is a self-contained
                   TouchableOpacity — no nesting, no shared parent touch zone.
@@ -698,6 +692,12 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                   </TouchableOpacity>
 
                 </View>
+              </View>
+
+              {/* Name */}
+              <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={s.detailLabel}>CUSTOMER NAME</Text>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: colors.foreground, marginTop: 4 }}>{detail.name}</Text>
               </View>
 
               {/* Contact + actions */}

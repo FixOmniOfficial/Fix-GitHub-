@@ -300,7 +300,7 @@ export default function TechnicianHomeScreen() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: CUSTOMERS
 // ═══════════════════════════════════════════════════════════════════════════════
-function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUrl, onAddReminder }: {
+function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUrl, onAddReminder, onAddPayment }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
   customers: TechCustomer[];

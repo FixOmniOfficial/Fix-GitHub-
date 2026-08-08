@@ -371,6 +371,15 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
   const [editNotes, setEditNotes]     = useState('');
   const [editSaving, setEditSaving]   = useState(false);
 
+  // ── Inline quick-action state (Payment / Reminder mini-forms inside modal) ──
+  const [inlineAction, setInlineAction] = useState<'payment' | 'reminder' | null>(null);
+  const [inlAmt,   setInlAmt]   = useState('');
+  const [inlJob,   setInlJob]   = useState('');
+  const [inlTitle, setInlTitle] = useState('');
+  const [inlDate,  setInlDate]  = useState('');
+  const [inlTime,  setInlTime]  = useState('');
+  const [inlSaving, setInlSaving] = useState(false);
+
   const s = styles(colors);
 
   // ── Lists ──────────────────────────────────────────────────────────────────
@@ -432,6 +441,49 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
       setCustomers(prev => prev.filter(x => x.id !== c.id));
       setDetail(null);
     } catch { Alert.alert('Error', 'Delete नहीं हो सका'); }
+  };
+
+  // ── Inline Payment save (stays inside modal, no tab switch) ────────────────
+  const saveInlinePayment = async () => {
+    if (!inlAmt.trim() || isNaN(parseFloat(inlAmt))) { Alert.alert('', 'Amount जरूरी है'); return; }
+    setInlSaving(true);
+    try {
+      await api('/booking/tech-payments', {
+        method: 'POST',
+        body: JSON.stringify({
+          techCode,
+          customerName: detail!.name,
+          customerPhone: detail!.phone,
+          jobDescription: inlJob.trim() || undefined,
+          amountBilled: parseFloat(inlAmt),
+          amountReceived: 0,
+          status: 'pending',
+        }),
+      });
+      setInlAmt(''); setInlJob(''); setInlineAction(null);
+      Alert.alert('✅', 'Payment record जोड़ा गया!');
+    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
+    setInlSaving(false);
+  };
+
+  // ── Inline Reminder save (stays inside modal, no tab switch) ──────────────
+  const saveInlineReminder = async () => {
+    const finalTitle = inlTitle.trim() || `Reminder — ${detail!.name}`;
+    setInlSaving(true);
+    const reminderAt = inlDate && inlTime ? `${inlDate} ${inlTime}` : (inlDate || inlTime || undefined);
+    try {
+      await api('/booking/tech-reminders', {
+        method: 'POST',
+        body: JSON.stringify({
+          techCode, title: finalTitle, note: null,
+          reminderAt: reminderAt ?? null, ringtone: 'default',
+          customerName: detail!.name, customerPhone: detail!.phone,
+        }),
+      });
+      setInlTitle(''); setInlDate(''); setInlTime(''); setInlineAction(null);
+      Alert.alert('✅', 'Reminder set हो गया!');
+    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
+    setInlSaving(false);
   };
 
   const save = async () => {
@@ -603,6 +655,151 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
 
             <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 80 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
+              {/* ── Action Icons Row — VERY TOP ────────────────────────────────
+                  Icons come first. Payment/Reminder toggle inline forms below.
+                  No tab switching, no modal closing — everything stays here.    */}
+              <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-start' }}>
+
+                  {/* ✏️ Edit */}
+                  <TouchableOpacity
+                    onPress={() => { setInlineAction(null); openEdit(detail); }}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
+                  >
+                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primary + '20', borderWidth: 1.5, borderColor: colors.primary + '55', alignItems: 'center', justifyContent: 'center' }}>
+                      <Feather name="edit-2" size={22} color={colors.primary} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: colors.primary, textAlign: 'center' }}>Edit</Text>
+                  </TouchableOpacity>
+
+                  {/* 💳 Payment — toggles inline form, stays in modal */}
+                  <TouchableOpacity
+                    onPress={() => { setEditTarget(null); setInlineAction(inlineAction === 'payment' ? null : 'payment'); setInlAmt(''); setInlJob(''); }}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
+                  >
+                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: inlineAction === 'payment' ? '#22c55e40' : '#22c55e20', borderWidth: inlineAction === 'payment' ? 2 : 1.5, borderColor: inlineAction === 'payment' ? '#22c55e' : '#22c55e55', alignItems: 'center', justifyContent: 'center' }}>
+                      <Feather name="credit-card" size={22} color="#22c55e" />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#22c55e', textAlign: 'center' }}>Payment</Text>
+                  </TouchableOpacity>
+
+                  {/* 🔔 Reminder — toggles inline form, stays in modal */}
+                  <TouchableOpacity
+                    onPress={() => { setEditTarget(null); setInlineAction(inlineAction === 'reminder' ? null : 'reminder'); setInlTitle(''); setInlDate(''); setInlTime(''); }}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
+                  >
+                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: inlineAction === 'reminder' ? '#f59e0b40' : '#f59e0b20', borderWidth: inlineAction === 'reminder' ? 2 : 1.5, borderColor: inlineAction === 'reminder' ? '#f59e0b' : '#f59e0b55', alignItems: 'center', justifyContent: 'center' }}>
+                      <Feather name="bell" size={22} color="#f59e0b" />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#f59e0b', textAlign: 'center' }}>Reminder</Text>
+                  </TouchableOpacity>
+
+                  {/* 🗑️ Delete */}
+                  <TouchableOpacity
+                    onPress={() => deleteCustomer(detail)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
+                  >
+                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#ef444420', borderWidth: 1.5, borderColor: '#ef444455', alignItems: 'center', justifyContent: 'center' }}>
+                      <Feather name="trash-2" size={22} color="#ef4444" />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#ef4444', textAlign: 'center' }}>Delete</Text>
+                  </TouchableOpacity>
+
+                </View>
+              </View>
+
+              {/* ── Inline Payment Form ────────────────────────────────────────── */}
+              {inlineAction === 'payment' && (
+                <View style={[s.detailCard, { backgroundColor: '#22c55e08', borderColor: '#22c55e44' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={[s.detailLabel, { color: '#22c55e' }]}>💳 PAYMENT ADD करें</Text>
+                    <TouchableOpacity onPress={() => setInlineAction(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Feather name="x" size={18} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput
+                    placeholder="Amount (₹) *"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numeric"
+                    value={inlAmt}
+                    onChangeText={setInlAmt}
+                    style={[s.input, { marginBottom: 8 }]}
+                  />
+                  <TextInput
+                    placeholder="Job description (optional)"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={inlJob}
+                    onChangeText={setInlJob}
+                    style={[s.input, { marginBottom: 12 }]}
+                  />
+                  <TouchableOpacity
+                    onPress={saveInlinePayment}
+                    activeOpacity={0.8}
+                    disabled={inlSaving}
+                    style={{ backgroundColor: '#22c55e', borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
+                  >
+                    {inlSaving
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>✅ Save Payment</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* ── Inline Reminder Form ───────────────────────────────────────── */}
+              {inlineAction === 'reminder' && (
+                <View style={[s.detailCard, { backgroundColor: '#f59e0b08', borderColor: '#f59e0b44' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={[s.detailLabel, { color: '#f59e0b' }]}>🔔 REMINDER SET करें</Text>
+                    <TouchableOpacity onPress={() => setInlineAction(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Feather name="x" size={18} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput
+                    placeholder={`Purpose / title (default: Reminder — ${detail.name})`}
+                    placeholderTextColor={colors.mutedForeground}
+                    value={inlTitle}
+                    onChangeText={setInlTitle}
+                    style={[s.input, { marginBottom: 8 }]}
+                  />
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                    <TextInput
+                      placeholder="Date (YYYY-MM-DD)"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={inlDate}
+                      onChangeText={setInlDate}
+                      style={[s.input, { flex: 1 }]}
+                    />
+                    <TextInput
+                      placeholder="Time (HH:MM)"
+                      placeholderTextColor={colors.mutedForeground}
+                      value={inlTime}
+                      onChangeText={setInlTime}
+                      style={[s.input, { flex: 1 }]}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    onPress={saveInlineReminder}
+                    activeOpacity={0.8}
+                    disabled={inlSaving}
+                    style={{ backgroundColor: '#f59e0b', borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
+                  >
+                    {inlSaving
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>✅ Save Reminder</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* Status + Rating row */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 {detail.status !== 'completed'
@@ -613,7 +810,6 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                       <Text style={s.doneBadgeText}>✅ Completed</Text>
                     </View>
                 }
-                {/* Rating toggle */}
                 <View style={{ flexDirection: 'row', gap: 6, marginLeft: 'auto' }}>
                   <TouchableOpacity
                     onPress={() => markRating(detail, detail.rating === 'good' ? null : 'good')}
@@ -629,68 +825,6 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
                     <Text style={{ fontSize: 18 }}>👎</Text>
                     <Text style={{ fontSize: 10, fontWeight: '700', color: detail.rating === 'bad' ? '#ef4444' : colors.mutedForeground }}>Bad</Text>
                   </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* ── Action Icons Row ──────────────────────────────────────────────
-                  4 equally-spaced icon buttons. Each is a self-contained
-                  TouchableOpacity — no nesting, no shared parent touch zone.
-                  Tap area = coloured circle (56px) + label below = ~90px tall.   */}
-              <View style={[s.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-start' }}>
-
-                  {/* ✏️ Edit — stays inside this modal, opens inline edit form */}
-                  <TouchableOpacity
-                    onPress={() => openEdit(detail)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
-                    style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
-                  >
-                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primary + '20', borderWidth: 1.5, borderColor: colors.primary + '55', alignItems: 'center', justifyContent: 'center' }}>
-                      <Feather name="edit-2" size={22} color={colors.primary} />
-                    </View>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: colors.primary, textAlign: 'center' }}>Edit</Text>
-                  </TouchableOpacity>
-
-                  {/* 💳 Payment — closes modal → opens Payments tab (TAB.PAYMENTS) prefilled */}
-                  <TouchableOpacity
-                    onPress={() => { setDetail(null); setEditTarget(null); onAddPayment(detail); }}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
-                    style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
-                  >
-                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#22c55e20', borderWidth: 1.5, borderColor: '#22c55e55', alignItems: 'center', justifyContent: 'center' }}>
-                      <Feather name="credit-card" size={22} color="#22c55e" />
-                    </View>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#22c55e', textAlign: 'center' }}>Payment</Text>
-                  </TouchableOpacity>
-
-                  {/* 🔔 Reminder — closes modal → opens Reminders tab (TAB.REMINDERS) prefilled */}
-                  <TouchableOpacity
-                    onPress={() => { setDetail(null); setEditTarget(null); onAddReminder(detail); }}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
-                    style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
-                  >
-                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#f59e0b20', borderWidth: 1.5, borderColor: '#f59e0b55', alignItems: 'center', justifyContent: 'center' }}>
-                      <Feather name="bell" size={22} color="#f59e0b" />
-                    </View>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#f59e0b', textAlign: 'center' }}>Reminder</Text>
-                  </TouchableOpacity>
-
-                  {/* 🗑️ Delete — destructive, clearly red, confirmation before delete */}
-                  <TouchableOpacity
-                    onPress={() => deleteCustomer(detail)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
-                    style={{ alignItems: 'center', gap: 6, minWidth: 60 }}
-                  >
-                    <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#ef444420', borderWidth: 1.5, borderColor: '#ef444455', alignItems: 'center', justifyContent: 'center' }}>
-                      <Feather name="trash-2" size={22} color="#ef4444" />
-                    </View>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#ef4444', textAlign: 'center' }}>Delete</Text>
-                  </TouchableOpacity>
-
                 </View>
               </View>
 

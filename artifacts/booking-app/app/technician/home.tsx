@@ -25,6 +25,21 @@ interface PaymentEntry { id: number; paymentId: number; amount: number; paymentM
 interface TechPayment { id: number; customerName: string; customerPhone?: string; jobDescription?: string; amountBilled: number; amountReceived: number; status: string; createdAt: string; entries: PaymentEntry[]; }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
+// Cross-platform delete confirmation
+// Web  → window.confirm (browser native dialog)
+// Native → Alert.alert  (React Native dialog)
+const confirmDelete = (message: string): Promise<boolean> => {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(window.confirm(message));
+  }
+  return new Promise(resolve => {
+    Alert.alert('🗑️ Delete?', message, [
+      { text: 'No',  style: 'cancel',      onPress: () => resolve(false) },
+      { text: 'Yes', style: 'destructive', onPress: () => resolve(true)  },
+    ]);
+  });
+};
+
 const api = async (path: string, opts?: RequestInit) => {
   const base = process.env.EXPO_PUBLIC_API_URL ?? '';
   const r = await fetch(`${base}/api${path}`, {
@@ -381,17 +396,14 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
     } catch {}
   };
 
-  const deleteCustomer = (c: TechCustomer) => {
-    Alert.alert('🗑️ Customer हटाएं?', `"${c.name}" को permanently delete करना चाहते हैं?`, [
-      { text: 'नहीं', style: 'cancel' },
-      { text: 'हाँ, Delete करें', style: 'destructive', onPress: async () => {
-        try {
-          await api(`/booking/tech-customers/${c.id}`, { method: 'DELETE' });
-          setCustomers(prev => prev.filter(x => x.id !== c.id));
-          setDetail(null);
-        } catch { Alert.alert('Error', 'Delete नहीं हो सका'); }
-      }},
-    ]);
+  const deleteCustomer = async (c: TechCustomer) => {
+    const ok = await confirmDelete(`"${c.name}" को permanently delete करना चाहते हैं?`);
+    if (!ok) return;
+    try {
+      await api(`/booking/tech-customers/${c.id}`, { method: 'DELETE' });
+      setCustomers(prev => prev.filter(x => x.id !== c.id));
+      setDetail(null);
+    } catch { Alert.alert('Error', 'Delete नहीं हो सका'); }
   };
 
   const save = async () => {
@@ -928,37 +940,31 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
   };
 
   // ── Delete a partial entry ─────────────────────────────────────────────────
-  const deleteEntry = (entry: PaymentEntry) => {
-    Alert.alert('🗑️ Entry हटाएं?', `₹${entry.amount} की payment entry delete करना चाहते हैं?`, [
-      { text: 'नहीं', style: 'cancel' },
-      { text: 'हाँ, Delete करें', style: 'destructive', onPress: async () => {
-        try {
-          const res = await api(`/booking/tech-payment-entries/${entry.id}`, { method: 'DELETE' });
-          setPayments(prev => prev.map(p => {
-            if (p.id !== entry.paymentId) return p;
-            return {
-              ...p,
-              amountReceived: res.payment?.amountReceived ?? p.amountReceived,
-              status: res.payment?.status ?? p.status,
-              entries: p.entries.filter(e => e.id !== entry.id),
-            };
-          }));
-        } catch {}
-      }},
-    ]);
+  const deleteEntry = async (entry: PaymentEntry) => {
+    const ok = await confirmDelete(`₹${entry.amount} की payment entry delete करना चाहते हैं?`);
+    if (!ok) return;
+    try {
+      const res = await api(`/booking/tech-payment-entries/${entry.id}`, { method: 'DELETE' });
+      setPayments(prev => prev.map(p => {
+        if (p.id !== entry.paymentId) return p;
+        return {
+          ...p,
+          amountReceived: res.payment?.amountReceived ?? p.amountReceived,
+          status: res.payment?.status ?? p.status,
+          entries: p.entries.filter(e => e.id !== entry.id),
+        };
+      }));
+    } catch { Alert.alert('Error', 'Entry delete नहीं हो सकी'); }
   };
 
   // ── Delete entire payment record ───────────────────────────────────────────
-  const deleteRecord = (p: TechPayment) => {
-    Alert.alert('🗑️ Record हटाएं?', `${p.customerName} का पूरा payment record permanently delete करना चाहते हैं?`, [
-      { text: 'नहीं', style: 'cancel' },
-      { text: 'हाँ, Delete करें', style: 'destructive', onPress: async () => {
-        try {
-          await api(`/booking/tech-payments/${p.id}`, { method: 'DELETE' });
-          setPayments(prev => prev.filter(x => x.id !== p.id));
-        } catch {}
-      }},
-    ]);
+  const deleteRecord = async (p: TechPayment) => {
+    const ok = await confirmDelete(`${p.customerName} का पूरा payment record permanently delete करना चाहते हैं?`);
+    if (!ok) return;
+    try {
+      await api(`/booking/tech-payments/${p.id}`, { method: 'DELETE' });
+      setPayments(prev => prev.filter(x => x.id !== p.id));
+    } catch { Alert.alert('Error', 'Record delete नहीं हो सका'); }
   };
 
   // ── Toggle expand ─────────────────────────────────────────────────────────
@@ -1490,16 +1496,13 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
     } catch {}
   };
 
-  const deleteReminder = (id: number) => {
-    Alert.alert('🗑️ Reminder हटाएं?', 'यह reminder permanently delete करना चाहते हैं?', [
-      { text: 'नहीं', style: 'cancel' },
-      { text: 'हाँ, Delete करें', style: 'destructive', onPress: async () => {
-        try {
-          await api(`/booking/tech-reminders/${id}`, { method: 'DELETE' });
-          setReminders(prev => prev.filter(r => r.id !== id));
-        } catch {}
-      }},
-    ]);
+  const deleteReminder = async (id: number) => {
+    const ok = await confirmDelete('यह reminder permanently delete करना चाहते हैं?');
+    if (!ok) return;
+    try {
+      await api(`/booking/tech-reminders/${id}`, { method: 'DELETE' });
+      setReminders(prev => prev.filter(r => r.id !== id));
+    } catch { Alert.alert('Error', 'Reminder delete नहीं हो सका'); }
   };
 
   // ── Reminder card ──────────────────────────────────────────────────────────

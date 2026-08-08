@@ -54,11 +54,21 @@ const api = async (path: string, opts?: RequestInit) => {
 
 // ─── Tab labels ───────────────────────────────────────────────────────────────
 const TABS = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'home' as const },
-  { key: 'customers', label: 'Customers', icon: 'users' as const },
-  { key: 'payments',  label: 'Payments',  icon: 'credit-card' as const },
-  { key: 'reminders', label: 'Reminders', icon: 'bell' as const },
+  { key: 'dashboard', label: 'Dashboard', icon: 'home'         as const },
+  { key: 'customers', label: 'Customers', icon: 'users'        as const },
+  { key: 'payments',  label: 'Payments',  icon: 'credit-card'  as const },
+  { key: 'reminders', label: 'Reminders', icon: 'bell'         as const },
 ];
+
+// ─── Tab index constants ───────────────────────────────────────────────────────
+// Single source of truth — all goToTab() calls must use these, never raw numbers.
+// If TABS order ever changes, update ONLY this object; everywhere else auto-corrects.
+const TAB = {
+  DASHBOARD: 0,   // 🏠  home icon
+  CUSTOMERS: 1,   // 👤  users icon  → customer list + add
+  PAYMENTS:  2,   // 💳  credit-card → payment tracking
+  REMINDERS: 3,   // 🔔  bell        → reminder management
+} as const;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function TechnicianHomeScreen() {
@@ -105,11 +115,14 @@ export default function TechnicianHomeScreen() {
   useEffect(() => { loadAll(); }, [loadAll]);
 
   // ── Tab navigation ───────────────────────────────────────────────────────────
+  // Always call goToTab(TAB.XXX) — never pass raw numbers.
   const goToTab = (i: number) => {
     setActiveTab(i);
-    hScrollRef.current?.scrollTo({ x: i * SCREEN_WIDTH, animated: true });
+    // Use animated:false so onScroll fires synchronously and keeps indicator in sync
+    hScrollRef.current?.scrollTo({ x: i * SCREEN_WIDTH, animated: false });
   };
 
+  // Fired on every scroll frame (swipe) — keeps tab indicator in sync with finger position
   const onHScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     if (idx !== activeTab) setActiveTab(idx);
@@ -188,12 +201,14 @@ export default function TechnicianHomeScreen() {
       </View>
 
       {/* ── Horizontal Pager ── */}
+      {/* onScroll (not onMomentumScrollEnd) keeps indicator in sync on both
+          manual swipe AND programmatic goToTab() with animated:false        */}
       <ScrollView
         ref={hScrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={onHScroll}
+        onScroll={onHScroll}
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
         style={{ flex: 1 }}
@@ -224,34 +239,34 @@ export default function TechnicianHomeScreen() {
             </View>
           </View>
 
-          {/* Quick Stats */}
+          {/* Quick Stats — each card navigates to its exact tab */}
           <View style={s.statsRow}>
-            <TouchableOpacity style={[s.statCard, { borderColor: '#3b82f6' }]} onPress={() => goToTab(1)}>
+            <TouchableOpacity style={[s.statCard, { borderColor: '#3b82f6' }]} onPress={() => goToTab(TAB.CUSTOMERS)}>
               <Text style={[s.statNum, { color: '#3b82f6' }]}>{customers.length}</Text>
               <Text style={s.statLabel}>Customers</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.statCard, { borderColor: '#22c55e' }]} onPress={() => goToTab(2)}>
+            <TouchableOpacity style={[s.statCard, { borderColor: '#22c55e' }]} onPress={() => goToTab(TAB.PAYMENTS)}>
               <Text style={[s.statNum, { color: '#22c55e' }]}>{payments.filter(p => p.status === 'paid').length}</Text>
               <Text style={s.statLabel}>Paid</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.statCard, { borderColor: '#f59e0b' }]} onPress={() => goToTab(3)}>
+            <TouchableOpacity style={[s.statCard, { borderColor: '#f59e0b' }]} onPress={() => goToTab(TAB.REMINDERS)}>
               <Text style={[s.statNum, { color: '#f59e0b' }]}>{pendingReminders}</Text>
               <Text style={s.statLabel}>Reminders</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Quick Actions */}
+          {/* Quick Actions — each action card routes to exactly its own tab */}
           <Text style={s.sectionTitle}>Quick Actions</Text>
           <View style={s.actionGrid}>
-            <TouchableOpacity style={[s.actionCard, { borderColor: colors.border }]} onPress={() => goToTab(1)}>
+            <TouchableOpacity style={[s.actionCard, { borderColor: colors.border }]} onPress={() => goToTab(TAB.CUSTOMERS)}>
               <Text style={{ fontSize: 28 }}>👤</Text>
               <Text style={s.actionLabel}>Customer जोड़ें</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.actionCard, { borderColor: colors.border }]} onPress={() => goToTab(2)}>
+            <TouchableOpacity style={[s.actionCard, { borderColor: colors.border }]} onPress={() => goToTab(TAB.PAYMENTS)}>
               <Text style={{ fontSize: 28 }}>💳</Text>
               <Text style={s.actionLabel}>Payment Add</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.actionCard, { borderColor: colors.border }]} onPress={() => goToTab(3)}>
+            <TouchableOpacity style={[s.actionCard, { borderColor: colors.border }]} onPress={() => goToTab(TAB.REMINDERS)}>
               <Text style={{ fontSize: 28 }}>🔔</Text>
               <Text style={s.actionLabel}>Reminder Add</Text>
             </TouchableOpacity>
@@ -310,9 +325,10 @@ export default function TechnicianHomeScreen() {
         </ScrollView>
 
         {/* ══ TAB 1: Customers ══════════════════════════════════════════════════ */}
+        {/* 💳 credit-card icon → TAB.PAYMENTS  |  🔔 bell icon → TAB.REMINDERS */}
         <CustomerTab colors={colors} techCode={techCode} customers={customers} setCustomers={setCustomers} insets={insets} formUrl={formUrl}
-          onAddReminder={(c) => { setPrefillCustomer({ name: c.name, phone: c.phone }); goToTab(3); }}
-          onAddPayment={(c) => { setPrefillPayment({ name: c.name, phone: c.phone }); goToTab(2); }} />
+          onAddReminder={(c) => { setPrefillCustomer({ name: c.name, phone: c.phone }); goToTab(TAB.REMINDERS); }}
+          onAddPayment={(c)  => { setPrefillPayment({ name: c.name, phone: c.phone });  goToTab(TAB.PAYMENTS);  }} />
 
         {/* ══ TAB 2: Payments ══════════════════════════════════════════════════ */}
         <PaymentsTab colors={colors} techCode={techCode} payments={payments} setPayments={setPayments} customers={customers} insets={insets} prefillPayment={prefillPayment} onPrefillConsumed={() => setPrefillPayment(null)} />

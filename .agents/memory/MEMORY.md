@@ -1,3 +1,7 @@
 - [Custom Auth System](custom-auth.md) — OLD custom auth replaced by Clerk; custom routes/middleware still exist in api-server but no longer used by frontend.
 - [Clerk Auth Setup](clerk-auth-setup.md) — Clerk + api-zod codegen gotcha: codegen CLEANS generated folder, wiping hand-written schemas; always use OpenAPI spec or inline validation.
 - [Settings Extra Fields](settings-extra-fields.md) — shopName/logoUrl are NOT in OpenAPI spec/Zod; handled manually in the route by extracting from req.body before Zod parse.
+- [Mobile App API Helper](mobile-api-helper.md) — getBaseUrl() does NOT exist in @workspace/api-client-react; use process.env.EXPO_PUBLIC_API_URL instead.
+- [Customer PATCH All Fields](customer-patch-fields.md) — UpdateCustomerBody (auto-generated Zod) only has 6 fields; PATCH route now uses manual field extraction to save all DB columns.
+- [Public Form Token System](public-form-token.md) — Customer form URL uses appCustomersTable.uniqueCode (TECH-XXXX), NOT customersTable.shareToken.
+- [Table Separation](table-separation.md) — Mobile-app technicians in appCustomersTable; service-center professionals in professionalsTable — these are DIFFERENT tables, not interchangeable.

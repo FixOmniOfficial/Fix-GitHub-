@@ -1,44 +1,50 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, customersTable } from "@workspace/db";
+import { db, appCustomersTable, techCustomersTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
-/* ── GET /public/customer-form/:token ── */
-router.get("/public/customer-form/:token", async (req, res): Promise<void> => {
-  const { token } = req.params;
-  if (!token) { res.status(400).json({ error: "Token required" }); return; }
+/* ── GET /public/customer-form/:techCode ──
+   Called by the customer-facing form page to validate the link
+   and optionally return the technician's visiting charge.          */
+router.get("/public/customer-form/:techCode", async (req, res): Promise<void> => {
+  const { techCode } = req.params;
+  if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
 
-  const [customer] = await db
+  const [tech] = await db
     .select()
-    .from(customersTable)
-    .where(eq((customersTable as any).shareToken, token));
+    .from(appCustomersTable)
+    .where(eq(appCustomersTable.uniqueCode, techCode));
 
-  if (!customer) {
-    res.status(404).json({ error: "लिंक अमान्य या समाप्त हो गया है" });
+  if (!tech) {
+    res.status(404).json({ error: "लिंक अमान्य है। कृपया technician से नया link लें।" });
     return;
   }
 
+  // visitingAmount is not stored per app-customer yet; return null so the
+  // form still renders (the banner is hidden when visitingAmount is null).
   res.json({
-    id: customer.id,
-    serialNumber: customer.serialNumber,
-    name: customer.name,
-    phone: customer.phone,
-    whatsappPhone: customer.whatsappPhone ?? null,
-    houseNumber: (customer as any).houseNumber ?? null,
-    floorNumber: (customer as any).floorNumber ?? null,
-    address: customer.address ?? null,
-    location: (customer as any).location ?? null,
-    visitingAmount: (customer as any).visitingAmount
-      ? parseFloat((customer as any).visitingAmount)
-      : null,
+    techName: tech.name,
+    visitingAmount: null,
   });
 });
 
-/* ── POST /public/customer-form/:token ── */
-router.post("/public/customer-form/:token", async (req, res): Promise<void> => {
-  const { token } = req.params;
-  if (!token) { res.status(400).json({ error: "Token required" }); return; }
+/* ── POST /public/customer-form/:techCode ──
+   Customer submits their details → creates a new entry in
+   the technician's customer list (tech_customers table).            */
+router.post("/public/customer-form/:techCode", async (req, res): Promise<void> => {
+  const { techCode } = req.params;
+  if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+
+  const [tech] = await db
+    .select()
+    .from(appCustomersTable)
+    .where(eq(appCustomersTable.uniqueCode, techCode));
+
+  if (!tech) {
+    res.status(404).json({ error: "लिंक अमान्य है। कृपया technician से नया link लें।" });
+    return;
+  }
 
   const { name, phone, whatsappPhone, houseNumber, floorNumber, address, location, serviceType } = req.body;
 
@@ -47,29 +53,22 @@ router.post("/public/customer-form/:token", async (req, res): Promise<void> => {
     return;
   }
 
-  const [existing] = await db
-    .select({ id: customersTable.id })
-    .from(customersTable)
-    .where(eq((customersTable as any).shareToken, token));
+  // Build notes from extra fields so nothing is lost
+  const extraParts: string[] = [];
+  if (houseNumber)  extraParts.push(`House: ${houseNumber}`);
+  if (floorNumber)  extraParts.push(`Floor: ${floorNumber}`);
+  if (location)     extraParts.push(`Location: ${location}`);
+  if (whatsappPhone && whatsappPhone !== phone) extraParts.push(`WhatsApp: ${whatsappPhone}`);
+  const notes = extraParts.length ? extraParts.join(" | ") : null;
 
-  if (!existing) {
-    res.status(404).json({ error: "लिंक अमान्य या समाप्त हो गया है" });
-    return;
-  }
-
-  await db
-    .update(customersTable)
-    .set({
-      name,
-      phone,
-      whatsappPhone: whatsappPhone || null,
-      houseNumber: houseNumber || null,
-      floorNumber: floorNumber || null,
-      address: address || null,
-      location: location || null,
-      serviceType: serviceType || null,
-    } as any)
-    .where(eq(customersTable.id, existing.id));
+  await db.insert(techCustomersTable).values({
+    techCode,
+    name:    name.trim(),
+    phone:   phone.trim(),
+    address: address?.trim() || null,
+    jobType: serviceType?.trim() || null,
+    notes,
+  });
 
   res.json({
     success: true,

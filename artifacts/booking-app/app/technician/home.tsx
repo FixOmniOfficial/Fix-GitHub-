@@ -151,10 +151,22 @@ export default function TechnicianHomeScreen() {
           <Text style={s.greeting}>नमस्ते, {user.name.split(' ')[0]}! 👋</Text>
           <Text style={s.subGreeting}>{PROF_LABELS[user.professionType ?? ''] ?? 'Technician'} · {user.uniqueCode}</Text>
         </View>
-        <TouchableOpacity style={s.logoutBtn} onPress={() => Alert.alert('Logout', 'Logout करना चाहते हैं?', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Logout', style: 'destructive', onPress: logout },
-        ])}>
+        <TouchableOpacity
+          style={s.logoutBtn}
+          onPress={async () => {
+            const ok = Platform.OS === 'web'
+              ? window.confirm('Logout करना चाहते हैं?')
+              : await new Promise<boolean>(resolve =>
+                  Alert.alert('Logout', 'Logout करना चाहते हैं?', [
+                    { text: 'No',  style: 'cancel',      onPress: () => resolve(false) },
+                    { text: 'Yes', style: 'destructive', onPress: () => resolve(true)  },
+                  ])
+                );
+            if (!ok) return;
+            await logout();
+            router.replace('/auth/technician' as any);
+          }}
+        >
           <Feather name="log-out" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>

@@ -812,6 +812,7 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
   const [entryAmount,  setEntryAmount]  = useState('');
   const [entryMethod,  setEntryMethod]  = useState<'cash' | 'online'>('cash');
   const [entryDate,    setEntryDate]    = useState('');
+  const [entryTime,    setEntryTime]    = useState('');
   const [entryNote,    setEntryNote]    = useState('');
   const [savingEntry,  setSavingEntry]  = useState(false);
 
@@ -870,10 +871,14 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
 
   // ── Add a partial payment entry ────────────────────────────────────────────
   const openAddEntry = (payId: number) => {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);          // YYYY-MM-DD
+    const timeStr = now.toTimeString().slice(0, 5);           // HH:MM
     setAddEntryId(payId);
     setEntryAmount('');
     setEntryMethod('cash');
-    setEntryDate(todayISO);
+    setEntryDate(dateStr);
+    setEntryTime(timeStr);
     setEntryNote('');
     // auto-expand that record
     setExpanded(prev => { const s = new Set(prev); s.add(payId); return s; });
@@ -883,6 +888,9 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
     if (!entryAmount.trim() || isNaN(parseFloat(entryAmount))) { Alert.alert('', 'Amount जरूरी है'); return; }
     if (!entryDate.trim()) { Alert.alert('', 'Date जरूरी है'); return; }
     setSavingEntry(true);
+    const paidAtValue = entryTime.trim()
+      ? `${entryDate}T${entryTime}`
+      : entryDate;
     try {
       const res = await api('/booking/tech-payment-entries', {
         method: 'POST',
@@ -890,7 +898,7 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
           paymentId: addEntryId,
           amount: parseFloat(entryAmount),
           paymentMethod: entryMethod,
-          paidAt: entryDate,
+          paidAt: paidAtValue,
           note: entryNote.trim() || undefined,
         }),
       });
@@ -1044,7 +1052,18 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
                     <View style={{ flex: 1, gap: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '800', color: '#22c55e' }}>+₹{Number(e.amount).toLocaleString('en-IN')}</Text>
                       <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
-                        {e.paidAt}  ·  {e.paymentMethod === 'cash' ? 'Cash' : 'Online'}
+                        {(() => {
+                          const raw = e.paidAt ?? '';
+                          if (raw.includes('T')) {
+                            const [datePart, timePart] = raw.split('T');
+                            const [y, m, d] = datePart.split('-');
+                            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            return `${d} ${months[parseInt(m,10)-1]} ${y}  ${timePart.slice(0,5)}`;
+                          }
+                          const [y, m, d] = raw.split('-');
+                          const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                          return `${d} ${months[parseInt(m,10)-1]} ${y}`;
+                        })()}  ·  {e.paymentMethod === 'cash' ? '💵 Cash' : '📲 Online'}
                       </Text>
                       {e.note ? <Text style={{ fontSize: 11, color: colors.mutedForeground }} numberOfLines={1}>{e.note}</Text> : null}
                     </View>
@@ -1067,22 +1086,44 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
               <View style={{ padding: 12, gap: 10, borderTopWidth: p.entries.length > 0 ? 1 : 0, borderTopColor: colors.border }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>💳 Partial Payment Add करें</Text>
 
-                {/* Amount + Date row */}
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={s.fieldLabel}>Amount (₹) *</Text>
-                    <TextInput style={s.input} placeholder={`Max ₹${balance.toLocaleString('en-IN')}`}
-                      placeholderTextColor={colors.mutedForeground}
-                      value={entryAmount} onChangeText={setEntryAmount} keyboardType="numeric" />
-                  </View>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={s.fieldLabel}>📅 Date *</Text>
-                    {Platform.OS === 'web'
-                      ? <input type="date" value={entryDate} onChange={(e: any) => setEntryDate(e.target.value)} style={webDateStyle} />
-                      : <TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor={colors.mutedForeground}
-                          value={entryDate} onChangeText={setEntryDate} keyboardType="numbers-and-punctuation" />}
-                  </View>
+                {/* Amount row */}
+                <View style={{ gap: 4 }}>
+                  <Text style={s.fieldLabel}>Amount (₹) *</Text>
+                  <TextInput style={s.input} placeholder={`Max ₹${balance.toLocaleString('en-IN')}`}
+                    placeholderTextColor={colors.mutedForeground}
+                    value={entryAmount} onChangeText={setEntryAmount} keyboardType="numeric" />
                 </View>
+
+                {/* Date + Time row */}
+                {Platform.OS === 'web'
+                  ? <View style={{ gap: 4 }}>
+                      <Text style={s.fieldLabel}>📅 Date & Time *</Text>
+                      <input
+                        type="datetime-local"
+                        value={entryDate && entryTime ? `${entryDate}T${entryTime}` : entryDate}
+                        onChange={(e: any) => {
+                          const v: string = e.target.value; // "YYYY-MM-DDTHH:MM"
+                          setEntryDate(v.slice(0, 10));
+                          setEntryTime(v.slice(11, 16));
+                        }}
+                        style={webDateStyle}
+                      />
+                    </View>
+                  : <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={s.fieldLabel}>📅 Date *</Text>
+                        <TextInput style={s.input} placeholder="YYYY-MM-DD"
+                          placeholderTextColor={colors.mutedForeground}
+                          value={entryDate} onChangeText={setEntryDate} keyboardType="numbers-and-punctuation" />
+                      </View>
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={s.fieldLabel}>🕐 Time</Text>
+                        <TextInput style={s.input} placeholder="HH:MM"
+                          placeholderTextColor={colors.mutedForeground}
+                          value={entryTime} onChangeText={setEntryTime} keyboardType="numbers-and-punctuation" />
+                      </View>
+                    </View>
+                }
 
                 {/* Payment Method */}
                 <View style={{ gap: 4 }}>

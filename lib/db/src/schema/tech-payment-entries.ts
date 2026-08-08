@@ -6,7 +6,7 @@ export const techPaymentEntriesTable = pgTable("tech_payment_entries", {
   paymentId:     integer("payment_id").notNull().references(() => techPaymentsTable.id, { onDelete: "cascade" }),
   amount:        numeric("amount", { precision: 10, scale: 2 }).notNull(),
   paymentMethod: text("payment_method").notNull().default("cash"), // 'cash' | 'online'
-  paidAt:        text("paid_at").notNull(),   // "YYYY-MM-DD"
+  paidAt:        text("paid_at").notNull(),   // "YYYY-MM-DDTHH:MM" (datetime local string)
   note:          text("note"),
   createdAt:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

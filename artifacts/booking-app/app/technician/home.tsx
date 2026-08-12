@@ -327,7 +327,7 @@ export default function TechnicianHomeScreen() {
 
         {/* ══ TAB 1: Customers ══════════════════════════════════════════════════ */}
         {/* 💳 credit-card icon → TAB.PAYMENTS  |  🔔 bell icon → TAB.REMINDERS */}
-        <CustomerTab colors={colors} techCode={techCode} customers={customers} setCustomers={setCustomers} insets={insets} formUrl={formUrl}
+        <CustomerTab colors={colors} techCode={techCode} techName={user?.name ?? 'Technician'} customers={customers} setCustomers={setCustomers} insets={insets} formUrl={formUrl}
           onAddReminder={(c) => { setPrefillCustomer({ name: c.name, phone: c.phone }); goToTab(TAB.REMINDERS); }}
           onAddPayment={(c)  => { setPrefillPayment({ name: c.name, phone: c.phone });  goToTab(TAB.PAYMENTS);  }} />
 
@@ -345,9 +345,10 @@ export default function TechnicianHomeScreen() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: CUSTOMERS
 // ═══════════════════════════════════════════════════════════════════════════════
-function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUrl, onAddReminder, onAddPayment }: {
+function CustomerTab({ colors, techCode, techName, customers, setCustomers, insets, formUrl, onAddReminder, onAddPayment }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
+  techName: string;
   customers: TechCustomer[];
   setCustomers: React.Dispatch<React.SetStateAction<TechCustomer[]>>;
   insets: any;
@@ -402,7 +403,14 @@ function CustomerTab({ colors, techCode, customers, setCustomers, insets, formUr
   };
 
   const shareForm = (customer?: TechCustomer) => {
-    const msg = `🛠️ *Service Booking Form*\n\nकृपया अपनी बुकिंग confirm करने के लिए यह form भरें:\n👉 ${formUrl}`;
+    const msg =
+      `❄️ *ProBook App*  |  Open ➔ ${formUrl}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `🛠️ *Service Booking Form*\n` +
+      `${techName}  |  ID: ${techCode}\n` +
+      `🔗 ${formUrl}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `"हैलो! कृपया ऊपर दिए गए लिंक पर क्लिक करके अपना एड्रेस और लोकेशन भरें ताकि हम आपकी सर्विस टाइम पर शुरू कर सकें। 🙏"`;
     if (customer) {
       const clean = customer.phone.replace(/\D/g, '');
       Linking.openURL(

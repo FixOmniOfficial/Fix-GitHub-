@@ -67,12 +67,13 @@ export default function FormManagerScreen() {
   const shareOnWhatsApp = () => {
     const name = user?.name ?? 'Technician';
     const msg = encodeURIComponent(
-      `🔧 *Service Booking Form*\n\n` +
-      `नमस्ते! 🙏\n` +
-      `अपनी service book करने के लिए नीचे दिए link पर tap करें:\n\n` +
-      `👉 ${formUrl}\n\n` +
-      `Form में अपना नाम, address और problem लिखें — हम जल्द आएंगे!\n\n` +
-      `— *${name}*`
+      `❄️ *ProBook App*  |  Open ➔ ${formUrl}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `🛠️ *Service Booking Form*\n` +
+      `${name}  |  ID: ${techCode}\n` +
+      `🔗 ${formUrl}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `"हैलो! कृपया ऊपर दिए गए लिंक पर क्लिक करके अपना एड्रेस और लोकेशन भरें ताकि हम आपकी सर्विस टाइम पर शुरू कर सकें। 🙏"`
     );
     Linking.openURL(`https://wa.me/?text=${msg}`).catch(() =>
       Alert.alert('WhatsApp', 'WhatsApp नहीं खुल सका')

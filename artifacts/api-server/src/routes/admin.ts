@@ -499,6 +499,108 @@ router.delete('/admin/service-categories/:id', requireAuth, requireAdmin, async 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TECHNICIANS MANAGEMENT (admin panel → professionalsTable)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function validateAdminPhone(phone: string): string | null {
+  const clean = phone.trim().replace(/\D/g, '');
+  if (clean.length !== 10) return 'Phone must be exactly 10 digits.';
+  if (!/^[6-9]/.test(clean)) return 'Phone must start with 6, 7, 8, or 9 (Indian mobile).';
+  return null; // valid
+}
+
+/** GET /api/admin/technicians — list all mobile technicians (incl. test data) */
+router.get('/admin/technicians', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(professionalsTable).orderBy(professionalsTable.createdAt);
+    res.json(rows);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch technicians' });
+  }
+});
+
+/** POST /api/admin/technicians — create technician with strict validation */
+router.post('/admin/technicians', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { name, phone, professionType, avatarEmoji, visitingCharge } = req.body;
+    if (!name?.trim() || !professionType?.trim()) {
+      res.status(400).json({ error: 'name and professionType are required' }); return;
+    }
+    if (phone?.trim()) {
+      const err = validateAdminPhone(phone);
+      if (err) { res.status(400).json({ error: err }); return; }
+      const cleanPhone = phone.trim().replace(/\D/g, '');
+      const dup = await db.select({ id: professionalsTable.id })
+        .from(professionalsTable).where(eq(professionalsTable.phone, cleanPhone)).limit(1);
+      if (dup.length) { res.status(409).json({ error: 'This mobile number is already registered.' }); return; }
+    }
+    // Generate unique TECH code
+    let uniqueCode: string;
+    for (;;) {
+      const n = Math.floor(1000 + Math.random() * 9000);
+      uniqueCode = `TECH-${n}`;
+      const exists = await db.select({ id: professionalsTable.id })
+        .from(professionalsTable).where(eq(professionalsTable.uniqueCode, uniqueCode)).limit(1);
+      if (!exists.length) break;
+    }
+    const cleanPhone = phone?.trim() ? phone.trim().replace(/\D/g, '') : null;
+    const [row] = await db.insert(professionalsTable).values({
+      name: name.trim(), phone: cleanPhone, professionType: professionType.trim(),
+      avatarEmoji: avatarEmoji?.trim() || '🔧',
+      visitingCharge: visitingCharge ? String(visitingCharge) : null,
+      uniqueCode,
+    }).returning();
+    res.status(201).json(row);
+  } catch {
+    res.status(500).json({ error: 'Failed to create technician' });
+  }
+});
+
+/** PATCH /api/admin/technicians/:id — update technician with strict phone validation */
+router.patch('/admin/technicians/:id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params['id']), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const { name, phone, professionType, avatarEmoji, visitingCharge, isActive } = req.body;
+    if (phone?.trim()) {
+      const err = validateAdminPhone(phone);
+      if (err) { res.status(400).json({ error: err }); return; }
+      const cleanPhone = phone.trim().replace(/\D/g, '');
+      const dup = await db.select({ id: professionalsTable.id })
+        .from(professionalsTable)
+        .where(sql`${professionalsTable.phone} = ${cleanPhone} AND ${professionalsTable.id} != ${id}`)
+        .limit(1);
+      if (dup.length) { res.status(409).json({ error: 'This mobile number is already registered to another technician.' }); return; }
+    }
+    const updates: Record<string, any> = {};
+    if (name?.trim())        updates.name = name.trim();
+    if (phone !== undefined) updates.phone = phone?.trim() ? phone.trim().replace(/\D/g, '') : null;
+    if (professionType?.trim()) updates.professionType = professionType.trim();
+    if (avatarEmoji?.trim()) updates.avatarEmoji = avatarEmoji.trim();
+    if (visitingCharge !== undefined) updates.visitingCharge = visitingCharge ? String(visitingCharge) : null;
+    if (isActive !== undefined) updates.isActive = isActive;
+    const [row] = await db.update(professionalsTable).set(updates).where(eq(professionalsTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: 'Technician not found' }); return; }
+    res.json(row);
+  } catch {
+    res.status(500).json({ error: 'Failed to update technician' });
+  }
+});
+
+/** DELETE /api/admin/technicians/:id */
+router.delete('/admin/technicians/:id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params['id']), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    await db.execute(sql`DELETE FROM kyc_documents WHERE professional_id = ${id}`);
+    await db.delete(professionalsTable).where(eq(professionalsTable.id, id));
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: 'Failed to delete technician' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ANALYTICS DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
 

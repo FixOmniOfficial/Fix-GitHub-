@@ -4,7 +4,7 @@ import {
   Home, Users, Wrench, Bell,
   Calculator as CalculatorIcon,
   BarChart3, Settings, UserCircle, Menu, LogOut,
-  UserCog, Layers, Fingerprint, FlaskConical,
+  UserCog, Layers, Fingerprint, FlaskConical, Hammer,
 } from 'lucide-react';
 import { useGetSettings, useListReminders } from '@workspace/api-client-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,6 +24,7 @@ const NAV_ITEMS = [
 
 // Admin-only items in the System section
 const ADMIN_ITEMS = [
+  { label: 'तकनीशियन',  subtitle: 'Technicians',          icon: Hammer,      href: '/technicians' },
   { label: 'स्टाफ',      subtitle: 'Staff',               icon: UserCog,     href: '/staff' },
   { label: 'कैटेगरी',   subtitle: 'Service Categories',   icon: Layers,      href: '/service-categories' },
 ];

@@ -4,7 +4,7 @@ import {
   Home, Users, Wrench, Bell,
   Calculator as CalculatorIcon,
   BarChart3, Settings, UserCircle, Menu, LogOut,
-  UserCog, Layers,
+  UserCog, Layers, Fingerprint,
 } from 'lucide-react';
 import { useGetSettings, useListReminders } from '@workspace/api-client-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,8 +24,13 @@ const NAV_ITEMS = [
 
 // Admin-only items in the System section
 const ADMIN_ITEMS = [
-  { label: 'स्टाफ',      subtitle: 'Staff',               icon: UserCog, href: '/staff' },
-  { label: 'कैटेगरी',   subtitle: 'Service Categories',   icon: Layers,  href: '/service-categories' },
+  { label: 'स्टाफ',      subtitle: 'Staff',               icon: UserCog,     href: '/staff' },
+  { label: 'कैटेगरी',   subtitle: 'Service Categories',   icon: Layers,      href: '/service-categories' },
+];
+
+// Items visible to admin OR staff with kyc_review permission
+const KYC_ITEMS = [
+  { label: 'KYC समीक्षा', subtitle: 'KYC Review', icon: Fingerprint, href: '/kyc-review' },
 ];
 
 const BOTTOM_ITEMS = [
@@ -174,6 +179,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Admin-only nav (Staff + Categories) */}
           {isAdmin && ADMIN_ITEMS.map(item => (
+            <NavLink key={item.href} item={item} isActive={isActive(item.href)} lang={lang} onClick={onNav} />
+          ))}
+
+          {/* KYC Review — admin or staff with kyc_review permission */}
+          {(isAdmin || hasPermission('kyc_review')) && KYC_ITEMS.map(item => (
             <NavLink key={item.href} item={item} isActive={isActive(item.href)} lang={lang} onClick={onNav} />
           ))}
 

@@ -18,6 +18,7 @@ import Users from '@/pages/users';
 import Settings from '@/pages/settings';
 import StaffPage from '@/pages/staff';
 import ServiceCategoriesPage from '@/pages/service-categories';
+import KycReviewPage from '@/pages/kyc-review';
 import SignInPage from '@/pages/sign-in';
 import SignUpPage from '@/pages/sign-up';
 import CustomerFormPage from '@/pages/customer-form';
@@ -170,6 +171,7 @@ function ProtectedLayout() {
         <Route path="/settings" component={Settings} />
         <Route path="/staff" component={StaffPage} />
         <Route path="/service-categories" component={ServiceCategoriesPage} />
+        <Route path="/kyc-review" component={KycReviewPage} />
         <Route component={NotFound} />
       </Switch>
     </AppShell>

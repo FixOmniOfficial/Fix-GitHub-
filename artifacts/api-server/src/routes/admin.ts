@@ -10,7 +10,7 @@ import { requireAuth, requireAdmin, requireSuperAdmin } from '../middlewares/req
 const router: IRouter = Router();
 
 const VALID_ROLES = ['super_admin', 'admin', 'staff', 'technician', 'viewer'];
-const STAFF_PERMISSIONS = ['booking_management', 'user_management', 'analytics'];
+const STAFF_PERMISSIONS = ['booking_management', 'user_management', 'analytics', 'kyc_review'];
 const STAFF_ROLES = new Set(['staff', 'sub_admin']);
 
 // ─── Role hierarchy helpers ───────────────────────────────────────────────────

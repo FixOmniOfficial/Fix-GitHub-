@@ -61,6 +61,50 @@ const TABS = [
   { key: 'reminders', label: 'Reminders', icon: 'bell'         as const },
 ];
 
+// ─── KYC Status Card ─────────────────────────────────────────────────────────
+// Inline mini-component — shows KYC status on the dashboard tab
+function KycStatusCard({ techCode, router }: { techCode: string; router: ReturnType<typeof useRouter> }) {
+  const [status, setStatus] = React.useState<string | null>(null);
+  useEffect(() => {
+    if (!techCode) return;
+    fetch(`${process.env.EXPO_PUBLIC_API_URL ?? ''}/api/kyc/status`, {
+      headers: { 'X-Tech-Code': techCode },
+    })
+      .then(r => r.json())
+      .then(d => setStatus(d.status ?? 'not_submitted'))
+      .catch(() => setStatus('not_submitted'));
+  }, [techCode]);
+
+  if (status === null) return null; // loading
+
+  const KYC_COLORS: Record<string, { bg: string; border: string; icon: string; label: string; color: string }> = {
+    not_submitted: { bg: '#1e293b', border: '#475569', icon: '📋', label: 'KYC Not Submitted',   color: '#94a3b8' },
+    pending:       { bg: '#1c1000', border: '#78350f', icon: '⏳', label: 'KYC Under Review',    color: '#f59e0b' },
+    verified:      { bg: '#022c22', border: '#065f46', icon: '✅', label: 'KYC Verified',         color: '#10b981' },
+    rejected:      { bg: '#1c0010', border: '#9f1239', icon: '❌', label: 'KYC Rejected',         color: '#f43f5e' },
+  };
+  const cfg = KYC_COLORS[status] ?? KYC_COLORS.not_submitted;
+  return (
+    <TouchableOpacity
+      style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: cfg.bg, borderWidth: 1, borderColor: cfg.border, borderRadius: 12, padding: 12 }}
+      onPress={() => router.push('/technician/kyc' as any)}
+      activeOpacity={0.8}
+    >
+      <Text style={{ fontSize: 22, marginRight: 10 }}>{cfg.icon}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontWeight: '700', fontSize: 13, color: cfg.color }}>{cfg.label}</Text>
+        <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+          {status === 'verified' ? 'पहचान सत्यापित — आप booking receive कर सकते हैं' :
+           status === 'pending'  ? 'दस्तावेज़ समीक्षाधीन हैं — जल्द update मिलेगा' :
+           status === 'rejected' ? 'दस्तावेज़ अस्वीकृत — कृपया पुनः submit करें' :
+                                   'अपनी पहचान verify करें — tap करें'}
+        </Text>
+      </View>
+      <Text style={{ color: cfg.color, fontSize: 18 }}>›</Text>
+    </TouchableOpacity>
+  );
+}
+
 // ─── Tab index constants ───────────────────────────────────────────────────────
 // Single source of truth — all goToTab() calls must use these, never raw numbers.
 // If TABS order ever changes, update ONLY this object; everywhere else auto-corrects.
@@ -290,6 +334,9 @@ export default function TechnicianHomeScreen() {
               <Text style={s.actionLabel}>My Form</Text>
             </TouchableOpacity>
           </View>
+
+          {/* KYC Verification Card */}
+          <KycStatusCard techCode={techCode} router={router} />
 
           {/* Market Rates & Rate the App */}
           <View style={{ gap: 10, marginTop: 4 }}>

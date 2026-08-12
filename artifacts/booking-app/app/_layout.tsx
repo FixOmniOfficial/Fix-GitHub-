@@ -43,6 +43,7 @@ function RootLayoutNav() {
       <Stack.Screen name="technician/dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="technician/form-manager" options={{ headerShown: false }} />
       <Stack.Screen name="technician/submissions" options={{ headerShown: false }} />
+      <Stack.Screen name="technician/kyc" options={{ headerShown: false }} />
       <Stack.Screen name="form/[techCode]" options={{ headerShown: false }} />
       <Stack.Screen name="rates/index" options={{ headerShown: false }} />
       <Stack.Screen name="helpline/index" options={{ headerShown: false }} />

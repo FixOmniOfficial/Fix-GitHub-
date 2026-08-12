@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { UserCog, Plus, Trash2, Shield, Users, BookOpen, BarChart3, ShieldCheck } from 'lucide-react';
+import { UserCog, Plus, Trash2, Shield, Users, BookOpen, BarChart3, ShieldCheck, Fingerprint } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
 
@@ -50,6 +50,14 @@ const PERMISSION_CONFIG = [
     icon: BarChart3,
     color: 'text-emerald-400',
     bg: 'bg-emerald-500/10',
+  },
+  {
+    key: 'kyc_review',
+    label: 'KYC Review',
+    labelHi: 'KYC समीक्षा',
+    icon: Fingerprint,
+    color: 'text-cyan-400',
+    bg: 'bg-cyan-500/10',
   },
 ] as const;
 

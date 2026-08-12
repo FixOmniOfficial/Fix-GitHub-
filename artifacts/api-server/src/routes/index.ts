@@ -12,6 +12,8 @@ import remindersRouter from "./reminders";
 import usersRouter from "./users";
 import settingsRouter from "./settings";
 import dashboardRouter from "./dashboard";
+import kycRouter from "./kyc";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -28,5 +30,7 @@ router.use(remindersRouter);
 router.use(usersRouter);
 router.use(settingsRouter);
 router.use(dashboardRouter);
+router.use(kycRouter);
+router.use(storageRouter);
 
 export default router;

@@ -16,6 +16,8 @@ import Calculator from '@/pages/calculator';
 import Reports from '@/pages/reports';
 import Users from '@/pages/users';
 import Settings from '@/pages/settings';
+import StaffPage from '@/pages/staff';
+import ServiceCategoriesPage from '@/pages/service-categories';
 import SignInPage from '@/pages/sign-in';
 import SignUpPage from '@/pages/sign-up';
 import CustomerFormPage from '@/pages/customer-form';
@@ -166,6 +168,8 @@ function ProtectedLayout() {
         <Route path="/reports" component={Reports} />
         <Route path="/users" component={Users} />
         <Route path="/settings" component={Settings} />
+        <Route path="/staff" component={StaffPage} />
+        <Route path="/service-categories" component={ServiceCategoriesPage} />
         <Route component={NotFound} />
       </Switch>
     </AppShell>

@@ -498,43 +498,9 @@ router.get("/booking/service-categories", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/booking/service-categories", async (req, res): Promise<void> => {
-  try {
-    const { name, icon, accent, professionType, sortOrder, isActive } = req.body;
-    const [row] = await db.insert(serviceCategoriesTable).values({ name, icon, accent, professionType, sortOrder: sortOrder ?? 99, isActive: isActive ?? true }).returning();
-    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
-  } catch {
-    res.status(500).json({ error: "Failed to create service category" });
-  }
-});
-
-router.patch("/booking/service-categories/:id", async (req, res): Promise<void> => {
-  try {
-    const id = parseInt(req.params.id);
-    const { name, icon, accent, professionType, sortOrder, isActive } = req.body;
-    const updates: Record<string, unknown> = { updatedAt: new Date() };
-    if (name !== undefined) updates.name = name;
-    if (icon !== undefined) updates.icon = icon;
-    if (accent !== undefined) updates.accent = accent;
-    if (professionType !== undefined) updates.professionType = professionType;
-    if (sortOrder !== undefined) updates.sortOrder = sortOrder;
-    if (isActive !== undefined) updates.isActive = isActive;
-    const [row] = await db.update(serviceCategoriesTable).set(updates).where(eq(serviceCategoriesTable.id, id)).returning();
-    if (!row) { res.status(404).json({ error: "Not found" }); return; }
-    res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
-  } catch {
-    res.status(500).json({ error: "Failed to update service category" });
-  }
-});
-
-router.delete("/booking/service-categories/:id", async (req, res): Promise<void> => {
-  try {
-    await db.delete(serviceCategoriesTable).where(eq(serviceCategoriesTable.id, parseInt(req.params.id)));
-    res.status(204).end();
-  } catch {
-    res.status(500).json({ error: "Failed to delete service category" });
-  }
-});
+// POST/PATCH/DELETE for service categories are handled exclusively by the
+// admin routes (/api/admin/service-categories) with proper authentication.
+// These unauthenticated mutation routes have been removed.
 
 // ── Home Config ──────────────────────────────────────────────
 

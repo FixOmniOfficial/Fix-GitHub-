@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, professionalsTable, techCustomersTable, bookingsTable, appSettingsTable } from "@workspace/db";
+import { db, professionalsTable, techCustomersTable, bookingsTable, appSettingsTable, serviceCategoriesTable } from "@workspace/db";
 import { PROFESSION_LABELS } from "@workspace/db";
 import crypto from "crypto";
 
@@ -71,6 +71,24 @@ async function getTechProfile(req: any, res: any): Promise<void> {
 }
 router.get("/public/book/:techCode",       getTechProfile);
 router.get("/public/customer-form/:token", getTechProfile);
+
+// ── GET /public/service-categories ───────────────────────────────────────────
+//    Returns only active categories (for customer booking form chips)
+router.get("/public/service-categories", async (_req, res): Promise<void> => {
+  const cats = await db
+    .select({
+      id:             serviceCategoriesTable.id,
+      name:           serviceCategoriesTable.name,
+      icon:           serviceCategoriesTable.icon,
+      accent:         serviceCategoriesTable.accent,
+      professionType: serviceCategoriesTable.professionType,
+      sortOrder:      serviceCategoriesTable.sortOrder,
+    })
+    .from(serviceCategoriesTable)
+    .where(eq(serviceCategoriesTable.isActive, true))
+    .orderBy(serviceCategoriesTable.sortOrder, serviceCategoriesTable.id);
+  res.json(cats);
+});
 
 // ── POST /public/book/:techCode  (primary) ────────────────────────────────────
 // ── POST /public/customer-form/:techCode  (legacy alias) ──────────────────────

@@ -4,20 +4,28 @@ import {
   Home, Users, Wrench, Bell,
   Calculator as CalculatorIcon,
   BarChart3, Settings, UserCircle, Menu, LogOut,
+  UserCog, Layers,
 } from 'lucide-react';
 import { useGetSettings, useListReminders } from '@workspace/api-client-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useUser, useClerk } from '@clerk/react';
 import { toast } from 'sonner';
+import { useRole } from '@/lib/use-role';
 
 // All nav items — label = Hindi, subtitle = English
 const NAV_ITEMS = [
-  { label: 'डैशबोर्ड', subtitle: 'Dashboard',  icon: Home,            href: '/' },
+  { label: 'डैशबोर्ड', subtitle: 'Dashboard',   icon: Home,            href: '/' },
   { label: 'ग्राहक / कार्य', subtitle: 'Customers & Jobs', icon: Users, href: '/customers' },
-  { label: 'रिमाइंडर', subtitle: 'Reminders',   icon: Bell,            href: '/reminders' },
-  { label: 'कैलकुलेटर',subtitle: 'Calculator',  icon: CalculatorIcon,  href: '/calculator' },
-  { label: 'रिपोर्ट्स',subtitle: 'Reports',     icon: BarChart3,       href: '/reports' },
+  { label: 'रिमाइंडर', subtitle: 'Reminders',    icon: Bell,            href: '/reminders' },
+  { label: 'कैलकुलेटर', subtitle: 'Calculator',  icon: CalculatorIcon,  href: '/calculator' },
+  { label: 'रिपोर्ट्स', subtitle: 'Reports',     icon: BarChart3,       href: '/reports' },
+];
+
+// Admin-only items in the System section
+const ADMIN_ITEMS = [
+  { label: 'स्टाफ',      subtitle: 'Staff',               icon: UserCog, href: '/staff' },
+  { label: 'कैटेगरी',   subtitle: 'Service Categories',   icon: Layers,  href: '/service-categories' },
 ];
 
 const BOTTOM_ITEMS = [
@@ -79,6 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: reminders } = useListReminders({ isActive: true });
   const { user } = useUser();
   const { signOut } = useClerk();
+  const { isAdmin, isStaff, hasPermission } = useRole();
 
   // Cast to extended type that includes our extra fields
   const ext = settings as typeof settings & { shopName?: string; logoUrl?: string };
@@ -104,13 +113,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [settings?.theme]);
 
-  // Caption zoom (only captions, not the whole page)
+  // Caption zoom
   useEffect(() => {
     document.documentElement.style.setProperty('--caption-zoom', String(settings?.captionSize ?? 1));
   }, [settings?.captionSize]);
 
   const isActive = (href: string) =>
     href === '/' ? location === '/' : location.startsWith(href);
+
+  // Decide which nav items are visible for staff based on permissions
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (isAdmin) return true;     // admins see everything
+    if (!isStaff) return true;    // non-staff (technician, viewer) see all nav
+    // Staff: filter by permissions
+    if (item.href === '/customers') return hasPermission('booking_management');
+    if (item.href === '/reports') return hasPermission('analytics');
+    return true; // dashboard, reminders, calculator always visible
+  });
 
   function SidebarContent({ onNav }: { onNav?: () => void }) {
     return (
@@ -136,7 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="px-3 mb-1">
             <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest">Menu</span>
           </div>
-          {NAV_ITEMS.map(item => (
+          {visibleNavItems.map(item => (
             <NavLink
               key={item.href}
               item={item}
@@ -147,10 +166,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
           ))}
 
+          {/* Admin-only system section */}
           <div className="px-3 pt-4 mb-1">
             <div className="border-t border-slate-800/60 mb-3" />
             <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest">System</span>
           </div>
+
+          {/* Admin-only nav (Staff + Categories) */}
+          {isAdmin && ADMIN_ITEMS.map(item => (
+            <NavLink key={item.href} item={item} isActive={isActive(item.href)} lang={lang} onClick={onNav} />
+          ))}
+
           {BOTTOM_ITEMS.map(item => (
             <NavLink key={item.href} item={item} isActive={isActive(item.href)} lang={lang} onClick={onNav} />
           ))}
@@ -162,7 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-800/50">
               <div className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
                 <span className="text-[10px] font-bold text-amber-400">
-                  {(user.firstName || user.emailAddresses?.[0]?.emailAddress || 'U').slice(0,1).toUpperCase()}
+                  {(user.firstName || user.emailAddresses?.[0]?.emailAddress || 'U').slice(0, 1).toUpperCase()}
                 </span>
               </div>
               <div className="flex-1 min-w-0">

@@ -29,6 +29,10 @@ export const appSettingsTable = pgTable("app_settings", {
   iconSelectFloor: text("icon_select_floor").notNull().default("🏢"),
   iconFullAddress: text("icon_full_address").notNull().default("🗺️"),
   iconGps:         text("icon_gps").notNull().default("🎯"),
+  // ── Bootstrap (first super_admin claim) ───────────────────────────────────
+  // Written atomically via UPDATE WHERE first_admin_claimed_by IS NULL.
+  // Non-null means a super_admin has already been established.
+  firstAdminClaimedBy: text("first_admin_claimed_by"),
   // ── Timestamps ────────────────────────────────────────────────────────────
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

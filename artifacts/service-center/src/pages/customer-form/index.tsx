@@ -8,6 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
 
+interface ServiceCategory {
+  id: number;
+  name: string;
+  icon: string;
+  accent: string;
+  professionType: string;
+  sortOrder: number;
+}
+
 // ── Floor options ──────────────────────────────────────────────────────────────
 const FLOOR_OPTIONS = [
   'Ground Floor', '1st Floor', '2nd Floor', '3rd Floor',
@@ -66,14 +75,15 @@ export default function CustomerFormPage() {
   const [, formParams]   = useRoute('/customer-form/:token');
   const code = bookParams?.techCode || formParams?.token || '';
 
-  const [pageState,    setPageState]    = useState<PageState>('loading');
-  const [tech,         setTech]         = useState<TechProfile | null>(null);
-  const [settings,     setSettings]     = useState<AppSettings | null>(null);
-  const [errorMsg,     setErrorMsg]     = useState('');
-  const [submitError,  setSubmitError]  = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [gpsLoading,   setGpsLoading]   = useState(false);
-  const [gpsError,     setGpsError]     = useState('');
+  const [pageState,      setPageState]      = useState<PageState>('loading');
+  const [tech,           setTech]           = useState<TechProfile | null>(null);
+  const [settings,       setSettings]       = useState<AppSettings | null>(null);
+  const [categories,     setCategories]     = useState<ServiceCategory[]>([]);
+  const [errorMsg,       setErrorMsg]       = useState('');
+  const [submitError,    setSubmitError]    = useState('');
+  const [isSubmitting,   setIsSubmitting]   = useState(false);
+  const [gpsLoading,     setGpsLoading]     = useState(false);
+  const [gpsError,       setGpsError]       = useState('');
 
   // Form state
   const [serviceType, setServiceType] = useState('');
@@ -91,7 +101,8 @@ export default function CustomerFormPage() {
     Promise.all([
       fetch(`${BASE}/api/public/book/${encodeURIComponent(code)}`).then(r => r.json()),
       fetch(`${BASE}/api/public/app-settings`).then(r => r.json()),
-    ]).then(([techData, settingsData]) => {
+      fetch(`${BASE}/api/public/service-categories`).then(r => r.json()).catch(() => []),
+    ]).then(([techData, settingsData, catsData]) => {
       if (techData.error) {
         setErrorMsg(techData.error);
         setPageState('error');
@@ -99,6 +110,7 @@ export default function CustomerFormPage() {
       }
       setTech(techData);
       setSettings(settingsData);
+      setCategories(Array.isArray(catsData) ? catsData : []);
       setPageState('form');
     }).catch(() => {
       setErrorMsg('Could not load booking form. Please check your internet and try again.');
@@ -312,32 +324,39 @@ export default function CustomerFormPage() {
             {ic('iconServiceType', '🛠️')} Service Type
             <span className="text-destructive ml-1">*</span>
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { value: 'Service',      label: 'Service',      emoji: '🛠️' },
-              { value: 'Repair',       label: 'Repair',       emoji: '🔧' },
-              { value: 'Installation', label: 'Installation', emoji: '📦' },
-            ].map(({ value, label, emoji }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setServiceType(value)}
-                className={[
-                  'relative flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-all select-none',
-                  serviceType === value
-                    ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm'
-                    : 'border-border bg-gray-50 text-foreground hover:border-amber-300 hover:bg-amber-50/50',
-                ].join(' ')}
-              >
-                {serviceType === value && (
-                  <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
-                    <span className="text-white text-[9px] font-black">✓</span>
-                  </span>
-                )}
-                <span className="text-2xl">{emoji}</span>
-                <span className="text-xs font-bold leading-tight">{label}</span>
-              </button>
-            ))}
+          {/* Dynamic chips from DB — falls back to 3 defaults if no categories loaded */}
+          <div className={`grid gap-2 ${(categories.length || 3) <= 3 ? 'grid-cols-3' : categories.length <= 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            {(categories.length > 0
+              ? categories
+              : [
+                  { id: 0, name: 'Service',      icon: '🛠️', accent: '#f59e0b', professionType: '', sortOrder: 0 },
+                  { id: 1, name: 'Repair',        icon: '🔧', accent: '#f59e0b', professionType: '', sortOrder: 1 },
+                  { id: 2, name: 'Installation',  icon: '📦', accent: '#f59e0b', professionType: '', sortOrder: 2 },
+                ]
+            ).map((cat) => {
+              const selected = serviceType === cat.name;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setServiceType(cat.name)}
+                  className={[
+                    'relative flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-all select-none',
+                    selected
+                      ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm'
+                      : 'border-border bg-gray-50 text-foreground hover:border-amber-300 hover:bg-amber-50/50',
+                  ].join(' ')}
+                >
+                  {selected && (
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
+                      <span className="text-white text-[9px] font-black">✓</span>
+                    </span>
+                  )}
+                  <span className="text-2xl">{cat.icon}</span>
+                  <span className="text-xs font-bold leading-tight">{cat.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

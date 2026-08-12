@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Shield, Ban, CheckCircle2, Clock, Crown } from 'lucide-react';
+import { UserCircle, Shield, Ban, CheckCircle2, Clock, Crown, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
 import { useUser } from '@clerk/react';
@@ -50,10 +50,12 @@ async function setBan(id: string, ban: boolean) {
 }
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  admin:      { label: 'Admin (व्यवस्थापक)',      color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',    icon: Crown },
-  technician: { label: 'Technician (तकनीशियन)', color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',       icon: UserCircle },
-  viewer:     { label: 'Viewer (दर्शक)',          color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',    icon: UserCircle },
-  user:       { label: 'User (उपयोगकर्ता)',        color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',   icon: UserCircle },
+  super_admin: { label: 'Super Admin (सुपर व्यवस्थापक)', color: 'bg-violet-500/15 text-violet-400 border-violet-500/30', icon: Shield },
+  admin:       { label: 'Admin (व्यवस्थापक)',            color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',    icon: Crown },
+  staff:       { label: 'Staff (स्टाफ)',                color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',       icon: UserCircle },
+  technician:  { label: 'Technician (तकनीशियन)',        color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',       icon: UserCircle },
+  viewer:      { label: 'Viewer (दर्शक)',                color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',    icon: UserCircle },
+  user:        { label: 'User (उपयोगकर्ता)',              color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',   icon: UserCircle },
 };
 
 export default function Users() {
@@ -162,8 +164,10 @@ export default function Users() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="super_admin" className="text-violet-400">🛡️ Super Admin</SelectItem>
                           <SelectItem value="admin" className="text-amber-400">👑 Admin</SelectItem>
-                          <SelectItem value="technician" className="text-blue-400">🔧 Technician</SelectItem>
+                          <SelectItem value="staff" className="text-blue-400">🧑‍💼 Staff</SelectItem>
+                          <SelectItem value="technician" className="text-cyan-400">🔧 Technician</SelectItem>
                           <SelectItem value="viewer" className="text-slate-300">👁 Viewer</SelectItem>
                           <SelectItem value="user" className="text-slate-400">👤 User</SelectItem>
                         </SelectContent>

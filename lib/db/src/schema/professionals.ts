@@ -11,20 +11,32 @@ export const professionTypes = [
   "repair",
 ] as const;
 
+/** Human-readable labels for each profession type */
+export const PROFESSION_LABELS: Record<string, string> = {
+  ac_technician: "AC Technician",
+  carpenter:     "Carpenter",
+  electrician:   "Electrician",
+  plumber:       "Plumber",
+  painter:       "Painter",
+  repair:        "Repair",
+};
+
 export const professionalsTable = pgTable("professionals", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  id:             serial("id").primaryKey(),
+  name:           text("name").notNull(),
   professionType: text("profession_type").notNull(),
-  phone: text("phone"),
-  avatarEmoji: text("avatar_emoji").default("👤"),
+  phone:          text("phone"),
+  avatarEmoji:    text("avatar_emoji").default("👤"),
   visitingCharge: numeric("visiting_charge", { precision: 10, scale: 2 }),
-  uniqueCode: text("unique_code").unique(),
-  isActive: boolean("is_active").notNull().default(true),
-  otpCode: text("otp_code"),
-  otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }),
-  otpAttempts: integer("otp_attempts").default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  rating:         numeric("rating", { precision: 3, scale: 1 }).default("4.5"),
+  shopName:       text("shop_name"),
+  uniqueCode:     text("unique_code").unique(),
+  isActive:       boolean("is_active").notNull().default(true),
+  otpCode:        text("otp_code"),
+  otpExpiresAt:   timestamp("otp_expires_at", { withTimezone: true }),
+  otpAttempts:    integer("otp_attempts").default(0),
+  createdAt:      timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:      timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
 export const insertProfessionalSchema = createInsertSchema(professionalsTable).omit({

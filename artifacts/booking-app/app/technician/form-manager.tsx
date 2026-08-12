@@ -23,26 +23,28 @@ export default function FormManagerScreen() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [appName, setAppName] = useState('Fixomni App');
 
   const techCode = user?.uniqueCode ?? '';
   // Service-center (customer-facing) is hosted at root path of EXPO_PUBLIC_DOMAIN
   const serviceCenterBase = process.env.EXPO_PUBLIC_DOMAIN
     ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
     : API_BASE;
-  const formUrl = `${serviceCenterBase}/customer-form/${techCode}`;
+  // ── Primary branded booking URL ──────────────────────────────────────────────
+  const formUrl = `${serviceCenterBase}/book/${techCode}`;
 
   useEffect(() => {
     if (!techCode) return;
-    fetch(`${API_BASE}/api/booking/tech-form-config/${techCode}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.config) {
-          setDefaultVisitingCharge(String(data.config.defaultVisitingCharge ?? ''));
-          setCustomMessage(data.config.customMessage ?? '');
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch(`${API_BASE}/api/booking/tech-form-config/${techCode}`).then(r => r.json()),
+      fetch(`${API_BASE}/api/public/app-settings`).then(r => r.json()).catch(() => null),
+    ]).then(([configData, settingsData]) => {
+      if (configData.config) {
+        setDefaultVisitingCharge(String(configData.config.defaultVisitingCharge ?? ''));
+        setCustomMessage(configData.config.customMessage ?? '');
+      }
+      if (settingsData?.appName) setAppName(settingsData.appName);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [techCode]);
 
   const handleSave = async () => {
@@ -65,15 +67,20 @@ export default function FormManagerScreen() {
   };
 
   const shareOnWhatsApp = () => {
-    const name = user?.name ?? 'Technician';
+    const techName = user?.name ?? 'Technician';
+    const CATEGORY_LABELS: Record<string, string> = {
+      ac_technician: 'AC Technician', electrician: 'Electrician',
+      carpenter: 'Carpenter', plumber: 'Plumber', painter: 'Painter', repair: 'Repair',
+    };
+    const techCategory = user?.professionType
+      ? (CATEGORY_LABELS[user.professionType] ?? user.professionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
+      : 'Technician';
     const msg = encodeURIComponent(
-      `❄️ *ProBook App*  |  Open ➔ ${formUrl}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🛠️ *Service Booking Form*\n` +
-      `${name}  |  ID: ${techCode}\n` +
-      `🔗 ${formUrl}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `"हैलो! कृपया ऊपर दिए गए लिंक पर क्लिक करके अपना एड्रेस और लोकेशन भरें ताकि हम आपकी सर्विस टाइम पर शुरू कर सकें। 🙏"`
+      `🔧 *${appName}*\n` +
+      `👤 ${techName} (${techCategory} | ID: ${techCode})\n\n` +
+      `👉 *Service Booking Form Link:*\n` +
+      `${formUrl}\n\n` +
+      `📝 *Please fill out this quick form with your address and location so our technician can reach you on time!*`
     );
     Linking.openURL(`https://wa.me/?text=${msg}`).catch(() =>
       Alert.alert('WhatsApp', 'WhatsApp नहीं खुल सका')

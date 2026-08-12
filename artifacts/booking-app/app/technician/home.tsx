@@ -94,21 +94,35 @@ export default function TechnicianHomeScreen() {
   const serviceCenterBase = process.env.EXPO_PUBLIC_DOMAIN
     ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
     : (process.env.EXPO_PUBLIC_API_URL ?? '');
-  const formUrl = `${serviceCenterBase}/customer-form/${techCode}`;
+  // ── Primary branded booking URL ─────────────────────────────────────────────
+  const formUrl = `${serviceCenterBase}/book/${techCode}`;
+
+  const [appName, setAppName] = useState('ProBook');
+
+  // ── Format professionType → readable category ────────────────────────────────
+  const CATEGORY_LABELS: Record<string, string> = {
+    ac_technician: 'AC Technician', electrician: 'Electrician',
+    carpenter: 'Carpenter', plumber: 'Plumber', painter: 'Painter', repair: 'Repair',
+  };
+  const techCategory = user?.professionType
+    ? (CATEGORY_LABELS[user.professionType] ?? user.professionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
+    : 'Technician';
 
   // ── Load all data ────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     if (!techCode) return;
     setLoadingData(true);
     try {
-      const [c, p, r] = await Promise.all([
+      const [c, p, r, appSettings] = await Promise.all([
         api(`/booking/tech-customers?techCode=${techCode}`),
         api(`/booking/tech-payments?techCode=${techCode}`),
         api(`/booking/tech-reminders?techCode=${techCode}`),
+        fetch(`${process.env.EXPO_PUBLIC_API_URL ?? ''}/api/public/app-settings`).then(r => r.json()).catch(() => null),
       ]);
       setCustomers(Array.isArray(c) ? c : []);
       setPayments(Array.isArray(p) ? p : []);
       setReminders(Array.isArray(r) ? r : []);
+      if (appSettings?.appName) setAppName(appSettings.appName);
     } catch {}
     setLoadingData(false);
   }, [techCode]);
@@ -327,7 +341,12 @@ export default function TechnicianHomeScreen() {
 
         {/* ══ TAB 1: Customers ══════════════════════════════════════════════════ */}
         {/* 💳 credit-card icon → TAB.PAYMENTS  |  🔔 bell icon → TAB.REMINDERS */}
-        <CustomerTab colors={colors} techCode={techCode} techName={user?.name ?? 'Technician'} customers={customers} setCustomers={setCustomers} insets={insets} formUrl={formUrl}
+        <CustomerTab
+          colors={colors} techCode={techCode}
+          techName={user?.name ?? 'Technician'}
+          techCategory={techCategory} appName={appName}
+          customers={customers} setCustomers={setCustomers}
+          insets={insets} formUrl={formUrl}
           onAddReminder={(c) => { setPrefillCustomer({ name: c.name, phone: c.phone }); goToTab(TAB.REMINDERS); }}
           onAddPayment={(c)  => { setPrefillPayment({ name: c.name, phone: c.phone });  goToTab(TAB.PAYMENTS);  }} />
 
@@ -345,10 +364,12 @@ export default function TechnicianHomeScreen() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB: CUSTOMERS
 // ═══════════════════════════════════════════════════════════════════════════════
-function CustomerTab({ colors, techCode, techName, customers, setCustomers, insets, formUrl, onAddReminder, onAddPayment }: {
+function CustomerTab({ colors, techCode, techName, techCategory, appName, customers, setCustomers, insets, formUrl, onAddReminder, onAddPayment }: {
   colors: ReturnType<typeof useColors>;
   techCode: string;
   techName: string;
+  techCategory: string;
+  appName: string;
   customers: TechCustomer[];
   setCustomers: React.Dispatch<React.SetStateAction<TechCustomer[]>>;
   insets: any;
@@ -404,13 +425,11 @@ function CustomerTab({ colors, techCode, techName, customers, setCustomers, inse
 
   const shareForm = (customer?: TechCustomer) => {
     const msg =
-      `❄️ *ProBook App*  |  Open ➔ ${formUrl}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🛠️ *Service Booking Form*\n` +
-      `${techName}  |  ID: ${techCode}\n` +
-      `🔗 ${formUrl}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `"हैलो! कृपया ऊपर दिए गए लिंक पर क्लिक करके अपना एड्रेस और लोकेशन भरें ताकि हम आपकी सर्विस टाइम पर शुरू कर सकें। 🙏"`;
+      `🔧 *${appName}*\n` +
+      `👤 ${techName} (${techCategory} | ID: ${techCode})\n\n` +
+      `👉 *Service Booking Form Link:*\n` +
+      `${formUrl}\n\n` +
+      `📝 *Please fill out this quick form with your address and location so our technician can reach you on time!*`;
     if (customer) {
       const clean = customer.phone.replace(/\D/g, '');
       Linking.openURL(

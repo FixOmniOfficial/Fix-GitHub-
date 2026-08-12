@@ -12,13 +12,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Palette, Image as ImageIcon, Type, Bell, Save,
   Sun, Moon, Monitor, Info, CheckCircle2, Languages,
-  Store, Upload,
+  Store, Upload, ShieldAlert, Power,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetSettingsQueryKey } from '@workspace/api-client-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { cn } from '@/lib/utils';
+import { useRole } from '@/lib/use-role';
 
 type SettingsForm = {
   theme: string;
@@ -42,10 +43,45 @@ const LANG_OPTIONS = [
   { value: 'both', label: 'Both',    sub: 'Hindi + English' },
 ];
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+
 export default function Settings() {
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useGetSettings();
   const updateSettings = useUpdateSettings();
+  const { isSuperAdmin } = useRole();
+
+  // ── Master Panel Toggle state ─────────────────────────────────────────────
+  const [panelEnabled,      setPanelEnabled]      = React.useState<boolean | null>(null);
+  const [panelToggling,     setPanelToggling]     = React.useState(false);
+
+  // Fetch panel status on mount (super_admin only)
+  React.useEffect(() => {
+    if (!isSuperAdmin) return;
+    fetch(`${BASE}/api/settings`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setPanelEnabled(d?.panelEnabled ?? true))
+      .catch(() => setPanelEnabled(true));
+  }, [isSuperAdmin]);
+
+  const handlePanelToggle = async (enable: boolean) => {
+    setPanelToggling(true);
+    try {
+      const r = await fetch(`${BASE}/api/admin/panel-toggle`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enable }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error ?? 'Failed');
+      setPanelEnabled(enable);
+      toast.success(enable ? '✅ Admin panel ENABLED' : '🔴 Admin panel DISABLED');
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setPanelToggling(false);
+    }
+  };
 
   const { register, handleSubmit, setValue, watch, reset } = useForm<SettingsForm>({
     defaultValues: { theme: 'light', language: 'both', globalWallpaper: '', captionSize: 1, notificationsEnabled: true, shopName: 'सर्विस सेंटर', logoUrl: '' },
@@ -346,6 +382,56 @@ export default function Settings() {
           </Button>
         </div>
       </form>
+
+      {/* ── Master Panel Toggle — Super Admin Only ─────────────────────────── */}
+      {isSuperAdmin && panelEnabled !== null && (
+        <Card className={`border-2 mt-6 ${panelEnabled ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/40 bg-rose-500/10'}`}>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldAlert className={`w-5 h-5 ${panelEnabled ? 'text-emerald-400' : 'text-rose-400'}`} />
+              <span className={panelEnabled ? 'text-emerald-300' : 'text-rose-300'}>
+                Master Panel Access Control
+              </span>
+              <span className="ml-auto text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                Super Admin Only
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-slate-400">
+              Turn OFF to completely block all staff and admin access to this panel.
+              Only you (super_admin) can turn it back ON.
+            </p>
+            <div className="flex items-center justify-between rounded-xl p-4 border border-slate-700 bg-slate-800/50">
+              <div className="flex items-center gap-3">
+                <Power className={`w-5 h-5 ${panelEnabled ? 'text-emerald-400' : 'text-slate-600'}`} />
+                <div>
+                  <div className={`font-semibold text-sm ${panelEnabled ? 'text-emerald-300' : 'text-slate-400'}`}>
+                    Admin Panel is <strong>{panelEnabled ? 'ENABLED ✅' : 'DISABLED 🔴'}</strong>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {panelEnabled
+                      ? 'All authorized users can access the panel normally.'
+                      : 'Panel is locked — only super_admin can re-enable it.'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={panelToggling || !panelEnabled}
+                  onClick={() => handlePanelToggle(false)}
+                  className="border-rose-500/50 text-rose-400 hover:bg-rose-500/10 disabled:opacity-30">
+                  {panelToggling && !panelEnabled ? '…' : '🔴 Disable'}
+                </Button>
+                <Button size="sm" variant="outline" disabled={panelToggling || !!panelEnabled}
+                  onClick={() => handlePanelToggle(true)}
+                  className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-30">
+                  {panelToggling && panelEnabled ? '…' : '✅ Enable'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

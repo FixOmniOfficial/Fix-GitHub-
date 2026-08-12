@@ -14,6 +14,7 @@ import settingsRouter from "./settings";
 import dashboardRouter from "./dashboard";
 import kycRouter from "./kyc";
 import storageRouter from "./storage";
+import sandboxRouter from "./sandbox";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(settingsRouter);
 router.use(dashboardRouter);
 router.use(kycRouter);
 router.use(storageRouter);
+router.use(sandboxRouter);
 
 export default router;

@@ -22,7 +22,8 @@ const router: IRouter = Router();
 
 router.get("/booking/professionals", async (req, res): Promise<void> => {
   try {
-    const conditions: any[] = [];
+    // Always exclude test/sandbox entries from public API
+    const conditions: any[] = [eq(professionalsTable.isTestData, false)];
     if (req.query.professionType)
       conditions.push(eq(professionalsTable.professionType, req.query.professionType as string));
     if (req.query.isActive !== undefined)
@@ -31,7 +32,7 @@ router.get("/booking/professionals", async (req, res): Promise<void> => {
     const rows = await db
       .select()
       .from(professionalsTable)
-      .where(conditions.length ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(professionalsTable.name);
 
     res.json(rows);
@@ -278,6 +279,23 @@ router.post("/booking/technician/signup", async (req, res): Promise<void> => {
     const { name, phone, professionType, avatarEmoji, visitingCharge } = req.body;
     if (!name?.trim() || !professionType?.trim()) {
       res.status(400).json({ error: "name and professionType are required" }); return;
+    }
+    // Strict 10-digit Indian mobile validation
+    if (phone?.trim()) {
+      const cleanPhone = phone.trim().replace(/\D/g, '');
+      if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+        res.status(400).json({ error: "Invalid phone number. Must be a 10-digit Indian mobile number starting with 6-9." });
+        return;
+      }
+      // Duplicate phone check
+      const duplicate = await db.select({ id: professionalsTable.id })
+        .from(professionalsTable)
+        .where(eq(professionalsTable.phone, cleanPhone))
+        .limit(1);
+      if (duplicate.length > 0) {
+        res.status(409).json({ error: "This mobile number is already registered with another account." });
+        return;
+      }
     }
     let uniqueCode: string;
     // Retry until unique

@@ -33,6 +33,8 @@ export const appSettingsTable = pgTable("app_settings", {
   // Written atomically via UPDATE WHERE first_admin_claimed_by IS NULL.
   // Non-null means a super_admin has already been established.
   firstAdminClaimedBy: text("first_admin_claimed_by"),
+  // ── Master panel toggle (super_admin can disable all admin access) ─────────
+  panelEnabled: boolean("panel_enabled").notNull().default(true),
   // ── Timestamps ────────────────────────────────────────────────────────────
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

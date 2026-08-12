@@ -143,7 +143,11 @@ export default function CustomerFormPage() {
 
     if (!serviceType) { setSubmitError('Please select a service type.'); return; }
     if (!name.trim()) { setSubmitError('Full name is required.'); return; }
-    if (phone.trim().length < 10) { setSubmitError('Enter a valid 10-digit mobile number.'); return; }
+    const phoneDigits = phone.trim().replace(/\D/g, '');
+    if (phoneDigits.length !== 10 || !/^[6-9]/.test(phoneDigits)) {
+      setSubmitError('Enter a valid 10-digit Indian mobile number (starts with 6-9). E.g. 9876543210');
+      return;
+    }
 
     setIsSubmitting(true);
     try {

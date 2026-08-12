@@ -9,6 +9,23 @@ import { requireAuth, requireAdmin, requireSuperAdmin } from '../middlewares/req
 
 const router: IRouter = Router();
 
+// ─── Master Panel Access Guard ────────────────────────────────────────────────
+// Checks panel_enabled flag before every admin route.
+// Skips: panel-toggle (so super_admin can re-enable) + ensure-first-admin.
+const PANEL_BYPASS_PATHS = new Set(['/admin/panel-toggle', '/admin/ensure-first-admin']);
+router.use(async (req: Request, res: Response, next) => {
+  if (PANEL_BYPASS_PATHS.has(req.path)) { next(); return; }
+  try {
+    const [settings] = await db.select({ panelEnabled: appSettingsTable.panelEnabled })
+      .from(appSettingsTable).where(sql`id = 1`);
+    if (settings?.panelEnabled === false) {
+      res.status(503).json({ error: 'Admin panel is currently disabled by administrator' });
+      return;
+    }
+    next();
+  } catch { next(); } // fail open if DB unavailable
+});
+
 const VALID_ROLES = ['super_admin', 'admin', 'staff', 'technician', 'viewer'];
 const STAFF_PERMISSIONS = ['booking_management', 'user_management', 'analytics', 'kyc_review'];
 const STAFF_ROLES = new Set(['staff', 'sub_admin']);
@@ -139,6 +156,25 @@ router.post('/admin/users/:id/ban', requireAuth, requireAdmin, async (req: Reque
     res.json({ success: true, banned: !!ban });
   } catch {
     res.status(500).json({ error: 'Failed to update ban status' });
+  }
+});
+
+/**
+ * PATCH /api/admin/panel-toggle — super_admin turns the admin panel ON or OFF.
+ * Body: { enabled: boolean }
+ * This route is EXEMPT from the panel access guard (so super_admin can re-enable).
+ */
+router.patch('/admin/panel-toggle', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  const enabled = req.body?.enabled;
+  if (typeof enabled !== 'boolean') {
+    res.status(400).json({ error: '"enabled" (boolean) is required' });
+    return;
+  }
+  try {
+    await db.update(appSettingsTable).set({ panelEnabled: enabled }).where(sql`id = 1`);
+    res.json({ panelEnabled: enabled, message: enabled ? 'Admin panel enabled' : 'Admin panel disabled' });
+  } catch {
+    res.status(500).json({ error: 'Failed to update panel status' });
   }
 });
 

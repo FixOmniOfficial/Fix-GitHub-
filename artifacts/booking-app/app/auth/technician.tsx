@@ -64,6 +64,12 @@ export default function TechnicianAuthScreen() {
   // ── Signup ────────────────────────────────────────────
   const handleSignup = async () => {
     if (!signupName.trim()) { Alert.alert('Required', 'नाम जरूरी है।'); return; }
+    // Strict 10-digit Indian mobile validation
+    const cleanPhone = signupPhone.trim().replace(/\D/g, '');
+    if (signupPhone.trim() && (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone))) {
+      Alert.alert('Invalid Phone', '10-digit Indian mobile number required (starts with 6-9).\nExample: 9876543210');
+      return;
+    }
     setLoading(true);
     try {
       const tech = await signup.mutateAsync({
@@ -92,8 +98,9 @@ export default function TechnicianAuthScreen() {
       Alert.alert('Invalid Code', 'TECH- से शुरू होने वाला valid code दर्ज करें।'); return;
     }
     const ph = techLoginPhone.trim().replace(/\D/g, '');
-    if (ph.length < 10) {
-      Alert.alert('Invalid Number', 'Account से registered 10-digit mobile number दर्ज करें।'); return;
+    if (ph.length !== 10 || !/^[6-9]/.test(ph)) {
+      Alert.alert('Invalid Number', 'Exactly 10-digit Indian mobile number required (starts with 6-9).\nExample: 9876543210');
+      return;
     }
     setLoading(true);
     try {

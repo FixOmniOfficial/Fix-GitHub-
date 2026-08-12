@@ -32,6 +32,7 @@ export const professionalsTable = pgTable("professionals", {
   shopName:       text("shop_name"),
   uniqueCode:     text("unique_code").unique(),
   isActive:       boolean("is_active").notNull().default(true),
+  isTestData:     boolean("is_test_data").notNull().default(false),
   otpCode:        text("otp_code"),
   otpExpiresAt:   timestamp("otp_expires_at", { withTimezone: true }),
   otpAttempts:    integer("otp_attempts").default(0),

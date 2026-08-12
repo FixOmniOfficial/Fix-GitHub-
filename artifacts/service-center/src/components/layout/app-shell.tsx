@@ -4,7 +4,7 @@ import {
   Home, Users, Wrench, Bell,
   Calculator as CalculatorIcon,
   BarChart3, Settings, UserCircle, Menu, LogOut,
-  UserCog, Layers, Fingerprint,
+  UserCog, Layers, Fingerprint, FlaskConical,
 } from 'lucide-react';
 import { useGetSettings, useListReminders } from '@workspace/api-client-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,6 +31,11 @@ const ADMIN_ITEMS = [
 // Items visible to admin OR staff with kyc_review permission
 const KYC_ITEMS = [
   { label: 'KYC समीक्षा', subtitle: 'KYC Review', icon: Fingerprint, href: '/kyc-review' },
+];
+
+// Super-admin only
+const SUPER_ADMIN_ITEMS = [
+  { label: 'सैंडबॉक्स', subtitle: 'Testing Sandbox', icon: FlaskConical, href: '/sandbox' },
 ];
 
 const BOTTOM_ITEMS = [
@@ -92,7 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: reminders } = useListReminders({ isActive: true });
   const { user } = useUser();
   const { signOut } = useClerk();
-  const { isAdmin, isStaff, hasPermission } = useRole();
+  const { isAdmin, isStaff, hasPermission, isSuperAdmin } = useRole();
 
   // Cast to extended type that includes our extra fields
   const ext = settings as typeof settings & { shopName?: string; logoUrl?: string };
@@ -184,6 +189,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* KYC Review — admin or staff with kyc_review permission */}
           {(isAdmin || hasPermission('kyc_review')) && KYC_ITEMS.map(item => (
+            <NavLink key={item.href} item={item} isActive={isActive(item.href)} lang={lang} onClick={onNav} />
+          ))}
+
+          {/* Sandbox — super_admin only */}
+          {isSuperAdmin && SUPER_ADMIN_ITEMS.map(item => (
             <NavLink key={item.href} item={item} isActive={isActive(item.href)} lang={lang} onClick={onNav} />
           ))}
 

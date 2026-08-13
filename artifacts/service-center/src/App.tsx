@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter, Redirect, useLocation } from 'wouter';
 import { AppShell } from '@/components/layout/app-shell';
+import { TestImpersonationProvider } from '@/contexts/TestImpersonationContext';
 import Dashboard from '@/pages/dashboard';
 import Customers from '@/pages/customers';
 import CustomerDetail from '@/pages/customers/detail';
@@ -220,9 +221,11 @@ function ClerkProviderWithRoutes() {
 
 function App() {
   return (
-    <WouterRouter base={basePath}>
-      <ClerkProviderWithRoutes />
-    </WouterRouter>
+    <TestImpersonationProvider>
+      <WouterRouter base={basePath}>
+        <ClerkProviderWithRoutes />
+      </WouterRouter>
+    </TestImpersonationProvider>
   );
 }
 

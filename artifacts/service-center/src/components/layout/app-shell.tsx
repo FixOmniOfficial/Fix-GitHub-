@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
+import { TestImpersonationBanner } from './TestImpersonationBanner';
 import {
   Home, Users, Wrench, Bell,
   Calculator as CalculatorIcon,
@@ -300,6 +301,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Content */}
       <div className="flex-1 flex flex-col md:ml-56 relative z-10 min-h-screen">
+        {/* Test Mode Banner — shown above everything when active */}
+        <TestImpersonationBanner />
+
         {/* Mobile top bar */}
         <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800 sticky top-0 z-20">
           <button onClick={() => setMobileOpen(true)} className="text-slate-400 hover:text-white transition-colors">

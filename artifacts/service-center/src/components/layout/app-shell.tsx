@@ -274,20 +274,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <img
                 src={logoUrl}
                 alt={shopName}
-                className="w-56 h-56 rounded-[2rem] object-cover shadow-2xl border-2 border-amber-400/40 ring-4 ring-amber-500/20"
+                className="w-72 h-72 object-contain shadow-2xl"
               />
             ) : (
-              <div className="w-56 h-56 rounded-[2rem] bg-amber-500/20 border-2 border-amber-400/40 flex items-center justify-center">
-                <span className="text-7xl font-black text-amber-400">
+              <div className="w-72 h-72 flex items-center justify-center">
+                <span className="text-9xl font-black text-white">
                   {shopName.slice(0, 2)}
                 </span>
               </div>
             )}
             <div className="text-center">
               <div className="text-2xl font-bold text-white">{shopName}</div>
-              <div className="text-sm text-slate-400 mt-1 uppercase tracking-widest">Service Center</div>
             </div>
-            <div className="text-xs text-slate-600 mt-2">Tap anywhere to close</div>
           </div>
         </div>
       )}

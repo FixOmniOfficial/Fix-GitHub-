@@ -39,7 +39,6 @@ function LogoZoomModal({ visible, onClose }: { visible: boolean; onClose: () => 
         <Animated.View style={[zoomStyles.card, { transform: [{ scale: scaleAnim }] }]}>
           <Image source={LOGO} style={zoomStyles.bigLogo} resizeMode="contain" />
           <Text style={zoomStyles.bigName}>Fix Omni</Text>
-          <Text style={zoomStyles.bigTagline}>Services Booking</Text>
           <TouchableOpacity style={zoomStyles.closeBtn} onPress={handleClose} activeOpacity={0.8}>
             <Text style={zoomStyles.closeBtnText}>Close</Text>
           </TouchableOpacity>
@@ -55,17 +54,20 @@ const zoomStyles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   card: {
-    backgroundColor: '#111', borderRadius: 28,
-    padding: 32, alignItems: 'center', gap: 12,
-    borderWidth: 1.5, borderColor: '#6b21a8',
-    width: Math.min(SCREEN_W - 64, 320),
+    alignItems: 'center', gap: 16,
+    width: Math.min(SCREEN_W - 48, 340),
   },
-  bigLogo: { width: 180, height: 180, borderRadius: 32 },
-  bigName: { fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: 0.5 },
-  bigTagline: { fontSize: 13, color: '#a78bfa', fontWeight: '600', letterSpacing: 1 },
+  bigLogo: {
+    width: Math.min(SCREEN_W - 48, 340),
+    height: Math.min(SCREEN_W - 48, 340),
+    borderRadius: 0,
+  },
+  bigName: { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: 0.3, textAlign: 'center' },
+  bigTagline: { fontSize: 0 },
   closeBtn: {
-    marginTop: 8, backgroundColor: '#6b21a8',
-    borderRadius: 14, paddingHorizontal: 36, paddingVertical: 10,
+    marginTop: 4, backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 12, paddingHorizontal: 40, paddingVertical: 10,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   closeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

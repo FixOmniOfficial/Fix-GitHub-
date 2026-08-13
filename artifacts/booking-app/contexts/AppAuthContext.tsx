@@ -23,6 +23,8 @@ type AppAuthCtx = {
   loading: boolean;
   login: (user: AppUser) => Promise<void>;
   logout: () => Promise<void>;
+  /** Patch fields on the current user (persists to AsyncStorage) */
+  updateUser: (patch: Partial<AppUser>) => Promise<void>;
   /** Look up uniqueCode from Google email (for repeat sign-ins) */
   getCodeByEmail: (email: string) => Promise<string | null>;
   /** Save email → uniqueCode mapping */
@@ -34,6 +36,7 @@ const AppAuthContext = createContext<AppAuthCtx>({
   loading: true,
   login: async () => {},
   logout: async () => {},
+  updateUser: async () => {},
   getCodeByEmail: async () => null,
   saveEmailMapping: async () => {},
 });
@@ -61,6 +64,15 @@ export function AppAuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback(async (patch: Partial<AppUser>) => {
+    setUser(prev => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const getCodeByEmail = useCallback(async (email: string): Promise<string | null> => {
     try {
       const raw = await AsyncStorage.getItem(GOOGLE_MAP_KEY);
@@ -82,7 +94,7 @@ export function AppAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AppAuthContext.Provider value={{ user, loading, login, logout, getCodeByEmail, saveEmailMapping }}>
+    <AppAuthContext.Provider value={{ user, loading, login, logout, updateUser, getCodeByEmail, saveEmailMapping }}>
       {children}
     </AppAuthContext.Provider>
   );

@@ -2,8 +2,9 @@ import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, ActivityIndicator, Linking, Alert, Image,
-  Modal, Animated, Pressable, Dimensions,
+  Modal, Animated, Pressable, Dimensions, TextInput,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 const LOGO = require('@/assets/fixomni-logo.jpg');
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -222,9 +223,34 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const { user, logout } = useAppAuth();
+  const { user, logout, updateUser } = useAppAuth();
   const { isTestMode } = useTestMode();
   const [logoModalVisible, setLogoModalVisible] = useState(false);
+  const [nameModalVisible, setNameModalVisible] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+
+  const pickAvatar = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('Permission required', 'Photo library access is needed to change your picture.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true, aspect: [1, 1], quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      updateUser({ avatar: result.assets[0].uri });
+    }
+  };
+
+  const openNameEdit = () => {
+    setNameInput(user?.name ?? '');
+    setNameModalVisible(true);
+  };
+
+  const saveNameEdit = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed) updateUser({ name: trimmed });
+    setNameModalVisible(false);
+  };
 
   const { data: recentBookings, isLoading } = useListBookings({});
   const { data: categories, isLoading: catsLoading } = useListServiceCategories({});
@@ -305,60 +331,81 @@ export default function HomeScreen() {
           <RatingWidget colors={colors} />
         </View>
 
+        {/* ── Name Edit Modal ── */}
+        <Modal visible={nameModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setNameModalVisible(false)}>
+          <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setNameModalVisible(false)}>
+            <Pressable onPress={() => {}} style={{ backgroundColor: colors.background, borderRadius: 20, padding: 24, width: '100%', gap: 14, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.foreground }}>Edit Name</Text>
+              <TextInput
+                style={{ backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, padding: 14, fontSize: 16, color: colors.foreground }}
+                value={nameInput} onChangeText={setNameInput}
+                placeholder="Your name" placeholderTextColor={colors.mutedForeground}
+                autoFocus returnKeyType="done" onSubmitEditing={saveNameEdit}
+              />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 13, alignItems: 'center' }} onPress={() => setNameModalVisible(false)}>
+                  <Text style={{ color: colors.mutedForeground, fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ flex: 1, borderRadius: 12, backgroundColor: colors.primary, paddingVertical: 13, alignItems: 'center' }} onPress={saveNameEdit}>
+                  <Text style={{ color: '#000', fontWeight: '800' }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
         {/* ── User Welcome Banner (logged in) ── */}
         {user && (
           <View style={[s.welcomeBanner, {
             borderColor: user.userType === 'technician' ? colors.primary + '55' : '#3b82f655',
             backgroundColor: user.userType === 'technician' ? colors.primary + '12' : '#3b82f612',
           }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.welcomeGreet, { color: colors.mutedForeground }]}>
-                {getGreeting()}, 👋
-              </Text>
-              <Text style={[s.welcomeName, { color: colors.foreground }]}>{user.name}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                {user.loginMethod === 'google' && (
-                  <View style={s.googleBadge}>
-                    <Text style={{ fontSize: 10, fontWeight: '800', color: '#4285F4' }}>G</Text>
-                    <Text style={{ fontSize: 10, color: '#4285F4', fontWeight: '600' }}>Google</Text>
-                  </View>
-                )}
-                <View style={[s.roleBadge, {
-                  backgroundColor: user.userType === 'technician' ? colors.primary + '22' : '#3b82f622',
-                }]}>
-                  <Text style={[s.roleBadgeText, {
-                    color: user.userType === 'technician' ? colors.primary : '#3b82f6',
-                  }]}>
-                    {user.userType === 'technician' ? '🔧 TECHNICIAN' : '👤 CUSTOMER'}
-                  </Text>
+            {/* Profile picture + name (both editable) */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+              <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8}>
+                <View style={[s.profileAvatar, { borderColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
+                  {user.avatar ? (
+                    <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
+                  ) : (
+                    <Text style={{ fontSize: 28 }}>{user.userType === 'technician' ? '🔧' : '👤'}</Text>
+                  )}
                 </View>
+                <View style={[s.editBadge, { backgroundColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
+                  <Feather name="camera" size={9} color={user.userType === 'technician' ? '#000' : '#fff'} />
+                </View>
+              </TouchableOpacity>
+              <View style={{ flex: 1, gap: 3 }}>
+                <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[s.welcomeName, { color: colors.foreground }]}>{user.name}</Text>
+                  <Feather name="edit-2" size={13} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={[s.roleBadge, { backgroundColor: user.userType === 'technician' ? colors.primary + '22' : '#3b82f622' }]}>
+                    <Text style={[s.roleBadgeText, { color: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
+                      {user.userType === 'technician' ? '🔧 TECHNICIAN' : '👤 CUSTOMER'}
+                    </Text>
+                  </View>
+                </View>
+                {user.email && (
+                  <Text style={[s.welcomeEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
+                )}
               </View>
-              {user.email && (
-                <Text style={[s.welcomeEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
-              )}
             </View>
-            <View style={{ gap: 8 }}>
+
+            {/* Action buttons */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               {user.userType === 'technician' ? (
-                <TouchableOpacity
-                  style={[s.bannerActionBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => router.push('/technician/home' as any)}
-                >
+                <TouchableOpacity style={[s.bannerActionBtn, { backgroundColor: colors.primary, flex: 1 }]} onPress={() => router.push('/technician/home' as any)}>
                   <Feather name="grid" size={14} color="#000" />
                   <Text style={[s.bannerActionText, { color: '#000' }]}>Dashboard</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity
-                  style={[s.bannerActionBtn, { backgroundColor: '#3b82f6' }]}
-                  onPress={() => router.push('/(tabs)/bookings' as any)}
-                >
+                <TouchableOpacity style={[s.bannerActionBtn, { backgroundColor: '#3b82f6', flex: 1 }]} onPress={() => router.push('/(tabs)/bookings' as any)}>
                   <Feather name="calendar" size={14} color="#fff" />
                   <Text style={[s.bannerActionText, { color: '#fff' }]}>Bookings</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
-                style={[s.bannerLogoutBtn, { borderColor: colors.border }]}
-                onPress={handleLogout}
-              >
+              <TouchableOpacity style={[s.bannerLogoutBtn, { borderColor: colors.border }]} onPress={handleLogout}>
                 <Feather name="log-out" size={13} color={colors.mutedForeground} />
                 <Text style={[s.bannerLogoutText, { color: colors.mutedForeground }]}>Logout</Text>
               </TouchableOpacity>
@@ -374,11 +421,11 @@ export default function HomeScreen() {
             activeOpacity={0.85}
           >
             <View style={[s.loginCtaIconWrap, { backgroundColor: colors.primary + '22' }]}>
-              <Text style={{ fontSize: 22 }}>G</Text>
+              <Feather name="user" size={22} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[s.loginCtaTitle, { color: colors.foreground }]}>
-                Gmail / Google से Login करें
+                Login / Register करें
               </Text>
               <Text style={[s.loginCtaSub, { color: colors.mutedForeground }]}>
                 Bookings track करें, history देखें, account बनाएं
@@ -485,13 +532,6 @@ export default function HomeScreen() {
   );
 }
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'सुप्रभात';
-  if (h < 17) return 'नमस्ते';
-  return 'शुभ संध्या';
-}
-
 const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   root: { flex: 1 },
 
@@ -552,13 +592,23 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
 
   // Welcome banner
   welcomeBanner: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     marginHorizontal: 16, marginTop: 14,
     borderRadius: 16, borderWidth: 1, padding: 14,
   },
-  welcomeGreet: { fontSize: 11, fontWeight: '600', marginBottom: 1 },
+  profileAvatar: {
+    width: 60, height: 60, borderRadius: 30,
+    borderWidth: 2.5, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.15)', overflow: 'hidden',
+  },
+  profileAvatarImg: { width: 60, height: 60, borderRadius: 30 },
+  editBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 20, height: 20, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.2)',
+  },
   welcomeName: { fontSize: 17, fontWeight: '800' },
-  welcomeEmail: { fontSize: 11, marginTop: 4 },
+  welcomeEmail: { fontSize: 11, marginTop: 2 },
   googleBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: '#4285F420', borderRadius: 6,

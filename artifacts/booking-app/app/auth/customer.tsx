@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import PhoneInput from '@/components/PhoneInput';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 const api = async (path: string, body: object) => {
@@ -459,13 +460,7 @@ export default function CustomerAuthScreen() {
             />
 
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.mobileNumber} *</Text>
-            <TextInput
-              style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-              value={regPhone} onChangeText={setRegPhone}
-              placeholder="10-digit mobile number"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="phone-pad" maxLength={10}
-            />
+            <PhoneInput value={regPhone} onChangeText={setRegPhone} />
 
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.emailId} *</Text>
             <TextInput

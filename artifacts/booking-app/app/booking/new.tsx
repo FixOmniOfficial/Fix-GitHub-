@@ -11,6 +11,7 @@ import * as Location from 'expo-location';
 import { useColors } from '@/hooks/useColors';
 import { useCreateBooking } from '@workspace/api-client-react';
 import { useAppAuth } from '@/contexts/AppAuthContext';
+import PhoneInput from '@/components/PhoneInput';
 
 // ── Guest Auth Gate Modal ─────────────────────────────────────────────────────
 function GuestAuthModal({
@@ -239,21 +240,15 @@ export default function NewBookingScreen() {
           <View style={s.row}>
             <View style={[s.field, { flex: 1 }]}>
               <Text style={s.label}>Mobile <Text style={s.required}>*</Text></Text>
-              <TextInput
-                style={[s.input, errors.phone ? s.inputError : null]}
+              <PhoneInput
                 value={phone} onChangeText={setPhone}
-                placeholder="9876543210" placeholderTextColor={colors.mutedForeground}
-                keyboardType="phone-pad"
+                borderColor={errors.phone ? '#ef4444' : undefined}
               />
               {errors.phone && <Text style={s.errorText}>{errors.phone}</Text>}
             </View>
             <View style={[s.field, { flex: 1 }]}>
               <Text style={s.label}>WhatsApp</Text>
-              <TextInput
-                style={s.input} value={whatsapp} onChangeText={setWhatsapp}
-                placeholder="WhatsApp number" placeholderTextColor={colors.mutedForeground}
-                keyboardType="phone-pad"
-              />
+              <PhoneInput value={whatsapp} onChangeText={setWhatsapp} placeholder="optional" />
             </View>
           </View>
 

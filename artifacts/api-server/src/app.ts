@@ -21,6 +21,10 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// ── Trust proxy — required in Replit (proxied env) for rate-limiter to read ────
+// the real client IP from X-Forwarded-For instead of crashing with ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set("trust proxy", 1);
+
 // ── Request logging ────────────────────────────────────────────────────────────
 app.use(
   pinoHttp({

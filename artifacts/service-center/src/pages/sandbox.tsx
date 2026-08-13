@@ -1,6 +1,8 @@
 /**
  * Admin Testing Sandbox — SUPER ADMIN ONLY, never accessible from public app.
  * Generate fake test technicians, view test data, and 1-click delete everything.
+ * Click any technician card to open a "Preview as this tech" panel with their
+ * unique code + instructions for the booking-app Test Mode.
  */
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   FlaskConical, Trash2, Plus, RefreshCw, ShieldAlert,
-  Bot, Phone, Wrench, Hash, AlertTriangle,
+  Bot, Phone, Wrench, Hash, AlertTriangle, Play, Copy, Check,
+  Smartphone, ChevronRight, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
@@ -41,11 +44,124 @@ const PROFESSION_LABELS: Record<string, string> = {
   painter: '🎨 Painter', repair: '⚙️ Repair',
 };
 
+// ── Preview Modal — shown when clicking a test tech card ─────────────────────
+function PreviewModal({
+  tech,
+  open,
+  onClose,
+}: {
+  tech: TestTech | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copyCode = async () => {
+    if (!tech) return;
+    try {
+      await navigator.clipboard.writeText(tech.uniqueCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Code copied!');
+    } catch {
+      toast.error('Copy failed — please copy manually');
+    }
+  };
+
+  if (!tech) return null;
+
+  const profLabel = PROFESSION_LABELS[tech.professionType] ?? tech.professionType;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="bg-slate-900 border-slate-700 max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-purple-300 flex items-center gap-2 text-base">
+            <Play className="w-4 h-4 fill-purple-400 text-purple-400" />
+            Preview as this Technician
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Tech summary */}
+        <div className="flex items-center gap-3 bg-slate-800/70 border border-slate-700 rounded-xl px-4 py-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl shrink-0">
+            {tech.avatarEmoji ?? '🤖'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-slate-200 text-sm">{tech.name}</div>
+            <div className="text-xs text-slate-400 mt-0.5">{profLabel}</div>
+            {tech.phone && (
+              <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                <Phone className="w-3 h-3" />{tech.phone}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Unique code — the key piece for test mode */}
+        <div className="space-y-2">
+          <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+            Technician Code — use this in the booking app
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-slate-800 border border-purple-500/40 rounded-lg px-4 py-3 font-mono text-purple-300 font-bold text-lg tracking-widest text-center select-all">
+              {tech.uniqueCode}
+            </div>
+            <button
+              onClick={copyCode}
+              className="p-3 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg transition-colors shrink-0"
+              title="Copy code"
+            >
+              {copied
+                ? <Check className="w-4 h-4 text-green-400" />
+                : <Copy className="w-4 h-4 text-purple-400" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Instructions */}
+        <div className="bg-blue-500/8 border border-blue-500/20 rounded-xl p-4 space-y-2.5">
+          <div className="flex items-center gap-2 text-blue-300 font-semibold text-sm">
+            <Smartphone className="w-4 h-4" />
+            How to preview in the mobile app
+          </div>
+          {[
+            { n: '1', text: 'Open the Fix Omni booking app on your phone or emulator.' },
+            { n: '2', text: 'On the home screen, tap "🧪 Developer / Test Mode" link (below the login button).' },
+            { n: '3', text: 'Select any Technician profile from the list — it logs in instantly.' },
+            { n: '4', text: 'A purple banner appears at the top showing the active test role.' },
+            { n: '5', text: 'Use "Switch" in the banner to change profiles, "✕ Exit" to leave test mode.' },
+          ].map(step => (
+            <div key={step.n} className="flex items-start gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-blue-500/25 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                {step.n}
+              </span>
+              <p className="text-xs text-slate-400 leading-relaxed">{step.text}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-[11px] text-slate-600 text-center">
+          This code is only valid while the test data exists. Clear all test data before going live.
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-slate-400">
+            <X className="w-3.5 h-3.5 mr-1.5" />
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SandboxPage() {
   const { isSuperAdmin } = useRole();
   const qc = useQueryClient();
   const [confirmClear, setConfirmClear] = useState(false);
   const [generateCount, setGenerateCount] = useState(1);
+  const [previewTech, setPreviewTech] = useState<TestTech | null>(null);
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['sandbox-data'],
@@ -169,10 +285,17 @@ export default function SandboxPage() {
       {/* ── Test data list ──────────────────────────────────────────── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
-            Test Technicians
-            <span className="ml-2 text-purple-400">({techs.length})</span>
-          </h2>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+              Test Technicians
+              <span className="ml-2 text-purple-400">({techs.length})</span>
+            </h2>
+            {techs.length > 0 && (
+              <p className="text-xs text-slate-600 mt-0.5">
+                Click any card to preview in the booking app
+              </p>
+            )}
+          </div>
           {techs.length > 0 && (
             <Button variant="destructive" size="sm"
               onClick={() => setConfirmClear(true)}
@@ -193,7 +316,11 @@ export default function SandboxPage() {
         ) : (
           <div className="space-y-2">
             {techs.map(tech => (
-              <div key={tech.id} className="flex items-center gap-3 bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3">
+              <button
+                key={tech.id}
+                onClick={() => setPreviewTech(tech)}
+                className="w-full flex items-center gap-3 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-purple-500/50 rounded-xl px-4 py-3 transition-all group text-left cursor-pointer"
+              >
                 <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center text-lg shrink-0">
                   {tech.avatarEmoji ?? '🤖'}
                 </div>
@@ -214,11 +341,23 @@ export default function SandboxPage() {
                 <span className="text-[10px] text-slate-600 shrink-0">
                   {format(new Date(tech.createdAt), 'dd MMM, HH:mm')}
                 </span>
-              </div>
+                {/* Preview arrow — visible on hover */}
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+                  <span className="text-[10px] text-purple-400 font-semibold">Preview</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-purple-400" />
+                </div>
+              </button>
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Preview modal ───────────────────────────────────────────── */}
+      <PreviewModal
+        tech={previewTech}
+        open={!!previewTech}
+        onClose={() => setPreviewTech(null)}
+      />
 
       {/* ── Confirm clear dialog ────────────────────────────────────── */}
       <Dialog open={confirmClear} onOpenChange={setConfirmClear}>

@@ -5,3 +5,4 @@
 - [Customer PATCH All Fields](customer-patch-fields.md) — UpdateCustomerBody (auto-generated Zod) only has 6 fields; PATCH route now uses manual field extraction to save all DB columns.
 - [Public Form Token System](public-form-token.md) — Customer form URL uses appCustomersTable.uniqueCode (TECH-XXXX), NOT customersTable.shareToken.
 - [Table Separation](table-separation.md) — Mobile technicians are in professionalsTable (TECH-XXXX code); appCustomersTable stores CUST-XXXX codes (different concept). Previous note had this backwards.
+- [Test Mode Context Pattern](test-mode-pattern.md) — Enter test mode by calling login(testUser); existing route guards pass automatically — no guard edits needed.

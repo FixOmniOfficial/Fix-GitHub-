@@ -81,6 +81,7 @@ import {
   useCreateAppRating, useGetAppRatingsSummary,
 } from '@workspace/api-client-react';
 import { useAppAuth } from '@/contexts/AppAuthContext';
+import { useTestMode } from '@/contexts/TestModeContext';
 import { useQueryClient } from '@tanstack/react-query';
 
 const PROFESSION_LABELS_FALLBACK: Record<string, string> = {
@@ -222,6 +223,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const { user, logout } = useAppAuth();
+  const { isTestMode } = useTestMode();
   const [logoModalVisible, setLogoModalVisible] = useState(false);
 
   const { data: recentBookings, isLoading } = useListBookings({});
@@ -383,6 +385,18 @@ export default function HomeScreen() {
               </Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+
+        {/* ── Dev Mode entry point (visible only when not in test mode) ── */}
+        {!user && !isTestMode && (
+          <TouchableOpacity
+            style={[s.devModeLink, { borderColor: '#a855f733' }]}
+            onPress={() => router.push('/test-mode' as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={s.devModeLinkText}>🧪 Developer / Test Mode</Text>
+            <Feather name="chevron-right" size={13} color="#a855f7" />
           </TouchableOpacity>
         )}
 
@@ -577,6 +591,17 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   loginCtaTitle: { fontSize: 14, fontWeight: '700' },
   loginCtaSub: { fontSize: 12, marginTop: 2 },
+
+  // Dev mode entry link
+  devModeLink: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginHorizontal: 16, marginTop: 8,
+    borderRadius: 10, borderWidth: 1, borderStyle: 'dashed',
+    paddingVertical: 8, paddingHorizontal: 14,
+  },
+  devModeLinkText: {
+    fontSize: 11, fontWeight: '600', color: '#a855f7',
+  },
 
   // Stats
   statRow: { flexDirection: 'row', gap: 10 },

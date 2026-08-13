@@ -6,6 +6,7 @@ import {
   UpdateSettingsBody,
   UpdateSettingsResponse,
 } from "@workspace/api-zod";
+import { requireAuth, requireAdmin } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -40,7 +41,7 @@ router.get("/settings", async (_req, res): Promise<void> => {
   }
 });
 
-router.patch("/settings", async (req, res): Promise<void> => {
+router.patch("/settings", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   // Pull extra custom fields before Zod strips them
   const { shopName, logoUrl, ...rest } = req.body as Record<string, unknown>;
 

@@ -9,6 +9,12 @@ import { requireAuth, requireAdmin, requireSuperAdmin } from '../middlewares/req
 
 const router: IRouter = Router();
 
+// ─── Router-level auth safety net ─────────────────────────────────────────────
+// Every /admin/* route requires at minimum a valid Clerk session.
+// Path-scoped so this does NOT bleed into other routers mounted after this one.
+// Individual routes add requireAdmin / requireSuperAdmin on top of this.
+router.use('/admin', requireAuth);
+
 // ─── Master Panel Access Guard ────────────────────────────────────────────────
 // Checks panel_enabled flag before every admin route.
 // Skips: panel-toggle (so super_admin can re-enable) + ensure-first-admin.

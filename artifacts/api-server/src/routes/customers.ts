@@ -17,8 +17,14 @@ import {
   GetCustomerWhatsappFormParams,
   GetCustomerWhatsappFormResponse,
 } from "@workspace/api-zod";
+import { requireAuth, requireAdmin } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
+
+// All /customers/* routes require a valid session.
+// Path-scoped so this middleware only fires for /customers paths
+// and does NOT bleed into unrelated routers mounted after this one.
+router.use('/customers', requireAuth);
 
 router.get("/customers", async (req, res): Promise<void> => {
   const query = ListCustomersQueryParams.safeParse(req.query);
@@ -78,7 +84,7 @@ router.get("/customers", async (req, res): Promise<void> => {
   res.json(ListCustomersResponse.parse(filtered));
 });
 
-router.post("/customers", async (req, res): Promise<void> => {
+router.post("/customers", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateCustomerBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -133,7 +139,7 @@ router.get("/customers/:id", async (req, res): Promise<void> => {
   );
 });
 
-router.patch("/customers/:id", async (req, res): Promise<void> => {
+router.patch("/customers/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateCustomerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -189,7 +195,7 @@ router.patch("/customers/:id", async (req, res): Promise<void> => {
   });
 });
 
-router.delete("/customers/:id", async (req, res): Promise<void> => {
+router.delete("/customers/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteCustomerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -285,7 +291,7 @@ router.get("/customers/:id/history", async (req, res): Promise<void> => {
 });
 
 /* ── Generate / return shareable form token ─────────────────────────────── */
-router.post("/customers/:id/generate-share-token", async (req, res): Promise<void> => {
+router.post("/customers/:id/generate-share-token", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

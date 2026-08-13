@@ -6,6 +6,8 @@ import {
 } from '@workspace/db';
 import { sql } from 'drizzle-orm';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middlewares/requireAuth';
+import { sendOtpEmail } from '../lib/email';
+import bcrypt from 'bcryptjs';
 
 const router: IRouter = Router();
 
@@ -603,6 +605,98 @@ router.delete('/admin/technicians/:id', requireAuth, requireAdmin, async (req: R
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: 'Failed to delete technician' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TECHNICIAN ADMIN RECOVERY TOOLS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function genOtp6(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+function genTempPasscode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+/** POST /api/admin/technicians/:id/send-otp — Push a fresh email OTP to technician */
+router.post('/admin/technicians/:id/send-otp', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params['id']), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const [row] = await db.select().from(professionalsTable).where(eq(professionalsTable.id, id)).limit(1);
+    if (!row) { res.status(404).json({ error: 'Technician not found' }); return; }
+    if (!row.email) {
+      res.status(400).json({ error: 'Technician का email registered नहीं है — पहले email add करें।' }); return;
+    }
+
+    const otp = genOtp6();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await db.update(professionalsTable)
+      .set({ otpCode: otp, otpExpiresAt: expiresAt, otpAttempts: 0 } as any)
+      .where(eq(professionalsTable.id, id));
+
+    const { sent, demoOtp } = await sendOtpEmail({
+      to: row.email,
+      recipientName: row.name,
+      otp,
+      extraLines: [`🔑 Your Technician ID: <strong style="color:#a5b4fc;">${row.uniqueCode}</strong>`],
+    });
+
+    res.json({ success: true, sent, techName: row.name, techEmail: row.email, ...(demoOtp ? { demoOtp } : {}) });
+  } catch (e) {
+    console.error('send-otp error:', e);
+    res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
+/** POST /api/admin/technicians/:id/temp-passcode — Generate 10-min temp passcode */
+router.post('/admin/technicians/:id/temp-passcode', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params['id']), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const [row] = await db.select().from(professionalsTable).where(eq(professionalsTable.id, id)).limit(1);
+    if (!row) { res.status(404).json({ error: 'Technician not found' }); return; }
+
+    const tempPasscode = genTempPasscode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await db.update(professionalsTable)
+      .set({ tempPasscode, tempPasscodeExpiresAt: expiresAt } as any)
+      .where(eq(professionalsTable.id, id));
+
+    res.json({
+      success: true,
+      tempPasscode,
+      expiresAt: expiresAt.toISOString(),
+      techName: row.name,
+      uniqueCode: row.uniqueCode,
+      note: 'Technician को यह passcode दें। Login करने पर नया password set करना होगा।',
+    });
+  } catch {
+    res.status(500).json({ error: 'Failed to generate temp passcode' });
+  }
+});
+
+/** GET /api/admin/technicians/:id/tech-id — Recall/display Tech ID */
+router.get('/admin/technicians/:id/tech-id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params['id']), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const [row] = await db.select({
+      id: professionalsTable.id,
+      name: professionalsTable.name,
+      uniqueCode: professionalsTable.uniqueCode,
+      phone: professionalsTable.phone,
+      email: professionalsTable.email,
+      professionType: professionalsTable.professionType,
+    }).from(professionalsTable).where(eq(professionalsTable.id, id)).limit(1);
+    if (!row) { res.status(404).json({ error: 'Technician not found' }); return; }
+    res.json(row);
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch tech ID' });
   }
 });
 

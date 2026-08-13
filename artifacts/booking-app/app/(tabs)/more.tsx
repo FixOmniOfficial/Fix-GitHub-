@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useGetAppRatingsSummary } from '@workspace/api-client-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function StarRow({ rating }: { rating: number }) {
   return (
@@ -23,14 +24,15 @@ export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const { lang, toggle, t } = useLanguage();
 
   const { data: summary } = useGetAppRatingsSummary({});
 
   const s = styles(colors);
 
   const ACTIONS = [
-    { icon: 'phone' as const,  label: 'Helpline',     sub: 'Admin को मैसेज करें',        path: '/helpline', color: '#22c55e' },
-    { icon: 'shield' as const, label: 'Admin Panel',  sub: 'Admin Login (PIN required)', path: '/admin',    color: '#8b5cf6' },
+    { icon: 'phone' as const,  label: t.helpline,    sub: 'Admin को मैसेज करें',        path: '/helpline', color: '#22c55e' },
+    { icon: 'shield' as const, label: 'Admin Panel', sub: 'Admin Login (PIN required)', path: '/admin',    color: '#8b5cf6' },
   ];
 
   return (
@@ -70,6 +72,28 @@ export default function MoreScreen() {
             })}
           </View>
         </View>
+
+        {/* ── Language Settings ── */}
+        <Text style={s.sectionLabel}>{t.languageSettings}</Text>
+        <TouchableOpacity
+          style={[s.actionCard, { borderColor: lang === 'hi' ? '#6366f1' : colors.border }]}
+          onPress={toggle}
+          activeOpacity={0.8}>
+          <View style={[s.actionIcon, { backgroundColor: '#6366f122' }]}>
+            <Text style={{ fontSize: 22 }}>🌐</Text>
+          </View>
+          <View style={s.actionText}>
+            <Text style={s.actionLabel}>{t.language}</Text>
+            <Text style={s.actionSub}>
+              {lang === 'en' ? `Currently: English — Switch to हिंदी` : `Currently: हिंदी — Switch to English`}
+            </Text>
+          </View>
+          <View style={{ backgroundColor: lang === 'hi' ? '#6366f1' : colors.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: lang === 'hi' ? '#6366f1' : colors.border }}>
+            <Text style={{ color: lang === 'hi' ? '#fff' : colors.mutedForeground, fontWeight: '700', fontSize: 12 }}>
+              {lang === 'en' ? 'EN' : 'HI'}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* ── Quick Actions ── */}
         <Text style={s.sectionLabel}>Quick Actions</Text>

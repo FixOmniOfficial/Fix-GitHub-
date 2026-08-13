@@ -9,11 +9,13 @@ export type AppUser = {
   uniqueCode: string;
   name: string;
   phone?: string;
-  email?: string;       // for Google-signed-in users
+  email?: string;
   avatar?: string;      // Google profile picture URL
-  loginMethod?: 'code' | 'google'; // how they signed in
+  loginMethod?: 'code' | 'google' | 'password';
   professionalId?: number;
   professionType?: string;
+  /** Set to true when technician logs in with a temp passcode — forces password change */
+  requirePasswordChange?: boolean;
 };
 
 type AppAuthCtx = {

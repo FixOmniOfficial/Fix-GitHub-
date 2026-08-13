@@ -1,4 +1,11 @@
-import React, { useState, useRef } from 'react';
+/**
+ * Technician Authentication Screen
+ * - Login: Mobile/Email + Technician ID + Password (3 mandatory fields)
+ * - Register: Full Name, Mobile, Email, Password → auto-assigned TECH code
+ * - Forgot Password: Email → OTP (30s resend timer) → New Password
+ * - Temp Passcode login: TECH ID + temp passcode → force password change
+ */
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Platform, Alert, ActivityIndicator, Clipboard,
@@ -9,7 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
-import { useTechnicianSignup } from '@workspace/api-client-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 const api = async (path: string, body: object) => {
@@ -28,435 +35,711 @@ const PROFESSION_TYPES = [
   { type: 'electrician',   label: 'Electrician',   emoji: '⚡' },
   { type: 'carpenter',     label: 'Carpenter',      emoji: '🪚' },
   { type: 'plumber',       label: 'Plumber',        emoji: '🔧' },
-  { type: 'painter',       label: 'Painter',        emoji: '🖌️' },
+  { type: 'painter',       label: 'Painter',        emoji: '🎨' },
   { type: 'repair',        label: 'Repair',         emoji: '⚙️' },
 ];
 
-type Screen = 'choice' | 'signup' | 'signup_success' | 'login_code' | 'login_otp';
+type Tab    = 'login' | 'register' | 'temp';
+type Screen = 'auth' | 'forgot_email' | 'forgot_otp' | 'new_password' | 'set_password_forced' | 'success';
+
+const RESEND_SECONDS = 30;
 
 export default function TechnicianAuthScreen() {
-  const colors   = useColors();
-  const insets   = useSafeAreaInsets();
-  const router   = useRouter();
-  const topPad   = Platform.OS === 'web' ? 67 : insets.top;
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { login } = useAppAuth();
+  const { t } = useLanguage();
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const s = styles(colors);
 
-  const [screen, setScreen]           = useState<Screen>('choice');
-  const [loading, setLoading]         = useState(false);
+  const [screen, setScreen]   = useState<Screen>('auth');
+  const [tab, setTab]         = useState<Tab>('login');
+  const [loading, setLoading] = useState(false);
 
-  // ── Signup state ─────────────────────────────────────
-  const [signupName, setSignupName]   = useState('');
-  const [signupPhone, setSignupPhone] = useState('');
-  const [profType, setProfType]       = useState('ac_technician');
-  const [generatedCode, setGenCode]   = useState('');
-  const signup = useTechnicianSignup();
+  // ── Login fields (3 mandatory) ────────────────────────────────────
+  const [loginInput, setLoginInput] = useState('');   // mobile or email
+  const [loginTechId, setLoginTechId] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [showLoginPass, setShowLoginPass] = useState(false);
 
-  // ── OTP login state ───────────────────────────────────
-  const [techCode, setTechCode]         = useState('');
-  const [techLoginPhone, setLoginPhone] = useState('');   // user-entered phone for verification
-  const [techName, setTechName]         = useState('');
-  const [maskedPhone, setMaskedPhone]   = useState('');   // XXXXXX4321 — from server response
-  const [demoOtp, setDemoOtp]           = useState('');   // shown in UI (demo mode)
-  const [otpInput, setOtpInput]         = useState('');
-  const otpRef = useRef<TextInput>(null);
+  // ── Register fields ───────────────────────────────────────────────
+  const [regName, setRegName]     = useState('');
+  const [regPhone, setRegPhone]   = useState('');
+  const [regEmail, setRegEmail]   = useState('');
+  const [regPass, setRegPass]     = useState('');
+  const [showRegPass, setShowRegPass] = useState(false);
+  const [profType, setProfType]   = useState('ac_technician');
+  const [generatedCode, setGeneratedCode] = useState('');
 
-  // ── Signup ────────────────────────────────────────────
-  const handleSignup = async () => {
-    if (!signupName.trim()) { Alert.alert('Required', 'नाम जरूरी है।'); return; }
-    // Strict 10-digit Indian mobile validation
-    const cleanPhone = signupPhone.trim().replace(/\D/g, '');
-    if (signupPhone.trim() && (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone))) {
-      Alert.alert('Invalid Phone', '10-digit Indian mobile number required (starts with 6-9).\nExample: 9876543210');
-      return;
-    }
+  // ── Temp passcode login ───────────────────────────────────────────
+  const [tempTechId, setTempTechId] = useState('');
+  const [tempPasscode, setTempPasscode] = useState('');
+  const [loggedInTech, setLoggedInTech] = useState<any>(null);
+
+  // ── Forced password change (after temp passcode login) ───────────
+  const [forcedNewPass, setForcedNewPass] = useState('');
+  const [showForcedPass, setShowForcedPass] = useState(false);
+
+  // ── Forgot password fields ────────────────────────────────────────
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp]     = useState('');
+  const [forgotNewPass, setForgotNewPass] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [demoOtp, setDemoOtp]         = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const otpRef   = useRef<TextInput>(null);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  function startResendTimer() {
+    setResendTimer(RESEND_SECONDS);
+    timerRef.current = setInterval(() => {
+      setResendTimer(v => {
+        if (v <= 1) { clearInterval(timerRef.current!); return 0; }
+        return v - 1;
+      });
+    }, 1000);
+  }
+
+  // ── Login (3-field) ───────────────────────────────────────────────
+  const handleLogin = async () => {
+    if (!loginInput.trim())  { Alert.alert('', t.mobileOrEmail + ' जरूरी है।'); return; }
+    if (!loginTechId.trim()) { Alert.alert('', t.techId + ' जरूरी है।'); return; }
+    if (!loginPass)          { Alert.alert('', t.password + ' जरूरी है।'); return; }
     setLoading(true);
     try {
-      const tech = await signup.mutateAsync({
-        data: { name: signupName.trim(), phone: signupPhone.trim() || undefined, professionType: profType },
+      const data = await api('/booking/technician/login-v2', {
+        mobileOrEmail: loginInput.trim(),
+        techId: loginTechId.trim().toUpperCase(),
+        password: loginPass,
       });
       await login({
         userType: 'technician',
-        uniqueCode: tech.uniqueCode,
-        name: tech.name,
-        phone: tech.phone ?? undefined,
-        professionalId: tech.id,
-        professionType: tech.professionType,
-      });
-      setGenCode(tech.uniqueCode);
-      setScreen('signup_success');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      Alert.alert('Error', 'Signup failed। कृपया दोबारा try करें।');
-    } finally { setLoading(false); }
-  };
-
-  // ── Step 1: validate code + phone → request OTP ──────
-  const handleRequestOtp = async () => {
-    const code = techCode.trim().toUpperCase();
-    if (!code.startsWith('TECH-') || code.length < 10) {
-      Alert.alert('Invalid Code', 'TECH- से शुरू होने वाला valid code दर्ज करें।'); return;
-    }
-    const ph = techLoginPhone.trim().replace(/\D/g, '');
-    if (ph.length !== 10 || !/^[6-9]/.test(ph)) {
-      Alert.alert('Invalid Number', 'Exactly 10-digit Indian mobile number required (starts with 6-9).\nExample: 9876543210');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await api('/booking/technician/request-otp', { uniqueCode: code, phone: ph });
-      setTechName(res.name);
-      setMaskedPhone(res.maskedPhone ?? '');  // e.g. XXXXXX4321
-      setDemoOtp(res.demoOtp ?? '');
-      setOtpInput('');
-      setScreen('login_otp');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setTimeout(() => otpRef.current?.focus(), 400);
-    } catch (e: any) {
-      Alert.alert('Verification Failed', e.message ?? 'Code या number verify नहीं हो सका।');
-    } finally { setLoading(false); }
-  };
-
-  // ── Step 2: verify OTP ────────────────────────────────
-  const handleVerifyOtp = async () => {
-    if (otpInput.trim().length < 6) { Alert.alert('', '6-digit OTP दर्ज करें।'); return; }
-    setLoading(true);
-    try {
-      const tech = await api('/booking/technician/verify-otp', {
-        uniqueCode: techCode.trim().toUpperCase(),
-        otp: otpInput.trim(),
-      });
-      await login({
-        userType: 'technician',
-        uniqueCode: tech.uniqueCode,
-        name: tech.name,
-        phone: tech.phone ?? undefined,
-        professionalId: tech.id,
-        professionType: tech.professionType,
+        uniqueCode: data.uniqueCode,
+        name: data.name,
+        phone: data.phone ?? undefined,
+        email: data.email ?? undefined,
+        professionalId: data.id,
+        professionType: data.professionType,
+        loginMethod: 'password',
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/technician/home' as any);
     } catch (e: any) {
-      Alert.alert('OTP गलत है', e.message ?? 'कृपया सही OTP डालें।');
+      Alert.alert(t.error, e.message ?? 'Login failed');
+    } finally { setLoading(false); }
+  };
+
+  // ── Register ──────────────────────────────────────────────────────
+  const handleRegister = async () => {
+    if (!regName.trim())  { Alert.alert('', t.fullName + ' जरूरी है।'); return; }
+    if (!regPhone.trim()) { Alert.alert('', t.mobileNumber + ' जरूरी है।'); return; }
+    if (!regEmail.trim()) { Alert.alert('', t.emailId + ' जरूरी है।'); return; }
+    if (regPass.length < 8) { Alert.alert('', 'Password कम से कम 8 characters का होना चाहिए।'); return; }
+    setLoading(true);
+    try {
+      const data = await api('/booking/technician/register', {
+        name: regName.trim(), phone: regPhone.trim(),
+        email: regEmail.trim().toLowerCase(), password: regPass,
+        professionType: profType,
+      });
+      await login({
+        userType: 'technician',
+        uniqueCode: data.uniqueCode,
+        name: data.name,
+        phone: data.phone ?? undefined,
+        email: data.email ?? undefined,
+        professionalId: data.id,
+        professionType: data.professionType,
+        loginMethod: 'password',
+      });
+      setGeneratedCode(data.uniqueCode);
+      setScreen('success');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message ?? 'Registration failed');
+    } finally { setLoading(false); }
+  };
+
+  // ── Temp passcode login ───────────────────────────────────────────
+  const handleTempLogin = async () => {
+    if (!tempTechId.trim()) { Alert.alert('', t.techId + ' जरूरी है।'); return; }
+    if (!tempPasscode.trim()) { Alert.alert('', 'Temporary Passcode जरूरी है।'); return; }
+    setLoading(true);
+    try {
+      const data = await api('/booking/technician/temp-passcode-login', {
+        techId: tempTechId.trim().toUpperCase(),
+        tempPasscode: tempPasscode.trim(),
+      });
+      // Don't fully login yet — force password change first
+      setLoggedInTech(data);
+      setScreen('set_password_forced');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message ?? 'Login failed');
+    } finally { setLoading(false); }
+  };
+
+  // ── Forced password set (after temp passcode) ─────────────────────
+  const handleSetForcedPassword = async () => {
+    if (forcedNewPass.length < 8) {
+      Alert.alert('', 'Password कम से कम 8 characters का होना चाहिए।'); return;
+    }
+    setLoading(true);
+    try {
+      // We use reset-password with the already-verified temp passcode token
+      // Since temp passcode cleared server-side, we need to use forgot flow approach
+      // Instead: call a set-password endpoint using the OTP field approach
+      // For simplicity: use forgot-password → reset cycle won't work here (no OTP)
+      // We'll directly update via a dedicated reset using the uniqueCode
+      const BASE = BASE_URL;
+      const r = await fetch(`${BASE}/api/booking/technician/login-v2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      // Actually we need a different approach - post directly to forgot then verify
+      // Simplest: use the technician's email + send OTP via admin, then reset
+      // For this forced flow, we'll call a special update using uniqueCode directly
+      // Use the POST /booking/technician/forgot-password then reset flow
+      // But that requires email. Let's use the direct approach:
+      const techEmail = loggedInTech?.email;
+      if (!techEmail) {
+        Alert.alert('त्रुटि', 'Email registered नहीं है। Admin से contact करें।');
+        setLoading(false);
+        return;
+      }
+      // Send OTP to email (auto)
+      const otp6 = await api('/booking/technician/forgot-password', { email: techEmail });
+      // For forced flow, we need user to get the OTP — but this is post-temp-login
+      // Instead, store in state and navigate to OTP screen
+      setForgotEmail(techEmail);
+      setDemoOtp(otp6.demoOtp ?? '');
+      setForgotOtp('');
+      setScreen('forgot_otp');
+      startResendTimer();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message ?? 'Failed');
+    } finally { setLoading(false); }
+  };
+
+  // ── Forgot password steps ─────────────────────────────────────────
+  const handleSendForgotOtp = async () => {
+    if (!forgotEmail.trim()) { Alert.alert('', 'Email जरूरी है।'); return; }
+    setLoading(true);
+    try {
+      const res = await api('/booking/technician/forgot-password', { email: forgotEmail.trim().toLowerCase() });
+      setDemoOtp(res.demoOtp ?? '');
+      setForgotOtp('');
+      setScreen('forgot_otp');
+      startResendTimer();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setTimeout(() => otpRef.current?.focus(), 400);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message ?? 'OTP request failed');
+    } finally { setLoading(false); }
+  };
+
+  const handleVerifyForgotOtp = async () => {
+    if (forgotOtp.trim().length < 6) { Alert.alert('', '6-digit OTP डालें।'); return; }
+    setLoading(true);
+    try {
+      await api('/booking/technician/verify-otp-email', {
+        email: forgotEmail.trim().toLowerCase(), otp: forgotOtp.trim(),
+      });
+      setScreen('new_password');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message ?? 'OTP गलत है');
+    } finally { setLoading(false); }
+  };
+
+  const handleResetPassword = async () => {
+    if (forgotNewPass.length < 8) { Alert.alert('', 'Password कम से कम 8 characters का होना चाहिए।'); return; }
+    setLoading(true);
+    try {
+      await api('/booking/technician/reset-password', {
+        email: forgotEmail.trim().toLowerCase(),
+        otp: forgotOtp.trim(),
+        newPassword: forgotNewPass,
+      });
+      // If this was a forced password change, now complete the login
+      if (loggedInTech) {
+        await login({
+          userType: 'technician',
+          uniqueCode: loggedInTech.uniqueCode,
+          name: loggedInTech.name,
+          phone: loggedInTech.phone ?? undefined,
+          email: loggedInTech.email ?? undefined,
+          professionalId: loggedInTech.id,
+          professionType: loggedInTech.professionType,
+          loginMethod: 'password',
+        });
+        Alert.alert('✅ Password Set!', 'आपका नया password set हो गया। Dashboard पर जाएं।', [{
+          text: 'Dashboard',
+          onPress: () => router.replace('/technician/home' as any),
+        }]);
+      } else {
+        Alert.alert('✅ ' + t.resetSuccess, 'अब नए password से login करें।', [{
+          text: 'Login करें',
+          onPress: () => { setTab('login'); setScreen('auth'); setForgotEmail(''); setForgotOtp(''); setForgotNewPass(''); },
+        }]);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message ?? 'Password reset failed');
     } finally { setLoading(false); }
   };
 
   const copyCode = () => {
     Clipboard.setString(generatedCode);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert('Copied!', 'Code clipboard में copy हो गया।');
+    Alert.alert('Copied!', 'Technician ID clipboard में copy हो गई।');
   };
 
-  // ════════ SCREENS ═══════════════════════════════════════
+  // ════════ SCREENS ═══════════════════════════════════════════════
 
-  // ── Choice screen ─────────────────────────────────────
-  if (screen === 'choice') {
-    return (
-      <View style={[s.root, { backgroundColor: colors.background }]}>
-        <View style={[s.header, { paddingTop: topPad + 6 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={s.iconBtn}>
-            <Feather name="arrow-left" size={22} color={colors.foreground} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={s.headerTitle}>Technician Login</Text>
-            <Text style={[s.headerSub, { color: colors.mutedForeground }]}>🔧 अपना account बनाएं या login करें</Text>
-          </View>
-        </View>
-
-        <ScrollView contentContainerStyle={{ padding: 24, gap: 14 }}>
-          <View style={{ alignItems: 'center', paddingVertical: 20, gap: 6 }}>
-            <Text style={{ fontSize: 52 }}>🔧</Text>
-            <Text style={[s.sectionTitle, { color: colors.foreground }]}>Technician Portal</Text>
-            <Text style={[s.mutedText, { color: colors.mutedForeground, textAlign: 'center' }]}>
-              पहले से registered हैं तो login करें, नए हैं तो signup करें
-            </Text>
-          </View>
-
-          <TouchableOpacity style={[s.bigCard, { borderColor: colors.primary, backgroundColor: colors.primary + '10' }]}
-            onPress={() => setScreen('login_code')}>
-            <View style={[s.bigCardIcon, { backgroundColor: colors.primary + '22' }]}>
-              <Feather name="smartphone" size={26} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1, gap: 3 }}>
-              <Text style={[s.bigCardTitle, { color: colors.foreground }]}>Login करें</Text>
-              <Text style={[s.bigCardSub, { color: colors.mutedForeground }]}>
-                अपना TECH code + Mobile OTP से login करें
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[s.bigCard, { borderColor: colors.border }]}
-            onPress={() => setScreen('signup')}>
-            <View style={[s.bigCardIcon, { backgroundColor: colors.card }]}>
-              <Feather name="user-plus" size={26} color={colors.foreground} />
-            </View>
-            <View style={{ flex: 1, gap: 3 }}>
-              <Text style={[s.bigCardTitle, { color: colors.foreground }]}>नया Account बनाएं</Text>
-              <Text style={[s.bigCardSub, { color: colors.mutedForeground }]}>
-                Register करें और unique TECH code पाएं
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // ── Signup form ───────────────────────────────────────
-  if (screen === 'signup') {
-    return (
-      <View style={[s.root, { backgroundColor: colors.background }]}>
-        <View style={[s.header, { paddingTop: topPad + 6 }]}>
-          <TouchableOpacity onPress={() => setScreen('choice')} style={s.iconBtn}>
-            <Feather name="arrow-left" size={22} color={colors.foreground} />
-          </TouchableOpacity>
-          <Text style={s.headerTitle}>नया Account</Text>
-        </View>
-        <ScrollView keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 40 }}>
-          <Text style={[s.label, { color: colors.mutedForeground }]}>आपका नाम *</Text>
-          <TextInput style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-            value={signupName} onChangeText={setSignupName} placeholder="पूरा नाम लिखें" placeholderTextColor={colors.mutedForeground} />
-
-          <Text style={[s.label, { color: colors.mutedForeground }]}>Phone Number</Text>
-          <TextInput style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-            value={signupPhone} onChangeText={setSignupPhone} placeholder="10-अंक का number"
-            placeholderTextColor={colors.mutedForeground} keyboardType="phone-pad" maxLength={10} />
-
-          <Text style={[s.label, { color: colors.mutedForeground }]}>आप क्या काम करते हैं? *</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {PROFESSION_TYPES.map(p => (
-              <TouchableOpacity key={p.type}
-                style={[s.profCard, { borderColor: profType === p.type ? colors.primary : colors.border, backgroundColor: profType === p.type ? colors.primary + '22' : colors.card }]}
-                onPress={() => setProfType(p.type)}>
-                <Text style={{ fontSize: 22 }}>{p.emoji}</Text>
-                <Text style={[s.profLabel, { color: profType === p.type ? colors.primary : colors.foreground }]}>{p.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity style={[s.submitBtn, { backgroundColor: colors.primary }, (!signupName.trim() || loading) && { opacity: 0.5 }]}
-            onPress={handleSignup} disabled={!signupName.trim() || loading}>
-            {loading ? <ActivityIndicator color="#000" /> : <Text style={s.submitText}>Register → Unique ID पाएं</Text>}
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // ── Signup success ────────────────────────────────────
-  if (screen === 'signup_success') {
+  if (screen === 'success') {
     return (
       <View style={[s.root, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, paddingTop: topPad }]}>
-        <View style={[s.codeCard, { borderColor: colors.primary }]}>
-          <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 12 }}>🎉</Text>
-          <Text style={[s.sectionTitle, { color: colors.foreground }]}>आपकी Unique ID</Text>
-          <Text style={[s.mutedText, { color: colors.mutedForeground, textAlign: 'center' }]}>
-            इसे संभाल कर रखें — यही आपकी login ID है
+        <View style={[s.card, { borderColor: colors.primary }]}>
+          <Text style={{ fontSize: 52, textAlign: 'center' }}>🎉</Text>
+          <Text style={[s.bigTitle, { color: colors.foreground }]}>{t.yourTechId}</Text>
+          <Text style={{ color: colors.mutedForeground, fontSize: 13, textAlign: 'center' }}>
+            {t.techIdAssigned}
           </Text>
-          <View style={[s.otpBox, { backgroundColor: colors.primary + '22', borderColor: colors.primary, borderStyle: 'dashed' }]}>
-            <Text style={[s.otpText, { color: colors.primary, letterSpacing: 3 }]}>{generatedCode}</Text>
+          <View style={[s.codeBox, { backgroundColor: colors.primary + '22', borderColor: colors.primary }]}>
+            <Text style={[s.codeText, { color: colors.primary }]}>{generatedCode}</Text>
           </View>
           <TouchableOpacity style={[s.outlineBtn, { borderColor: colors.border }]} onPress={copyCode}>
             <Feather name="copy" size={16} color={colors.foreground} />
             <Text style={[s.outlineBtnText, { color: colors.foreground }]}>Code Copy करें</Text>
           </TouchableOpacity>
           <Text style={{ fontSize: 12, color: '#f59e0b', textAlign: 'center', lineHeight: 18 }}>
-            ⚠️ यह code दोबारा नहीं दिखाया जाएगा। कहीं note करें।
+            {t.saveTechId}
           </Text>
           <TouchableOpacity style={[s.submitBtn, { backgroundColor: colors.primary, width: '100%' }]}
             onPress={() => router.replace('/technician/home' as any)}>
-            <Text style={s.submitText}>Dashboard पर जाएं</Text>
+            <Text style={[s.submitText, { color: '#000' }]}>Dashboard पर जाएं</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // ── Login Step 1: Enter TECH code ─────────────────────
-  if (screen === 'login_code') {
+  if (screen === 'set_password_forced') {
     return (
       <View style={[s.root, { backgroundColor: colors.background }]}>
         <View style={[s.header, { paddingTop: topPad + 6 }]}>
-          <TouchableOpacity onPress={() => setScreen('choice')} style={s.iconBtn}>
-            <Feather name="arrow-left" size={22} color={colors.foreground} />
-          </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={s.headerTitle}>Login — Step 1/2</Text>
-            <Text style={[s.headerSub, { color: colors.mutedForeground }]}>अपना Technician Code दर्ज करें</Text>
+            <Text style={s.headerTitle}>नया Password Set करें</Text>
+            <Text style={[s.headerSub, { color: '#f59e0b' }]}>⚠️ Security के लिए नया password जरूरी है</Text>
           </View>
         </View>
-
         <ScrollView keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 40 }}>
-
-          {/* Step indicator */}
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <View style={[s.stepDot, { backgroundColor: colors.primary }]}><Text style={s.stepNum}>1</Text></View>
-            <View style={[s.stepLine, { backgroundColor: colors.border }]} />
-            <View style={[s.stepDot, { backgroundColor: colors.border }]}><Text style={[s.stepNum, { color: colors.mutedForeground }]}>2</Text></View>
-            <Text style={[s.mutedText, { color: colors.mutedForeground, marginLeft: 6 }]}>Code → OTP</Text>
-          </View>
-
+          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 60 }}>
           <View style={[s.infoBox, { backgroundColor: '#1c0a00', borderColor: '#f59e0b55' }]}>
-            <Feather name="shield" size={16} color="#f59e0b" />
-            <Text style={{ color: '#f59e0b', fontSize: 13, flex: 1, lineHeight: 18 }}>
-              Security: OTP केवल account से registered mobile number पर भेजा जाएगा।
+            <Feather name="alert-triangle" size={16} color="#f59e0b" />
+            <Text style={{ color: '#f59e0b', fontSize: 13, flex: 1 }}>
+              Admin द्वारा दिए गए temporary passcode से login हुए हैं।
+              Dashboard access के लिए नया password set करें।
             </Text>
           </View>
 
-          <Text style={[s.label, { color: colors.mutedForeground }]}>Technician Code *</Text>
-          <TextInput
-            style={[s.input, { color: colors.primary, borderColor: colors.primary, backgroundColor: colors.card, fontSize: 20, fontWeight: '800', letterSpacing: 3, textAlign: 'center' }]}
-            value={techCode} onChangeText={(t) => setTechCode(t.toUpperCase())}
-            placeholder="TECH-XXXXXX" placeholderTextColor={colors.mutedForeground}
-            autoCapitalize="characters" autoCorrect={false}
-          />
-
-          <Text style={[s.label, { color: colors.mutedForeground }]}>Registered Mobile Number *</Text>
-          <TextInput
-            style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, fontSize: 17, letterSpacing: 1, textAlign: 'center' }]}
-            value={techLoginPhone} onChangeText={setLoginPhone}
-            placeholder="Account वाला 10-digit number" placeholderTextColor={colors.mutedForeground}
-            keyboardType="phone-pad" maxLength={10}
-          />
-
-          <TouchableOpacity style={[s.submitBtn, { backgroundColor: colors.primary }, (!techCode.trim() || !techLoginPhone.trim() || loading) && { opacity: 0.5 }]}
-            onPress={handleRequestOtp} disabled={!techCode.trim() || !techLoginPhone.trim() || loading}>
-            {loading
-              ? <ActivityIndicator color="#000" />
-              : <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                  <Feather name="smartphone" size={18} color="#000" />
-                  <Text style={s.submitText}>OTP भेजें →</Text>
-                </View>
-            }
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => setScreen('signup')} style={{ alignItems: 'center', paddingVertical: 8 }}>
-            <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
-              Account नहीं है?{' '}
-              <Text style={{ color: colors.primary, fontWeight: '700' }}>Register करें</Text>
-            </Text>
+          <Text style={[s.label, { color: colors.mutedForeground }]}>
+            नया Password * (OTP आपके email पर आएगा)
+          </Text>
+          <TouchableOpacity
+            style={[s.submitBtn, { backgroundColor: '#f59e0b' }, loading && { opacity: 0.5 }]}
+            onPress={handleSetForcedPassword} disabled={loading}>
+            {loading ? <ActivityIndicator color="#000" /> : (
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <Feather name="mail" size={18} color="#000" />
+                <Text style={[s.submitText, { color: '#000' }]}>Email OTP से Password Reset करें</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </View>
     );
   }
 
-  // ── Login Step 2: Enter OTP ───────────────────────────
+  if (screen === 'forgot_email') {
+    return (
+      <View style={[s.root, { backgroundColor: colors.background }]}>
+        <View style={[s.header, { paddingTop: topPad + 6 }]}>
+          <TouchableOpacity onPress={() => setScreen('auth')} style={s.iconBtn}>
+            <Feather name="arrow-left" size={22} color={colors.foreground} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={s.headerTitle}>{t.forgotPasswordTitle}</Text>
+            <Text style={[s.headerSub, { color: colors.mutedForeground }]}>{t.forgotPasswordDesc}</Text>
+          </View>
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 60 }}>
+          <View style={[s.infoBox, { backgroundColor: '#1c1000', borderColor: '#a78bfa44' }]}>
+            <Feather name="info" size={15} color="#a78bfa" />
+            <Text style={{ color: '#a78bfa', fontSize: 12, flex: 1 }}>
+              Email पर OTP के साथ आपकी Technician ID भी भेजी जाएगी।
+            </Text>
+          </View>
+          <Text style={[s.label, { color: colors.mutedForeground }]}>{t.emailId} *</Text>
+          <TextInput
+            style={[s.input, { color: colors.foreground, borderColor: '#6366f1', backgroundColor: colors.card }]}
+            value={forgotEmail} onChangeText={setForgotEmail}
+            placeholder="registered email"
+            placeholderTextColor={colors.mutedForeground}
+            keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
+          />
+          <TouchableOpacity
+            style={[s.submitBtn, { backgroundColor: '#6366f1' }, (!forgotEmail.trim() || loading) && { opacity: 0.5 }]}
+            onPress={handleSendForgotOtp} disabled={!forgotEmail.trim() || loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : (
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <Feather name="send" size={18} color="#fff" />
+                <Text style={[s.submitText, { color: '#fff' }]}>{t.sendOtp}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (screen === 'forgot_otp') {
+    return (
+      <View style={[s.root, { backgroundColor: colors.background }]}>
+        <View style={[s.header, { paddingTop: topPad + 6 }]}>
+          <TouchableOpacity onPress={() => setScreen('forgot_email')} style={s.iconBtn}>
+            <Feather name="arrow-left" size={22} color={colors.foreground} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={s.headerTitle}>{t.otpVerifyTitle}</Text>
+            <Text style={[s.headerSub, { color: colors.mutedForeground }]}>
+              {t.otpSentTo}: {forgotEmail}
+            </Text>
+          </View>
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 60 }}>
+
+          {demoOtp ? (
+            <View style={[s.infoBox, { backgroundColor: '#1c2a00', borderColor: '#84cc16' }]}>
+              <Feather name="terminal" size={16} color="#84cc16" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#84cc16', fontWeight: '800', fontSize: 13 }}>Demo OTP: {demoOtp}</Text>
+                <Text style={{ color: '#84cc16', fontSize: 11, marginTop: 2 }}>SMTP configure होने पर real email आएगा</Text>
+              </View>
+            </View>
+          ) : null}
+
+          <Text style={[s.label, { color: colors.mutedForeground }]}>{t.enterOtp} *</Text>
+          <TextInput
+            ref={otpRef}
+            style={[s.input, { color: colors.foreground, borderColor: '#6366f1', backgroundColor: colors.card, fontSize: 28, fontWeight: '900', letterSpacing: 8, textAlign: 'center' }]}
+            value={forgotOtp} onChangeText={(v) => setForgotOtp(v.replace(/\D/g, '').slice(0, 6))}
+            placeholder="——————" placeholderTextColor={colors.mutedForeground + '55'}
+            keyboardType="number-pad" maxLength={6}
+          />
+
+          <TouchableOpacity
+            style={[s.submitBtn, { backgroundColor: '#6366f1' }, (forgotOtp.length < 6 || loading) && { opacity: 0.5 }]}
+            onPress={handleVerifyForgotOtp} disabled={forgotOtp.length < 6 || loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : (
+              <Text style={[s.submitText, { color: '#fff' }]}>{t.verifyOtp}</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={resendTimer === 0 ? () => { setForgotOtp(''); handleSendForgotOtp(); } : undefined}
+            style={{ alignItems: 'center', paddingVertical: 8 }}
+            disabled={resendTimer > 0 || loading}>
+            <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
+              {resendTimer > 0
+                ? `${t.resendIn} ${resendTimer}${t.seconds}`
+                : <Text style={{ color: '#6366f1', fontWeight: '700' }}>{t.resendOtp}</Text>
+              }
+            </Text>
+          </TouchableOpacity>
+          <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: 'center' }}>
+            OTP 10 minutes तक valid है · Email में Technician ID भी देखें
+          </Text>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (screen === 'new_password') {
+    return (
+      <View style={[s.root, { backgroundColor: colors.background }]}>
+        <View style={[s.header, { paddingTop: topPad + 6 }]}>
+          <TouchableOpacity onPress={() => setScreen('forgot_otp')} style={s.iconBtn}>
+            <Feather name="arrow-left" size={22} color={colors.foreground} />
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>{t.resetPasswordTitle}</Text>
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 60 }}>
+          <Text style={[s.label, { color: colors.mutedForeground }]}>{t.newPassword} *</Text>
+          <View style={{ position: 'relative' }}>
+            <TextInput
+              style={[s.input, { color: colors.foreground, borderColor: '#6366f1', backgroundColor: colors.card, paddingRight: 48 }]}
+              value={forgotNewPass} onChangeText={setForgotNewPass}
+              placeholder="कम से कम 8 characters" placeholderTextColor={colors.mutedForeground}
+              secureTextEntry={!showNewPass}
+            />
+            <TouchableOpacity onPress={() => setShowNewPass(v => !v)}
+              style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+              <Feather name={showNewPass ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={[s.submitBtn, { backgroundColor: '#6366f1' }, (forgotNewPass.length < 8 || loading) && { opacity: 0.5 }]}
+            onPress={handleResetPassword} disabled={forgotNewPass.length < 8 || loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : (
+              <Text style={[s.submitText, { color: '#fff' }]}>Password Save करें</Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ── Main auth screen (Login / Register / Temp Passcode tabs) ──────
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <View style={[s.header, { paddingTop: topPad + 6 }]}>
-        <TouchableOpacity onPress={() => { setScreen('login_code'); setDemoOtp(''); }} style={s.iconBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={s.iconBtn}>
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>Login — Step 2/2</Text>
-          <Text style={[s.headerSub, { color: colors.mutedForeground }]}>OTP verify करें</Text>
+          <Text style={s.headerTitle}>{t.technicianLogin}</Text>
+          <Text style={[s.headerSub, { color: colors.mutedForeground }]}>🔧 Technician Portal</Text>
         </View>
       </View>
 
+      {/* Tab bar */}
+      <View style={[s.tabBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <TouchableOpacity style={[s.tabBtn, tab === 'login' && { backgroundColor: colors.primary }]} onPress={() => setTab('login')}>
+          <Feather name="log-in" size={13} color={tab === 'login' ? '#000' : colors.mutedForeground} />
+          <Text style={{ fontSize: 12, fontWeight: '700', color: tab === 'login' ? '#000' : colors.mutedForeground }}>{t.login}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.tabBtn, tab === 'register' && { backgroundColor: colors.primary }]} onPress={() => setTab('register')}>
+          <Feather name="user-plus" size={13} color={tab === 'register' ? '#000' : colors.mutedForeground} />
+          <Text style={{ fontSize: 12, fontWeight: '700', color: tab === 'register' ? '#000' : colors.mutedForeground }}>{t.register}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.tabBtn, tab === 'temp' && { backgroundColor: '#f59e0b' }]} onPress={() => setTab('temp')}>
+          <Feather name="key" size={13} color={tab === 'temp' ? '#000' : colors.mutedForeground} />
+          <Text style={{ fontSize: 12, fontWeight: '700', color: tab === 'temp' ? '#000' : colors.mutedForeground }}>Temp Code</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 40 }}>
+        contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 40 }}>
 
-        {/* Step indicator */}
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-          <View style={[s.stepDot, { backgroundColor: colors.primary + '55' }]}>
-            <Feather name="check" size={12} color={colors.primary} />
-          </View>
-          <View style={[s.stepLine, { backgroundColor: colors.primary }]} />
-          <View style={[s.stepDot, { backgroundColor: colors.primary }]}><Text style={s.stepNum}>2</Text></View>
-          <Text style={[s.mutedText, { color: colors.mutedForeground, marginLeft: 6 }]}>Code ✓ → OTP</Text>
-        </View>
-
-        {/* Who is logging in */}
-        <View style={[s.infoBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Feather name="user-check" size={16} color={colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 14 }}>{techName}</Text>
-            <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
-              📱 {maskedPhone}  ·  {techCode.toUpperCase()}
-            </Text>
-            <Text style={{ color: '#22c55e', fontSize: 11, marginTop: 2 }}>
-              ✅ Mobile number verified — OTP भेजा गया
-            </Text>
-          </View>
-        </View>
-
-        {/* Demo OTP banner — remove in production when SMS is live */}
-        {demoOtp ? (
-          <View style={[s.infoBox, { backgroundColor: '#1c2a00', borderColor: '#84cc16' }]}>
-            <Feather name="terminal" size={16} color="#84cc16" />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#84cc16', fontWeight: '800', fontSize: 13 }}>
-                Demo OTP: {demoOtp}
-              </Text>
-              <Text style={{ color: '#84cc16', fontSize: 11, marginTop: 2 }}>
-                SMS integration pending — production में real SMS आएगा
+        {tab === 'login' && (
+          <>
+            <View style={[s.infoBox, { backgroundColor: '#1c0a00', borderColor: '#f59e0b44' }]}>
+              <Feather name="shield" size={15} color="#f59e0b" />
+              <Text style={{ color: '#f59e0b', fontSize: 12, flex: 1 }}>
+                सभी 3 fields mandatory हैं — Mobile/Email + Technician ID + Password
               </Text>
             </View>
-          </View>
-        ) : null}
 
-        <Text style={[s.label, { color: colors.mutedForeground }]}>6-Digit OTP *</Text>
-        <TextInput
-          ref={otpRef}
-          style={[s.input, { color: colors.foreground, borderColor: colors.primary, backgroundColor: colors.card, fontSize: 28, fontWeight: '900', letterSpacing: 8, textAlign: 'center' }]}
-          value={otpInput} onChangeText={(t) => setOtpInput(t.replace(/\D/g, '').slice(0, 6))}
-          placeholder="------" placeholderTextColor={colors.mutedForeground + '55'}
-          keyboardType="number-pad" maxLength={6}
-        />
+            {/* Field 1: Mobile or Email */}
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.mobileOrEmail} *</Text>
+            <TextInput
+              style={[s.input, { color: colors.foreground, borderColor: colors.primary, backgroundColor: colors.card }]}
+              value={loginInput} onChangeText={setLoginInput}
+              placeholder="9876543210 या example@gmail.com"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="default" autoCapitalize="none" autoCorrect={false}
+            />
 
-        <TouchableOpacity style={[s.submitBtn, { backgroundColor: colors.primary }, (otpInput.length < 6 || loading) && { opacity: 0.5 }]}
-          onPress={handleVerifyOtp} disabled={otpInput.length < 6 || loading}>
-          {loading
-            ? <ActivityIndicator color="#000" />
-            : <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <Feather name="log-in" size={18} color="#000" />
-                <Text style={s.submitText}>Login करें</Text>
-              </View>
-          }
-        </TouchableOpacity>
+            {/* Field 2: Technician ID */}
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.techId} *</Text>
+            <TextInput
+              style={[s.input, { color: colors.primary, borderColor: colors.primary, backgroundColor: colors.card, fontSize: 18, fontWeight: '800', letterSpacing: 2, textAlign: 'center' }]}
+              value={loginTechId} onChangeText={(v) => setLoginTechId(v.toUpperCase())}
+              placeholder="TECH-XXXXXX" placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="characters" autoCorrect={false}
+            />
 
-        <TouchableOpacity onPress={() => { setDemoOtp(''); handleRequestOtp(); }}
-          style={{ alignItems: 'center', paddingVertical: 8 }}>
-          <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
-            OTP नहीं मिला?{' '}
-            <Text style={{ color: colors.primary, fontWeight: '700' }}>दोबारा भेजें</Text>
-          </Text>
-        </TouchableOpacity>
+            {/* Field 3: Password with eye toggle */}
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.password} *</Text>
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                style={[s.input, { color: colors.foreground, borderColor: colors.primary, backgroundColor: colors.card, paddingRight: 48 }]}
+                value={loginPass} onChangeText={setLoginPass}
+                placeholder={t.password} placeholderTextColor={colors.mutedForeground}
+                secureTextEntry={!showLoginPass}
+              />
+              <TouchableOpacity onPress={() => setShowLoginPass(v => !v)}
+                style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+                <Feather name={showLoginPass ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity onPress={() => setScreen('forgot_email')} style={{ alignSelf: 'flex-end', marginTop: -6 }}>
+              <Text style={{ color: '#6366f1', fontSize: 13, fontWeight: '600' }}>{t.forgotPassword}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.submitBtn, { backgroundColor: colors.primary }, (!loginInput.trim() || !loginTechId.trim() || !loginPass || loading) && { opacity: 0.5 }]}
+              onPress={handleLogin}
+              disabled={!loginInput.trim() || !loginTechId.trim() || !loginPass || loading}>
+              {loading ? <ActivityIndicator color="#000" /> : (
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <Feather name="log-in" size={18} color="#000" />
+                  <Text style={s.submitText}>{t.login}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setTab('register')} style={{ alignItems: 'center', paddingVertical: 8 }}>
+              <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
+                {t.noAccount}{' '}
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>{t.register}</Text>
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {tab === 'register' && (
+          <>
+            <View style={[s.infoBox, { backgroundColor: '#052e16', borderColor: '#22c55e44' }]}>
+              <Feather name="user-check" size={15} color="#22c55e" />
+              <Text style={{ color: '#22c55e', fontSize: 12, flex: 1 }}>
+                Register करने पर unique Technician ID मिलेगी — इसे login में हमेशा use करें।
+              </Text>
+            </View>
+
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.fullName} *</Text>
+            <TextInput style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
+              value={regName} onChangeText={setRegName} placeholder="पूरा नाम" placeholderTextColor={colors.mutedForeground} />
+
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.mobileNumber} *</Text>
+            <TextInput style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
+              value={regPhone} onChangeText={setRegPhone} placeholder="10-digit mobile number"
+              placeholderTextColor={colors.mutedForeground} keyboardType="phone-pad" maxLength={10} />
+
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.emailId} *</Text>
+            <TextInput style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
+              value={regEmail} onChangeText={setRegEmail} placeholder="example@gmail.com"
+              placeholderTextColor={colors.mutedForeground} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.password} *</Text>
+            <View style={{ position: 'relative' }}>
+              <TextInput style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, paddingRight: 48 }]}
+                value={regPass} onChangeText={setRegPass} placeholder="कम से कम 8 characters"
+                placeholderTextColor={colors.mutedForeground} secureTextEntry={!showRegPass} />
+              <TouchableOpacity onPress={() => setShowRegPass(v => !v)}
+                style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+                <Feather name={showRegPass ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.professionType} *</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {PROFESSION_TYPES.map(p => (
+                <TouchableOpacity key={p.type}
+                  style={[s.profCard, { borderColor: profType === p.type ? colors.primary : colors.border, backgroundColor: profType === p.type ? colors.primary + '22' : colors.card }]}
+                  onPress={() => setProfType(p.type)}>
+                  <Text style={{ fontSize: 22 }}>{p.emoji}</Text>
+                  <Text style={[s.profLabel, { color: profType === p.type ? colors.primary : colors.foreground }]}>{p.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[s.submitBtn, { backgroundColor: colors.primary }, (!regName.trim() || !regPhone.trim() || !regEmail.trim() || regPass.length < 8 || loading) && { opacity: 0.5 }]}
+              onPress={handleRegister}
+              disabled={!regName.trim() || !regPhone.trim() || !regEmail.trim() || regPass.length < 8 || loading}>
+              {loading ? <ActivityIndicator color="#000" /> : (
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <Feather name="user-check" size={18} color="#000" />
+                  <Text style={s.submitText}>Register → ID पाएं</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setTab('login')} style={{ alignItems: 'center', paddingVertical: 8 }}>
+              <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
+                {t.alreadyHaveAccount}{' '}
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>{t.login}</Text>
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {tab === 'temp' && (
+          <>
+            <View style={[s.infoBox, { backgroundColor: '#1c0a00', borderColor: '#f59e0b55' }]}>
+              <Feather name="key" size={15} color="#f59e0b" />
+              <Text style={{ color: '#f59e0b', fontSize: 12, flex: 1 }}>
+                Admin द्वारा दिया गया temporary passcode यहाँ डालें।
+                Login के बाद नया password set करना होगा।
+              </Text>
+            </View>
+
+            <Text style={[s.label, { color: colors.mutedForeground }]}>{t.techId} *</Text>
+            <TextInput
+              style={[s.input, { color: colors.primary, borderColor: colors.primary, backgroundColor: colors.card, fontSize: 18, fontWeight: '800', letterSpacing: 2, textAlign: 'center' }]}
+              value={tempTechId} onChangeText={(v) => setTempTechId(v.toUpperCase())}
+              placeholder="TECH-XXXXXX" placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="characters" autoCorrect={false}
+            />
+
+            <Text style={[s.label, { color: colors.mutedForeground }]}>Temporary Passcode *</Text>
+            <TextInput
+              style={[s.input, { color: '#f59e0b', borderColor: '#f59e0b', backgroundColor: colors.card, fontSize: 18, fontWeight: '800', letterSpacing: 2, textAlign: 'center' }]}
+              value={tempPasscode} onChangeText={(v) => setTempPasscode(v.toUpperCase())}
+              placeholder="Admin से मिला code" placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="characters" autoCorrect={false}
+            />
+
+            <TouchableOpacity
+              style={[s.submitBtn, { backgroundColor: '#f59e0b' }, (!tempTechId.trim() || !tempPasscode.trim() || loading) && { opacity: 0.5 }]}
+              onPress={handleTempLogin} disabled={!tempTechId.trim() || !tempPasscode.trim() || loading}>
+              {loading ? <ActivityIndicator color="#000" /> : (
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <Feather name="unlock" size={18} color="#000" />
+                  <Text style={s.submitText}>Temp Login करें</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
-  root:         { flex: 1 },
-  header:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: c.border },
-  headerTitle:  { fontSize: 20, fontWeight: '800', color: c.foreground },
-  headerSub:    { fontSize: 12, marginTop: 2 },
-  iconBtn:      { padding: 6 },
-  sectionTitle: { fontSize: 20, fontWeight: '800' },
-  mutedText:    { fontSize: 13 },
-  label:        { fontSize: 13, fontWeight: '600' },
-  input:        { borderWidth: 1.5, borderRadius: 12, padding: 14, fontSize: 15 },
-  submitBtn:    { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 4 },
-  submitText:   { fontWeight: '800', color: '#000', fontSize: 16 },
-  outlineBtn:   { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10 },
+  root:          { flex: 1 },
+  header:        { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: c.border },
+  headerTitle:   { fontSize: 20, fontWeight: '800', color: c.foreground },
+  headerSub:     { fontSize: 12, marginTop: 2 },
+  iconBtn:       { padding: 6 },
+  bigTitle:      { fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  label:         { fontSize: 13, fontWeight: '600' },
+  input:         { borderWidth: 1.5, borderRadius: 12, padding: 14, fontSize: 15 },
+  submitBtn:     { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 4 },
+  submitText:    { fontWeight: '800', color: '#000', fontSize: 16 },
+  infoBox:       { flexDirection: 'row', gap: 10, borderRadius: 12, borderWidth: 1, padding: 12, alignItems: 'flex-start' },
+  tabBar:        { flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, padding: 8, gap: 6 },
+  tabBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 9 },
+  card:          { backgroundColor: c.card, borderRadius: 20, borderWidth: 1.5, padding: 28, width: '100%', gap: 14, alignItems: 'center' },
+  codeBox:       { borderWidth: 2, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 28, alignItems: 'center', borderStyle: 'dashed' },
+  codeText:      { fontSize: 24, fontWeight: '900', letterSpacing: 3 },
+  outlineBtn:    { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10 },
   outlineBtnText: { fontSize: 14, fontWeight: '600' },
-  infoBox:      { flexDirection: 'row', gap: 10, borderRadius: 12, borderWidth: 1, padding: 12, alignItems: 'flex-start' },
-  bigCard:      { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1.5, borderRadius: 16, padding: 16, backgroundColor: 'transparent' },
-  bigCardIcon:  { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  bigCardTitle: { fontSize: 16, fontWeight: '800' },
-  bigCardSub:   { fontSize: 12 },
-  stepDot:      { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  stepNum:      { fontSize: 12, fontWeight: '900', color: '#000' },
-  stepLine:     { flex: 1, height: 2, borderRadius: 1 },
-  profCard:     { width: '30%', borderRadius: 12, borderWidth: 1.5, padding: 12, alignItems: 'center', gap: 6 },
-  profLabel:    { fontSize: 11, fontWeight: '600', textAlign: 'center' },
-  codeCard:     { backgroundColor: c.card, borderRadius: 20, borderWidth: 1.5, padding: 24, width: '100%', gap: 12, alignItems: 'center' },
-  otpBox:       { borderWidth: 2, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 28, alignItems: 'center' },
-  otpText:      { fontSize: 26, fontWeight: '900' },
+  profCard:      { width: '30%', borderRadius: 12, borderWidth: 1.5, padding: 10, alignItems: 'center', gap: 4 },
+  profLabel:     { fontSize: 10, fontWeight: '600', textAlign: 'center' },
 });

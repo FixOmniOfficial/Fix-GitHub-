@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AppAuthProvider } from '@/contexts/AppAuthContext';
 import { TestModeProvider } from '@/contexts/TestModeContext';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 import TestModeBanner from '@/components/TestModeBanner';
 import {
   Inter_400Regular,
@@ -81,6 +82,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
+          <LanguageProvider>
           <AppAuthProvider>
             {/* TestModeProvider must be inside AppAuthProvider (it calls login/logout) */}
             <TestModeProvider>
@@ -91,6 +93,7 @@ export default function RootLayout() {
               </GestureHandlerRootView>
             </TestModeProvider>
           </AppAuthProvider>
+          </LanguageProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

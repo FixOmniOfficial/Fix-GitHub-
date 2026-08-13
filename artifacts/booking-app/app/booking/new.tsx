@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator, Alert,
+  TextInput, Platform, ActivityIndicator, Alert, Modal, Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,55 @@ import * as Location from 'expo-location';
 import { useColors } from '@/hooks/useColors';
 import { useCreateBooking } from '@workspace/api-client-react';
 import { useAppAuth } from '@/contexts/AppAuthContext';
+
+// ── Guest Auth Gate Modal ─────────────────────────────────────────────────────
+function GuestAuthModal({
+  visible, onLogin, onContinueAsGuest, onClose, colors,
+}: {
+  visible: boolean;
+  onLogin: () => void;
+  onContinueAsGuest: () => void;
+  onClose: () => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end' }} onPress={onClose}>
+        <Pressable onPress={() => {}} style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, gap: 16 }}>
+          {/* Handle */}
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 4 }} />
+
+          <View style={{ alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 36 }}>🔐</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.foreground }}>Login to Confirm Booking</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 13, textAlign: 'center', lineHeight: 20 }}>
+              Free account बनाएं — Booking track करें, updates पाएं, history देखें।
+            </Text>
+          </View>
+
+          {/* Login button */}
+          <TouchableOpacity
+            style={{ backgroundColor: '#3b82f6', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
+            onPress={onLogin}>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <Feather name="log-in" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Login / Register करें</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Continue as guest */}
+          <TouchableOpacity
+            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
+            onPress={onContinueAsGuest}>
+            <Text style={{ color: colors.mutedForeground, fontWeight: '600', fontSize: 14 }}>
+              Guest के रूप में Continue करें (tracking नहीं होगी)
+            </Text>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
 
 export default function NewBookingScreen() {
   const params = useLocalSearchParams<{
@@ -39,6 +88,7 @@ export default function NewBookingScreen() {
   const [notes, setNotes] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const visitingCharge = params.visitingCharge ? parseFloat(params.visitingCharge) : null;
 
@@ -72,8 +122,7 @@ export default function NewBookingScreen() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (!validate()) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); return; }
+  const doSubmit = () => {
     createBooking.mutate({
       data: {
         customerName: name.trim(),
@@ -101,10 +150,35 @@ export default function NewBookingScreen() {
     });
   };
 
+  const handleSubmit = () => {
+    if (!validate()) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); return; }
+    // Show auth modal for guest users
+    if (!user || user.userType !== 'customer') {
+      setShowAuthModal(true);
+      return;
+    }
+    doSubmit();
+  };
+
   const s = styles(colors);
 
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
+      {/* Guest Auth Modal */}
+      <GuestAuthModal
+        visible={showAuthModal}
+        colors={colors}
+        onLogin={() => {
+          setShowAuthModal(false);
+          router.push('/auth/customer' as any);
+        }}
+        onContinueAsGuest={() => {
+          setShowAuthModal(false);
+          doSubmit();
+        }}
+        onClose={() => setShowAuthModal(false)}
+      />
+
       {/* Header */}
       <View style={[s.header, { paddingTop: topPad + 6 }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
@@ -136,6 +210,19 @@ export default function NewBookingScreen() {
           )}
         </View>
 
+        {/* Login nudge for guests */}
+        {!user && (
+          <TouchableOpacity
+            style={{ marginHorizontal: 16, marginBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#3b82f610', borderRadius: 12, borderWidth: 1, borderColor: '#3b82f644', padding: 12 }}
+            onPress={() => router.push('/auth/customer' as any)}>
+            <Feather name="log-in" size={16} color="#3b82f6" />
+            <Text style={{ flex: 1, color: '#3b82f6', fontSize: 13 }}>
+              Login करें — bookings track होंगी और updates मिलेंगे
+            </Text>
+            <Feather name="chevron-right" size={14} color="#3b82f6" />
+          </TouchableOpacity>
+        )}
+
         <View style={s.form}>
           {/* Name */}
           <View style={s.field}>
@@ -163,92 +250,90 @@ export default function NewBookingScreen() {
             <View style={[s.field, { flex: 1 }]}>
               <Text style={s.label}>WhatsApp</Text>
               <TextInput
-                style={s.input}
-                value={whatsapp} onChangeText={setWhatsapp}
-                placeholder="If different" placeholderTextColor={colors.mutedForeground}
+                style={s.input} value={whatsapp} onChangeText={setWhatsapp}
+                placeholder="WhatsApp number" placeholderTextColor={colors.mutedForeground}
                 keyboardType="phone-pad"
               />
             </View>
           </View>
 
-          <View style={s.divider} />
-
-          {/* Address */}
+          {/* Address fields */}
           <View style={s.row}>
             <View style={[s.field, { flex: 1 }]}>
-              <Text style={s.label}>House / Flat No.</Text>
+              <Text style={s.label}>House No.</Text>
               <TextInput style={s.input} value={house} onChangeText={setHouse}
-                placeholder="A-201" placeholderTextColor={colors.mutedForeground} />
+                placeholder="A-101" placeholderTextColor={colors.mutedForeground} />
             </View>
             <View style={[s.field, { flex: 1 }]}>
               <Text style={s.label}>Floor</Text>
               <TextInput style={s.input} value={floor} onChangeText={setFloor}
-                placeholder="2nd Floor" placeholderTextColor={colors.mutedForeground} />
+                placeholder="2nd" placeholderTextColor={colors.mutedForeground} />
             </View>
           </View>
 
           <View style={s.field}>
             <Text style={s.label}>Full Address</Text>
             <TextInput
-              style={[s.input, s.multiline]}
+              style={[s.input, { minHeight: 72, textAlignVertical: 'top' }]}
               value={address} onChangeText={setAddress}
-              placeholder="Sector 12, Noida, UP" placeholderTextColor={colors.mutedForeground}
+              placeholder="Society, Street, Area, City…" placeholderTextColor={colors.mutedForeground}
               multiline numberOfLines={3}
             />
           </View>
 
-          {/* Location */}
+          {/* GPS + Location */}
           <View style={s.field}>
-            <View style={s.labelRow}>
-              <Text style={s.label}>Area / Location</Text>
-              <TouchableOpacity onPress={handleGPS} style={s.gpsBtn} disabled={gpsLoading}>
+            <Text style={s.label}>GPS Location</Text>
+            <View style={s.row}>
+              <TextInput
+                style={[s.input, { flex: 1, fontSize: 12 }]}
+                value={location} onChangeText={setLocation}
+                placeholder="maps.google.com/?q=…" placeholderTextColor={colors.mutedForeground}
+              />
+              <TouchableOpacity style={[s.gpsBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={handleGPS} disabled={gpsLoading}>
                 {gpsLoading
                   ? <ActivityIndicator size="small" color={colors.primary} />
-                  : <><Feather name="navigation" size={12} color={colors.primary} /><Text style={[s.gpsBtnText, { color: colors.primary }]}> GPS</Text></>
-                }
+                  : <Feather name="navigation" size={18} color={colors.primary} />}
               </TouchableOpacity>
             </View>
-            <TextInput
-              style={s.input}
-              value={location} onChangeText={setLocation}
-              placeholder="Locality or Maps link" placeholderTextColor={colors.mutedForeground}
-            />
           </View>
 
-          <View style={s.divider} />
-
-          {/* Booking time */}
+          {/* Booking Time */}
           <View style={s.field}>
-            <Text style={s.label}>Booking Date & Time</Text>
+            <Text style={s.label}>Preferred Time</Text>
             <TextInput
-              style={s.input}
-              value={bookingTime} onChangeText={setBookingTime}
-              placeholder="e.g. 2025-01-15 10:30 AM" placeholderTextColor={colors.mutedForeground}
+              style={s.input} value={bookingTime} onChangeText={setBookingTime}
+              placeholder="e.g. Tomorrow 10am or 25 Jan 2pm"
+              placeholderTextColor={colors.mutedForeground}
             />
           </View>
 
           {/* Notes */}
           <View style={s.field}>
-            <Text style={s.label}>Notes (Optional)</Text>
+            <Text style={s.label}>Notes / Problem Description</Text>
             <TextInput
-              style={[s.input, s.multiline]}
+              style={[s.input, { minHeight: 88, textAlignVertical: 'top' }]}
               value={notes} onChangeText={setNotes}
-              placeholder="कोई विशेष जानकारी..." placeholderTextColor={colors.mutedForeground}
-              multiline numberOfLines={2}
+              placeholder="Describe the issue or any special notes…"
+              placeholderTextColor={colors.mutedForeground}
+              multiline numberOfLines={4}
             />
           </View>
 
           {/* Submit */}
           <TouchableOpacity
-            style={[s.submitBtn, createBooking.isPending && s.submitDisabled]}
+            style={[s.submitBtn, createBooking.isPending && { opacity: 0.6 }]}
             onPress={handleSubmit}
             disabled={createBooking.isPending}
-            activeOpacity={0.85}
           >
             {createBooking.isPending
               ? <ActivityIndicator color="#000" />
-              : <Text style={s.submitText}>✓ Booking Confirm करें</Text>
-            }
+              : (
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <Feather name="check-circle" size={20} color="#000" />
+                  <Text style={s.submitText}>Confirm Booking</Text>
+                </View>
+              )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -257,52 +342,28 @@ export default function NewBookingScreen() {
 }
 
 const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
-  root: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: c.border,
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: c.foreground },
-  headerSub: { fontSize: 12, color: c.mutedForeground },
-  profBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    margin: 16, padding: 14, borderRadius: 14,
-    backgroundColor: c.card, borderWidth: 1, borderColor: c.border,
-  },
-  profEmoji: { fontSize: 32 },
-  profInfo: { flex: 1 },
-  profName: { fontSize: 16, fontWeight: '700', color: c.foreground },
-  profType: { fontSize: 12, color: c.mutedForeground, textTransform: 'capitalize', marginTop: 2 },
-  chargeBadge: {
-    backgroundColor: '#f59e0b22', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center',
-  },
-  chargeLabel: { fontSize: 9, fontWeight: '700', color: '#f59e0b', textTransform: 'uppercase' },
-  chargeAmt: { fontSize: 16, fontWeight: '800', color: '#f59e0b' },
-  form: { paddingHorizontal: 16 },
-  field: { marginBottom: 14 },
-  row: { flexDirection: 'row', gap: 12 },
-  label: { fontSize: 13, fontWeight: '600', color: c.mutedForeground, marginBottom: 6 },
-  required: { color: c.destructive },
-  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  gpsBtn: { flexDirection: 'row', alignItems: 'center' },
-  gpsBtnText: { fontSize: 12, fontWeight: '600' },
-  input: {
-    backgroundColor: c.card,
-    borderWidth: 1, borderColor: c.border,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, color: c.foreground,
-  },
-  multiline: { height: 80, textAlignVertical: 'top', paddingTop: 12 },
-  inputError: { borderColor: c.destructive },
-  errorText: { fontSize: 11, color: c.destructive, marginTop: 4 },
-  divider: { height: 1, backgroundColor: c.border, marginVertical: 8 },
-  submitBtn: {
-    backgroundColor: c.primary, borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginTop: 8,
-  },
-  submitDisabled: { opacity: 0.6 },
-  submitText: { fontSize: 16, fontWeight: '700', color: c.primaryForeground },
+  root:       { flex: 1 },
+  header:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: c.border },
+  backBtn:    { padding: 6 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: c.foreground },
+  headerSub:  { fontSize: 12, color: c.mutedForeground, marginTop: 2 },
+  profBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.card, margin: 16, marginBottom: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border },
+  profEmoji:  { fontSize: 32 },
+  profInfo:   { flex: 1 },
+  profName:   { fontSize: 15, fontWeight: '700', color: c.foreground },
+  profType:   { fontSize: 12, color: c.mutedForeground, textTransform: 'capitalize', marginTop: 2 },
+  chargeBadge:{ backgroundColor: c.primary + '22', borderRadius: 10, padding: 8, alignItems: 'center' },
+  chargeLabel:{ fontSize: 10, color: c.primary, fontWeight: '600' },
+  chargeAmt:  { fontSize: 15, fontWeight: '800', color: c.primary },
+  form:       { padding: 16, gap: 14 },
+  row:        { flexDirection: 'row', gap: 12 },
+  field:      { gap: 6 },
+  label:      { fontSize: 13, fontWeight: '600', color: c.mutedForeground },
+  required:   { color: '#ef4444' },
+  input:      { backgroundColor: c.card, borderWidth: 1, borderColor: c.border, borderRadius: 12, padding: 13, fontSize: 14, color: c.foreground },
+  inputError: { borderColor: '#ef4444' },
+  errorText:  { color: '#ef4444', fontSize: 12 },
+  gpsBtn:     { width: 50, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  submitBtn:  { backgroundColor: c.primary, borderRadius: 14, paddingVertical: 17, alignItems: 'center', marginTop: 8 },
+  submitText: { fontSize: 16, fontWeight: '800', color: '#000' },
 });

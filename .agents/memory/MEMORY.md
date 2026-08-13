@@ -1,4 +1,6 @@
 - [Custom Auth System](custom-auth.md) — OLD custom auth replaced by Clerk; custom routes/middleware still exist in api-server but no longer used by frontend.
+- [Caller ID Plugin](caller-id-plugin.md) — withCallerIdAndroid plugin removed from app.json (EAS-only); plugin file kept in /plugin/ but excluded; removing from plugins[] in app.json fixes Expo Go dev startup.
+- [Auth v2 Routes Complete](auth-v2-routes.md) — Customer + Technician password auth, email OTP forgot-password, admin recovery tools all implemented; sendOtpEmail must be imported at top of booking.ts and admin.ts (not mid-file).
 - [Clerk Auth Setup](clerk-auth-setup.md) — Clerk + api-zod codegen gotcha: codegen CLEANS generated folder, wiping hand-written schemas; always use OpenAPI spec or inline validation.
 - [Settings Extra Fields](settings-extra-fields.md) — shopName/logoUrl are NOT in OpenAPI spec/Zod; handled manually in the route by extracting from req.body before Zod parse.
 - [Mobile App API Helper](mobile-api-helper.md) — getBaseUrl() does NOT exist in @workspace/api-client-react; use process.env.EXPO_PUBLIC_API_URL instead.

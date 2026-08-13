@@ -16,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from '@/components/ui/switch';
 import {
   Wrench, Plus, Pencil, Trash2, Phone, Hash, Search,
-  AlertTriangle, Bot, CheckCircle2, XCircle,
+  AlertTriangle, Bot, CheckCircle2, XCircle, Mail, KeyRound, Eye, Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
@@ -68,6 +68,57 @@ export default function TechniciansPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [phoneError, setPhoneError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Technician | null>(null);
+
+  // ── Admin Recovery Tool state ──────────────────────────────────────────────
+  const [passcodeResult, setPasscodeResult] = useState<{ techName: string; uniqueCode: string; tempPasscode: string; expiresAt: string } | null>(null);
+  const [techIdResult, setTechIdResult] = useState<{ name: string; uniqueCode: string; phone: string | null; email: string | null } | null>(null);
+  const [toolLoading, setToolLoading] = useState<number | null>(null); // which tech id is loading
+
+  const sendOtpMut = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`${BASE}/api/admin/technicians/${id}/send-otp`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!r.ok) throw new Error((await r.json()).error ?? 'Send OTP failed');
+      return r.json();
+    },
+    onSuccess: (d) => {
+      if (d.demoOtp) {
+        toast.success(`✅ OTP sent (dev mode) — Demo OTP: ${d.demoOtp} — to ${d.techEmail}`);
+      } else {
+        toast.success(`✅ OTP emailed to ${d.techEmail}`);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const tempPasscodeMut = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`${BASE}/api/admin/technicians/${id}/temp-passcode`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!r.ok) throw new Error((await r.json()).error ?? 'Failed');
+      return r.json();
+    },
+    onSuccess: (d) => {
+      setPasscodeResult({ techName: d.techName, uniqueCode: d.uniqueCode, tempPasscode: d.tempPasscode, expiresAt: d.expiresAt });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const recallTechIdMut = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`${BASE}/api/admin/technicians/${id}/tech-id`, { credentials: 'include' });
+      if (!r.ok) throw new Error('Failed');
+      return r.json();
+    },
+    onSuccess: (d) => {
+      setTechIdResult({ name: d.name, uniqueCode: d.uniqueCode, phone: d.phone, email: d.email });
+    },
+    onError: () => toast.error('Failed to fetch Tech ID'),
+  });
 
   const { data: techs = [], isLoading } = useQuery<Technician[]>({
     queryKey: ['admin-technicians'],
@@ -266,16 +317,41 @@ export default function TechniciansPage() {
                     {tech.visitingCharge && <span>₹{tech.visitingCharge} visit</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                   {tech.isActive
                     ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                     : <XCircle className="w-4 h-4 text-slate-600" />}
-                  <span className="text-[11px] text-slate-600 ml-2 hidden sm:block">
+                  <span className="text-[11px] text-slate-600 ml-1 hidden sm:block">
                     {format(new Date(tech.createdAt), 'dd MMM yy')}
                   </span>
                   {isAdmin && (
                     <>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 ml-1 text-slate-400 hover:text-cyan-400" onClick={() => openEdit(tech)}>
+                      {/* ── Admin Recovery Tools ── */}
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-8 w-8 text-slate-500 hover:text-violet-400"
+                        title="Recall Tech ID"
+                        onClick={() => recallTechIdMut.mutate(tech.id)}
+                        disabled={recallTechIdMut.isPending}>
+                        <Eye className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-8 w-8 text-slate-500 hover:text-amber-400"
+                        title="Generate Temp Passcode (10 min)"
+                        onClick={() => tempPasscodeMut.mutate(tech.id)}
+                        disabled={tempPasscodeMut.isPending}>
+                        <KeyRound className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-8 w-8 text-slate-500 hover:text-sky-400"
+                        title="Send Email OTP"
+                        onClick={() => sendOtpMut.mutate(tech.id)}
+                        disabled={sendOtpMut.isPending}>
+                        <Mail className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-cyan-400" onClick={() => openEdit(tech)}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-rose-400" onClick={() => setDeleteTarget(tech)}>
@@ -381,6 +457,80 @@ export default function TechniciansPage() {
               className="bg-cyan-600 hover:bg-cyan-700 text-white">
               {isPending ? 'Saving…' : editTech ? 'Save Changes' : 'Create Technician'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Temp Passcode Result Dialog ─────────────────────────────── */}
+      <Dialog open={!!passcodeResult} onOpenChange={o => !o && setPasscodeResult(null)}>
+        <DialogContent className="bg-slate-900 border-slate-700 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <KeyRound className="w-5 h-5" /> Temporary Passcode Generated
+            </DialogTitle>
+          </DialogHeader>
+          {passcodeResult && (
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-slate-400">
+                Share this with <span className="font-bold text-slate-200">{passcodeResult.techName}</span> ({passcodeResult.uniqueCode}).
+                Valid for <span className="text-amber-400 font-semibold">10 minutes</span>.
+                They must set a new password after login.
+              </p>
+              <div className="bg-slate-950 border border-amber-500/40 rounded-xl p-4 text-center">
+                <p className="text-2xl font-black tracking-widest text-amber-400">{passcodeResult.tempPasscode}</p>
+              </div>
+              <Button size="sm" className="w-full bg-slate-700 hover:bg-slate-600 text-white" onClick={() => {
+                navigator.clipboard?.writeText(passcodeResult.tempPasscode);
+                toast.success('Passcode copied!');
+              }}>
+                <Copy className="w-4 h-4 mr-2" /> Copy Passcode
+              </Button>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" size="sm" className="text-slate-400" onClick={() => setPasscodeResult(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Recall Tech ID Dialog ───────────────────────────────────── */}
+      <Dialog open={!!techIdResult} onOpenChange={o => !o && setTechIdResult(null)}>
+        <DialogContent className="bg-slate-900 border-slate-700 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-violet-400 flex items-center gap-2">
+              <Eye className="w-5 h-5" /> Technician ID Details
+            </DialogTitle>
+          </DialogHeader>
+          {techIdResult && (
+            <div className="space-y-3 py-2">
+              <div className="bg-slate-950 border border-violet-500/30 rounded-xl p-4 space-y-2">
+                <p className="text-sm text-slate-400">Name</p>
+                <p className="font-semibold text-slate-100">{techIdResult.name}</p>
+                <p className="text-sm text-slate-400 mt-2">Technician ID</p>
+                <p className="text-xl font-black tracking-widest text-violet-400">{techIdResult.uniqueCode}</p>
+                {techIdResult.phone && (
+                  <>
+                    <p className="text-sm text-slate-400 mt-2">Phone</p>
+                    <p className="text-slate-200">{techIdResult.phone}</p>
+                  </>
+                )}
+                {techIdResult.email && (
+                  <>
+                    <p className="text-sm text-slate-400 mt-2">Email</p>
+                    <p className="text-slate-200">{techIdResult.email}</p>
+                  </>
+                )}
+              </div>
+              <Button size="sm" className="w-full bg-slate-700 hover:bg-slate-600 text-white" onClick={() => {
+                navigator.clipboard?.writeText(techIdResult.uniqueCode);
+                toast.success('Tech ID copied!');
+              }}>
+                <Copy className="w-4 h-4 mr-2" /> Copy Tech ID
+              </Button>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" size="sm" className="text-slate-400" onClick={() => setTechIdResult(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

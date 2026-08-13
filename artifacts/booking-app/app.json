@@ -27,7 +27,6 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      "./plugin/withCallerIdAndroid",
       [
         "expo-router",
         {

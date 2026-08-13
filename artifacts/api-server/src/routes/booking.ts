@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc, and, asc, inArray } from "drizzle-orm";
 import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable, techPaymentEntriesTable } from "@workspace/db";
 import bcrypt from "bcryptjs";
+import { sendOtpEmail } from "../lib/email";
 
 // OTP helper — generates 6-digit code, returns plain text (demo: returned to client)
 function genOtp(): string {
@@ -503,6 +504,353 @@ router.post("/booking/customer/verify-otp", async (req, res): Promise<void> => {
     await db.update(appCustomersTable).set({ otpCode: null, otpExpiresAt: null, otpAttempts: 0 } as any).where(eq(appCustomersTable.id, row.id));
     res.json({ ...row, createdAt: row.createdAt.toISOString() });
   } catch { res.status(500).json({ error: "OTP verification failed" }); }
+});
+
+// ── Customer Auth v2 (password-based + email OTP recovery) ─────────────────
+
+// POST /booking/customer/register — name + phone (unique) + email (unique) + password
+router.post("/booking/customer/register", async (req, res): Promise<void> => {
+  try {
+    const { name, phone, email, password } = req.body;
+    if (!name?.trim())    { res.status(400).json({ error: "नाम जरूरी है" }); return; }
+    if (!phone?.trim())   { res.status(400).json({ error: "Mobile number जरूरी है" }); return; }
+    if (!email?.trim())   { res.status(400).json({ error: "Email जरूरी है" }); return; }
+    if (!password || password.length < 8) {
+      res.status(400).json({ error: "Password कम से कम 8 characters का होना चाहिए" }); return;
+    }
+
+    const cleanPhone = phone.trim().replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      res.status(400).json({ error: "Valid 10-digit Indian mobile number दर्ज करें (6-9 से शुरू)" }); return;
+    }
+    const normEmail = email.trim().toLowerCase();
+
+    // One mobile = one account
+    const byPhone = await db.select({ id: appCustomersTable.id })
+      .from(appCustomersTable).where(eq(appCustomersTable.phone, cleanPhone)).limit(1);
+    if (byPhone.length) {
+      res.status(409).json({ error: "यह mobile number पहले से registered है। Login करें।" }); return;
+    }
+    const byEmail = await db.select({ id: appCustomersTable.id })
+      .from(appCustomersTable).where(eq(appCustomersTable.email, normEmail)).limit(1);
+    if (byEmail.length) {
+      res.status(409).json({ error: "यह email पहले से registered है। Login करें।" }); return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    let uniqueCode: string;
+    for (;;) {
+      uniqueCode = genCode('CUST');
+      const ex = await db.select().from(appCustomersTable).where(eq(appCustomersTable.uniqueCode, uniqueCode)).limit(1);
+      if (!ex.length) break;
+    }
+    const [row] = await db.insert(appCustomersTable).values({
+      name: name.trim(), phone: cleanPhone, email: normEmail, passwordHash, uniqueCode,
+    }).returning();
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      res.status(409).json({ error: "यह mobile या email पहले से registered है।" }); return;
+    }
+    res.status(500).json({ error: "Registration failed" });
+  }
+});
+
+// POST /booking/customer/login-v2 — mobileOrEmail + password
+router.post("/booking/customer/login-v2", async (req, res): Promise<void> => {
+  try {
+    const { mobileOrEmail, password } = req.body;
+    if (!mobileOrEmail?.trim() || !password) {
+      res.status(400).json({ error: "Mobile/Email और Password जरूरी हैं" }); return;
+    }
+    const input = mobileOrEmail.trim();
+    const isEmail = input.includes('@');
+
+    let row: typeof appCustomersTable.$inferSelect | undefined;
+    if (isEmail) {
+      [row] = await db.select().from(appCustomersTable)
+        .where(eq(appCustomersTable.email, input.toLowerCase())).limit(1);
+    } else {
+      const clean = input.replace(/\D/g, '').slice(-10);
+      [row] = await db.select().from(appCustomersTable)
+        .where(eq(appCustomersTable.phone, clean)).limit(1);
+    }
+
+    if (!row || !row.passwordHash) {
+      res.status(401).json({ error: "Mobile/Email या Password गलत है" }); return;
+    }
+    const match = await bcrypt.compare(password, row.passwordHash);
+    if (!match) { res.status(401).json({ error: "Mobile/Email या Password गलत है" }); return; }
+    res.json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch { res.status(500).json({ error: "Login failed" }); }
+});
+
+// POST /booking/customer/forgot-password — email → OTP
+router.post("/booking/customer/forgot-password", async (req, res): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email?.trim()) { res.status(400).json({ error: "Email जरूरी है" }); return; }
+    const norm = email.trim().toLowerCase();
+    const [row] = await db.select().from(appCustomersTable)
+      .where(eq(appCustomersTable.email, norm)).limit(1);
+    if (!row) { res.status(404).json({ error: "यह email registered नहीं है" }); return; }
+
+    const otp = genOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min valid
+    await db.update(appCustomersTable)
+      .set({ otpCode: otp, otpExpiresAt: expiresAt, otpAttempts: 0 } as any)
+      .where(eq(appCustomersTable.id, row.id));
+
+    const { sent, demoOtp } = await sendOtpEmail({
+      to: norm, recipientName: row.name, otp,
+    });
+
+    res.json({ success: true, sent, ...(demoOtp ? { demoOtp } : {}) });
+  } catch { res.status(500).json({ error: "OTP request failed" }); }
+});
+
+// POST /booking/customer/verify-otp-email — email + otp (for forgot password)
+router.post("/booking/customer/verify-otp-email", async (req, res): Promise<void> => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) { res.status(400).json({ error: "Email और OTP जरूरी हैं" }); return; }
+    const [row] = await db.select().from(appCustomersTable)
+      .where(eq(appCustomersTable.email, email.trim().toLowerCase())).limit(1);
+    if (!row) { res.status(404).json({ error: "Email not found" }); return; }
+    if (!row.otpCode || !row.otpExpiresAt) { res.status(400).json({ error: "OTP request नहीं किया गया" }); return; }
+    if (new Date() > row.otpExpiresAt) { res.status(400).json({ error: "OTP expire हो गया — दोबारा request करें" }); return; }
+    if ((row.otpAttempts ?? 0) >= 5) { res.status(429).json({ error: "बहुत ज़्यादा attempts — नया OTP request करें" }); return; }
+    if (row.otpCode !== otp.trim()) {
+      await db.update(appCustomersTable)
+        .set({ otpAttempts: (row.otpAttempts ?? 0) + 1 } as any).where(eq(appCustomersTable.id, row.id));
+      res.status(401).json({ error: "OTP गलत है" }); return;
+    }
+    // Don't clear OTP yet — reset-password will clear it
+    res.json({ success: true, email: row.email });
+  } catch { res.status(500).json({ error: "OTP verification failed" }); }
+});
+
+// POST /booking/customer/reset-password — email + otp + newPassword
+router.post("/booking/customer/reset-password", async (req, res): Promise<void> => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      res.status(400).json({ error: "Email, OTP और नया Password जरूरी हैं" }); return;
+    }
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: "Password कम से कम 8 characters का होना चाहिए" }); return;
+    }
+    const [row] = await db.select().from(appCustomersTable)
+      .where(eq(appCustomersTable.email, email.trim().toLowerCase())).limit(1);
+    if (!row) { res.status(404).json({ error: "Email not found" }); return; }
+    if (!row.otpCode || !row.otpExpiresAt || new Date() > row.otpExpiresAt) {
+      res.status(400).json({ error: "OTP expire हो गया" }); return;
+    }
+    if (row.otpCode !== otp.trim()) { res.status(401).json({ error: "OTP गलत है" }); return; }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await db.update(appCustomersTable)
+      .set({ passwordHash, otpCode: null, otpExpiresAt: null, otpAttempts: 0 } as any)
+      .where(eq(appCustomersTable.id, row.id));
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: "Password reset failed" }); }
+});
+
+// ── Technician Auth v2 (password-based + email OTP recovery) ───────────────
+
+// POST /booking/technician/register — name, phone, email, password, professionType → TECH code
+router.post("/booking/technician/register", async (req, res): Promise<void> => {
+  try {
+    const { name, phone, email, password, professionType, avatarEmoji } = req.body;
+    if (!name?.trim())         { res.status(400).json({ error: "नाम जरूरी है" }); return; }
+    if (!phone?.trim())        { res.status(400).json({ error: "Mobile number जरूरी है" }); return; }
+    if (!email?.trim())        { res.status(400).json({ error: "Email जरूरी है" }); return; }
+    if (!password || password.length < 8) {
+      res.status(400).json({ error: "Password कम से कम 8 characters का होना चाहिए" }); return;
+    }
+    if (!professionType?.trim()) { res.status(400).json({ error: "Profession type जरूरी है" }); return; }
+
+    const cleanPhone = phone.trim().replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      res.status(400).json({ error: "Valid 10-digit Indian mobile number दर्ज करें" }); return;
+    }
+    const normEmail = email.trim().toLowerCase();
+
+    const byPhone = await db.select({ id: professionalsTable.id })
+      .from(professionalsTable).where(eq(professionalsTable.phone, cleanPhone)).limit(1);
+    if (byPhone.length) {
+      res.status(409).json({ error: "यह mobile number पहले से registered है।" }); return;
+    }
+    const byEmail = await db.select({ id: professionalsTable.id })
+      .from(professionalsTable).where(eq(professionalsTable.email, normEmail)).limit(1);
+    if (byEmail.length) {
+      res.status(409).json({ error: "यह email पहले से registered है।" }); return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    let uniqueCode: string;
+    for (;;) {
+      uniqueCode = genCode('TECH');
+      const ex = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, uniqueCode)).limit(1);
+      if (!ex.length) break;
+    }
+    const [row] = await db.insert(professionalsTable).values({
+      name: name.trim(), phone: cleanPhone, email: normEmail, passwordHash,
+      professionType: professionType.trim(),
+      avatarEmoji: avatarEmoji?.trim() || '🔧',
+      uniqueCode,
+    } as any).returning();
+    res.status(201).json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString() });
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      res.status(409).json({ error: "यह mobile या email पहले से registered है।" }); return;
+    }
+    res.status(500).json({ error: "Registration failed" });
+  }
+});
+
+// POST /booking/technician/login-v2 — mobileOrEmail + techId + password (all 3 mandatory)
+router.post("/booking/technician/login-v2", async (req, res): Promise<void> => {
+  try {
+    const { mobileOrEmail, techId, password } = req.body;
+    if (!mobileOrEmail?.trim() || !techId?.trim() || !password) {
+      res.status(400).json({ error: "Mobile/Email, Technician ID और Password — तीनों जरूरी हैं" }); return;
+    }
+
+    const normCode = techId.trim().toUpperCase();
+    // Fetch by uniqueCode first (mandatory field)
+    const [row] = await db.select().from(professionalsTable)
+      .where(eq(professionalsTable.uniqueCode, normCode)).limit(1);
+
+    const MISMATCH = "Login failed — Mobile/Email, Technician ID या Password गलत है।";
+    if (!row) { res.status(401).json({ error: MISMATCH }); return; }
+
+    // Verify mobileOrEmail matches
+    const input = mobileOrEmail.trim();
+    if (input.includes('@')) {
+      if (!row.email || row.email !== input.toLowerCase()) {
+        res.status(401).json({ error: MISMATCH }); return;
+      }
+    } else {
+      const clean = input.replace(/\D/g, '').slice(-10);
+      const rowPhone = (row.phone ?? '').replace(/\D/g, '').slice(-10);
+      if (clean !== rowPhone) { res.status(401).json({ error: MISMATCH }); return; }
+    }
+
+    // Verify password
+    if (!row.passwordHash) { res.status(401).json({ error: "Password set नहीं है। Admin से contact करें।" }); return; }
+    const match = await bcrypt.compare(password, row.passwordHash);
+    if (!match) { res.status(401).json({ error: MISMATCH }); return; }
+
+    res.json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString() });
+  } catch { res.status(500).json({ error: "Login failed" }); }
+});
+
+// POST /booking/technician/forgot-password — email → OTP (techId included in email)
+router.post("/booking/technician/forgot-password", async (req, res): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email?.trim()) { res.status(400).json({ error: "Email जरूरी है" }); return; }
+    const norm = email.trim().toLowerCase();
+    const [row] = await db.select().from(professionalsTable)
+      .where(eq(professionalsTable.email, norm)).limit(1);
+    if (!row) { res.status(404).json({ error: "यह email registered नहीं है" }); return; }
+
+    const otp = genOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await db.update(professionalsTable)
+      .set({ otpCode: otp, otpExpiresAt: expiresAt, otpAttempts: 0 } as any)
+      .where(eq(professionalsTable.id, row.id));
+
+    const { sent, demoOtp } = await sendOtpEmail({
+      to: norm,
+      recipientName: row.name,
+      otp,
+      extraLines: [
+        `🔑 Your Technician ID: <strong style="color:#a5b4fc;">${row.uniqueCode}</strong>`,
+      ],
+    });
+
+    res.json({ success: true, sent, ...(demoOtp ? { demoOtp } : {}) });
+  } catch { res.status(500).json({ error: "OTP request failed" }); }
+});
+
+// POST /booking/technician/verify-otp-email — email + otp
+router.post("/booking/technician/verify-otp-email", async (req, res): Promise<void> => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) { res.status(400).json({ error: "Email और OTP जरूरी हैं" }); return; }
+    const [row] = await db.select().from(professionalsTable)
+      .where(eq(professionalsTable.email, email.trim().toLowerCase())).limit(1);
+    if (!row) { res.status(404).json({ error: "Email not found" }); return; }
+    if (!row.otpCode || !row.otpExpiresAt) { res.status(400).json({ error: "OTP request नहीं किया गया" }); return; }
+    if (new Date() > row.otpExpiresAt) { res.status(400).json({ error: "OTP expire हो गया" }); return; }
+    if ((row.otpAttempts ?? 0) >= 5) { res.status(429).json({ error: "बहुत ज़्यादा attempts" }); return; }
+    if (row.otpCode !== otp.trim()) {
+      await db.update(professionalsTable)
+        .set({ otpAttempts: (row.otpAttempts ?? 0) + 1 } as any).where(eq(professionalsTable.id, row.id));
+      res.status(401).json({ error: "OTP गलत है" }); return;
+    }
+    res.json({ success: true, email: row.email, uniqueCode: row.uniqueCode });
+  } catch { res.status(500).json({ error: "OTP verification failed" }); }
+});
+
+// POST /booking/technician/reset-password — email + otp + newPassword
+router.post("/booking/technician/reset-password", async (req, res): Promise<void> => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      res.status(400).json({ error: "Email, OTP और नया Password जरूरी हैं" }); return;
+    }
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: "Password कम से कम 8 characters का होना चाहिए" }); return;
+    }
+    const [row] = await db.select().from(professionalsTable)
+      .where(eq(professionalsTable.email, email.trim().toLowerCase())).limit(1);
+    if (!row) { res.status(404).json({ error: "Email not found" }); return; }
+    if (!row.otpCode || !row.otpExpiresAt || new Date() > row.otpExpiresAt) {
+      res.status(400).json({ error: "OTP expire हो गया" }); return;
+    }
+    if (row.otpCode !== otp.trim()) { res.status(401).json({ error: "OTP गलत है" }); return; }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await db.update(professionalsTable)
+      .set({ passwordHash, otpCode: null, otpExpiresAt: null, otpAttempts: 0 } as any)
+      .where(eq(professionalsTable.id, row.id));
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: "Password reset failed" }); }
+});
+
+// POST /booking/technician/temp-passcode-login — techId + tempPasscode → login, requirePasswordChange: true
+router.post("/booking/technician/temp-passcode-login", async (req, res): Promise<void> => {
+  try {
+    const { techId, tempPasscode } = req.body;
+    if (!techId?.trim() || !tempPasscode?.trim()) {
+      res.status(400).json({ error: "Technician ID और Temporary Passcode जरूरी हैं" }); return;
+    }
+    const [row] = await db.select().from(professionalsTable)
+      .where(eq(professionalsTable.uniqueCode, techId.trim().toUpperCase())).limit(1);
+    if (!row) { res.status(401).json({ error: "Invalid Technician ID" }); return; }
+    if (!row.tempPasscode || !row.tempPasscodeExpiresAt) {
+      res.status(400).json({ error: "Temporary passcode issue नहीं किया गया" }); return;
+    }
+    if (new Date() > row.tempPasscodeExpiresAt) {
+      res.status(400).json({ error: "Temporary passcode expire हो गया। Admin से नया passcode मांगें।" }); return;
+    }
+    if (row.tempPasscode !== tempPasscode.trim()) {
+      res.status(401).json({ error: "Temporary passcode गलत है" }); return;
+    }
+    // Clear temp passcode after use
+    await db.update(professionalsTable)
+      .set({ tempPasscode: null, tempPasscodeExpiresAt: null } as any)
+      .where(eq(professionalsTable.id, row.id));
+    res.json({
+      ...row,
+      visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null,
+      createdAt: row.createdAt.toISOString(),
+      requirePasswordChange: true,
+    });
+  } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
 // ── Service Categories ──────────────────────────────────────────────

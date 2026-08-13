@@ -41,13 +41,16 @@ function randPhone(): string {
   return `9${String(Math.floor(Math.random() * 9e8)).padStart(9, '0')}`;
 }
 
-// Generate unique TECH code for test entries
+// Generate unique TEST-XXXX code
+// db.execute() returns { rows: [...] } in drizzle/node-postgres — not a raw array
 async function nextTestCode(): Promise<string> {
-  const [row] = await db.execute(
-    sql`SELECT MAX(CAST(SUBSTRING(unique_code FROM 6) AS INTEGER)) AS max_num 
+  const result = await db.execute(
+    sql`SELECT COALESCE(MAX(CAST(SUBSTRING(unique_code FROM 6) AS INTEGER)), 0) AS max_num 
         FROM professionals WHERE unique_code LIKE 'TEST-%'`
-  ) as any[];
-  const maxNum = row?.max_num ?? 0;
+  );
+  // Handle both { rows: [] } shape (node-postgres) and raw array shape
+  const rows: any[] = (result as any).rows ?? (Array.isArray(result) ? result : []);
+  const maxNum = Number(rows[0]?.max_num ?? 0);
   return `TEST-${String(maxNum + 1).padStart(4, '0')}`;
 }
 

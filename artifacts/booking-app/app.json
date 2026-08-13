@@ -18,12 +18,16 @@
       "bundleIdentifier": "com.bookservice.app"
     },
     "android": {
-      "package": "com.bookservice.app"
+      "package": "com.bookservice.app",
+      "permissions": [
+        "android.permission.READ_PHONE_STATE"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
+      "./plugin/withCallerIdAndroid",
       [
         "expo-router",
         {

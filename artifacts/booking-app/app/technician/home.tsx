@@ -12,6 +12,12 @@ import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { useColors } from '@/hooks/useColors';
 import { useAppAuth } from '@/contexts/AppAuthContext';
 import ReminderModal, { ReminderTarget } from '@/components/ReminderModal';
+import CallerIdBanner from '@/components/CallerIdBanner';
+import CallerIdPermissionSheet from '@/components/CallerIdPermissionSheet';
+import RecentCustomerCalls from '@/components/RecentCustomerCalls';
+import { useCallerIdPermission } from '@/hooks/useCallerIdPermission';
+import { useCallHistory } from '@/hooks/useCallHistory';
+import { useCallerDetection } from '@/hooks/useCallerDetection';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const PROF_LABELS: Record<string, string> = {
@@ -173,6 +179,22 @@ export default function TechnicianHomeScreen() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  // ── Caller ID ────────────────────────────────────────────────────────────────
+  const {
+    isGranted: callerIdGranted,
+    showRationale,
+    requestPermission,
+    dismissRationale,
+  } = useCallerIdPermission();
+
+  const { history: callHistory, addEntry, clearHistory } = useCallHistory();
+
+  const { incomingCall, dismissBanner } = useCallerDetection(
+    customers,
+    callerIdGranted,
+    addEntry
+  );
+
   // ── Tab navigation ───────────────────────────────────────────────────────────
   // Always call goToTab(TAB.XXX) — never pass raw numbers.
   const goToTab = (i: number) => {
@@ -259,6 +281,16 @@ export default function TechnicianHomeScreen() {
         ))}
       </View>
 
+      {/* ── Caller ID Banner — absolutely positioned, Android-only ── */}
+      <CallerIdBanner incomingCall={incomingCall} onDismiss={dismissBanner} />
+
+      {/* ── Caller ID Permission Rationale Sheet ── */}
+      <CallerIdPermissionSheet
+        visible={showRationale}
+        onEnable={requestPermission}
+        onDismiss={dismissRationale}
+      />
+
       {/* ── Horizontal Pager ── */}
       {/* onScroll (not onMomentumScrollEnd) keeps indicator in sync on both
           manual swipe AND programmatic goToTab() with animated:false        */}
@@ -337,6 +369,14 @@ export default function TechnicianHomeScreen() {
 
           {/* KYC Verification Card */}
           <KycStatusCard techCode={techCode} router={router} />
+
+          {/* ── Recent Customer Calls — Caller ID history (Android only) ── */}
+          <RecentCustomerCalls
+            history={callHistory}
+            isGranted={callerIdGranted}
+            onEnablePress={requestPermission}
+            onClearHistory={clearHistory}
+          />
 
           {/* Market Rates & Rate the App */}
           <View style={{ gap: 10, marginTop: 4 }}>

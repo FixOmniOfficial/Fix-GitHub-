@@ -1,0 +1,13 @@
+{
+  "name": "expo-caller-id",
+  "version": "1.0.0",
+  "description": "Local Expo module: Android Caller ID via READ_PHONE_STATE. Play Store compliant.",
+  "main": "src/index",
+  "expo": {
+    "autolinking": {
+      "android": {
+        "sourceDir": "./android"
+      }
+    }
+  }
+}

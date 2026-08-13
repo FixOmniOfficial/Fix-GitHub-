@@ -362,7 +362,7 @@ export default function HomeScreen() {
           }]}>
             {/* Profile picture + name (both editable) */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-              <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8}>
+              <View style={{ alignItems: 'center', gap: 4 }}>
                 <View style={[s.profileAvatar, { borderColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
                   {user.avatar ? (
                     <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
@@ -370,10 +370,10 @@ export default function HomeScreen() {
                     <Text style={{ fontSize: 28 }}>{user.userType === 'technician' ? '🔧' : '👤'}</Text>
                   )}
                 </View>
-                <View style={[s.editBadge, { backgroundColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
-                  <Feather name="camera" size={9} color={user.userType === 'technician' ? '#000' : '#fff'} />
-                </View>
-              </TouchableOpacity>
+                <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}>
+                  <Feather name="camera" size={14} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
               <View style={{ flex: 1, gap: 3 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={[s.welcomeName, { color: colors.foreground }]}>{user.name}</Text>
@@ -603,12 +603,6 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.15)', overflow: 'hidden',
   },
   profileAvatarImg: { width: 60, height: 60, borderRadius: 30 },
-  editBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 20, height: 20, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.2)',
-  },
   welcomeName: { fontSize: 17, fontWeight: '800' },
   welcomeEmail: { fontSize: 11, marginTop: 2 },
   googleBadge: {

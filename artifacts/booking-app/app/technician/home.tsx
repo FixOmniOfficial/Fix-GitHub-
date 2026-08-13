@@ -279,8 +279,8 @@ export default function TechnicianHomeScreen() {
 
       {/* ── Fixed Header ── */}
       <View style={[s.header, { paddingTop: topPad + 8 }]}>
-        {/* Avatar (tappable → image picker) */}
-        <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8}>
+        {/* Avatar + camera button below */}
+        <View style={{ alignItems: 'center', gap: 4 }}>
           <View style={[s.profileAvatar, { borderColor: colors.primary }]}>
             {user.avatar ? (
               <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
@@ -288,10 +288,10 @@ export default function TechnicianHomeScreen() {
               <Text style={{ fontSize: 24 }}>🔧</Text>
             )}
           </View>
-          <View style={[s.editBadge, { backgroundColor: colors.primary }]}>
-            <Feather name="camera" size={9} color="#000" />
-          </View>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}>
+            <Feather name="camera" size={14} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
 
         {/* Name + sub-info (name tappable → edit modal) */}
         <View style={{ flex: 1 }}>
@@ -2092,12 +2092,6 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.15)', overflow: 'hidden',
   },
   profileAvatarImg: { width: 48, height: 48, borderRadius: 24 },
-  editBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 18, height: 18, borderRadius: 9,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.2)',
-  },
   greeting: { fontSize: 17, fontWeight: '800', color: c.foreground },
   subGreeting: { fontSize: 11, color: c.mutedForeground, marginTop: 2 },
   logoutBtn: { padding: 8 },

@@ -94,6 +94,7 @@ function NavLink({
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [location]    = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoZoomOpen, setLogoZoomOpen] = useState(false);
   const { data: settings }  = useGetSettings();
   const { data: reminders } = useListReminders({ isActive: true });
   const { user } = useUser();
@@ -148,12 +149,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Logo / shop identity */}
         <div className="px-4 py-4 border-b border-slate-800/60">
           <div className="flex items-center gap-3">
-            <Avatar className="w-9 h-9 rounded-xl border border-amber-500/30">
-              <AvatarImage src={logoUrl} className="object-cover rounded-xl" />
-              <AvatarFallback className="rounded-xl bg-amber-500/20 text-amber-400 text-xs font-bold">
-                {shopName.slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+            {/* Clickable logo — opens zoom overlay */}
+            <button
+              type="button"
+              onClick={() => setLogoZoomOpen(true)}
+              className="shrink-0 rounded-xl ring-0 hover:ring-2 hover:ring-amber-400/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              title="Logo zoom करें"
+            >
+              <Avatar className="w-9 h-9 rounded-xl border border-amber-500/30">
+                <AvatarImage src={logoUrl} className="object-cover rounded-xl" />
+                <AvatarFallback className="rounded-xl bg-amber-500/20 text-amber-400 text-xs font-bold">
+                  {shopName.slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+            </button>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-bold text-white leading-tight truncate">{shopName}</div>
               <div className="text-[10px] text-slate-500 uppercase tracking-wider">Service Center</div>
@@ -252,6 +261,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
+
+      {/* ── Logo Zoom Modal ─────────────────────────────────────────────── */}
+      {logoZoomOpen && (
+        <div
+          className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex flex-col items-center justify-center cursor-zoom-out"
+          onClick={() => setLogoZoomOpen(false)}
+        >
+          <div className="animate-in zoom-in-50 fade-in duration-300 flex flex-col items-center gap-5">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={shopName}
+                className="w-56 h-56 rounded-[2rem] object-cover shadow-2xl border-2 border-amber-400/40 ring-4 ring-amber-500/20"
+              />
+            ) : (
+              <div className="w-56 h-56 rounded-[2rem] bg-amber-500/20 border-2 border-amber-400/40 flex items-center justify-center">
+                <span className="text-7xl font-black text-amber-400">
+                  {shopName.slice(0, 2)}
+                </span>
+              </div>
+            )}
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white">{shopName}</div>
+              <div className="text-sm text-slate-400 mt-1 uppercase tracking-widest">Service Center</div>
+            </div>
+            <div className="text-xs text-slate-600 mt-2">Tap anywhere to close</div>
+          </div>
+        </div>
       )}
 
       {/* Mobile drawer */}

@@ -84,7 +84,7 @@ export default function Settings() {
   };
 
   const { register, handleSubmit, setValue, watch, reset } = useForm<SettingsForm>({
-    defaultValues: { theme: 'light', language: 'both', globalWallpaper: '', captionSize: 1, notificationsEnabled: true, shopName: 'सर्विस सेंटर', logoUrl: '' },
+    defaultValues: { theme: 'light', language: 'both', globalWallpaper: '', captionSize: 1, notificationsEnabled: true, shopName: 'Fix Omni', logoUrl: '/service-center/fixomni-logo.jpg' },
   });
 
   useEffect(() => {
@@ -96,7 +96,8 @@ export default function Settings() {
         globalWallpaper: settings.globalWallpaper ?? '',
         captionSize: settings.captionSize ?? 1,
         notificationsEnabled: settings.notificationsEnabled ?? true,
-        shopName: s.shopName ?? 'सर्विस सेंटर',
+        shopName: s.shopName ?? 'Fix Omni',
+        logoUrl: s.logoUrl ?? '/service-center/fixomni-logo.jpg',
         logoUrl: s.logoUrl ?? '',
       });
     }
@@ -360,7 +361,7 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="text-sm space-y-1">
                 {[
-                  { label: 'App Name', value: 'Service Center Manager' },
+                  { label: 'App Name', value: 'Fix Omni' },
                   { label: 'Version', value: '1.0.0' },
                   { label: 'Language', value: 'Hindi + English (Bilingual)' },
                   { label: 'Database', value: 'PostgreSQL' },

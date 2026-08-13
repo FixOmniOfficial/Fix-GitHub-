@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Cast to extended type that includes our extra fields
   const ext = settings as typeof settings & { shopName?: string; logoUrl?: string };
-  const shopName = ext?.shopName || 'सर्विस सेंटर';
+  const shopName = ext?.shopName || 'Fix Omni';
   const logoUrl  = ext?.logoUrl  || '';
   const lang     = (settings?.language as string) || 'both';
 

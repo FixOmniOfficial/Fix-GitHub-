@@ -125,8 +125,8 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                 <Wrench className="w-4 h-4 text-amber-400" />
               </div>
               <div>
-                <h1 className="text-white font-bold text-base leading-tight">सर्विस सेंटर</h1>
-                <p className="text-slate-500 text-xs">Service Center Manager</p>
+                <h1 className="text-white font-bold text-base leading-tight">Fix Omni</h1>
+                <p className="text-slate-500 text-xs">Services Booking</p>
               </div>
             </div>
           </div>

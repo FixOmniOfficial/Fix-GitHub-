@@ -58,7 +58,7 @@ const clerkAppearance = {
   options: {
     logoPlacement: 'inside' as const,
     logoLinkUrl: basePath || '/',
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+    logoImageUrl: `${window.location.origin}${basePath}/fixomni-logo.jpg`,
   },
   variables: {
     colorPrimary: '#f59e0b',

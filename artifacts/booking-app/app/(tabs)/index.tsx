@@ -375,10 +375,12 @@ export default function HomeScreen() {
                 </View>
               </TouchableOpacity>
               <View style={{ flex: 1, gap: 3 }}>
-                <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={[s.welcomeName, { color: colors.foreground }]}>{user.name}</Text>
-                  <Feather name="edit-2" size={13} color={colors.mutedForeground} />
-                </TouchableOpacity>
+                  <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Feather name="edit-2" size={13} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <View style={[s.roleBadge, { backgroundColor: user.userType === 'technician' ? colors.primary + '22' : '#3b82f622' }]}>
                     <Text style={[s.roleBadgeText, { color: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>

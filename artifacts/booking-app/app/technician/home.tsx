@@ -295,10 +295,12 @@ export default function TechnicianHomeScreen() {
 
         {/* Name + sub-info (name tappable → edit modal) */}
         <View style={{ flex: 1 }}>
-          <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={s.greeting}>{user.name}</Text>
-            <Feather name="edit-2" size={13} color={colors.mutedForeground} />
-          </TouchableOpacity>
+            <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Feather name="edit-2" size={13} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
           <Text style={s.subGreeting}>{PROF_LABELS[user.professionType ?? ''] ?? 'Technician'} · {user.uniqueCode}</Text>
         </View>
 

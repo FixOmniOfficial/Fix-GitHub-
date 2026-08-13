@@ -98,7 +98,6 @@ export default function Settings() {
         notificationsEnabled: settings.notificationsEnabled ?? true,
         shopName: s.shopName ?? 'Fix Omni',
         logoUrl: s.logoUrl ?? '/service-center/fixomni-logo.jpg',
-        logoUrl: s.logoUrl ?? '',
       });
     }
   }, [settings, reset]);

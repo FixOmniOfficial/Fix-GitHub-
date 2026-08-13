@@ -621,7 +621,7 @@ router.get('/admin/analytics', requireAuth, requireAdmin, async (_req, res) => {
       clerkClient.users.getUserList({ limit: 200 }),
       db.select({ value: count() }).from(bookingsTable),
       db.select({ value: count() }).from(bookingsTable).where(isNotNull(bookingsTable.rating)),
-      db.select({ value: avg(bookingsTable.rating) }).from(bookingsTable).where(isNotNull(bookingsTable.rating)),
+      db.execute(sql`SELECT COALESCE(AVG(CAST(rating AS NUMERIC)), 0) AS value FROM bookings WHERE rating IS NOT NULL AND rating ~ '^[0-9]+(\.[0-9]+)?$'`),
       db.select({ value: count() }).from(serviceCategoriesTable).where(eq(serviceCategoriesTable.isActive, true)),
     ]);
 
@@ -630,7 +630,7 @@ router.get('/admin/analytics', requireAuth, requireAdmin, async (_req, res) => {
       return r === 'staff' || r === 'sub_admin';
     }).length;
 
-    const avgRatingRaw = avgRatingResult[0]?.value;
+    const avgRatingRaw = (avgRatingResult as any)?.rows?.[0]?.value ?? (avgRatingResult as any)?.[0]?.value;
 
     res.json({
       totalCustomers:   Number(customersResult[0]?.value ?? 0),

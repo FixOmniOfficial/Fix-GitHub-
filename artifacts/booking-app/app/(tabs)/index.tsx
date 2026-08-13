@@ -1,8 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, ActivityIndicator, Linking, Alert, Image,
+  Modal, Animated, Pressable, Dimensions,
 } from 'react-native';
+
+const LOGO = require('@/assets/fixomni-logo.jpg');
+const { width: SCREEN_W } = Dimensions.get('window');
+
+// ── Logo Zoom Modal ───────────────────────────────────────────────────────────
+function LogoZoomModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const scaleAnim = useRef(new Animated.Value(0.3)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 8 }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    } else {
+      scaleAnim.setValue(0.3);
+      opacityAnim.setValue(0);
+    }
+  }, [visible]);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, { toValue: 0.3, useNativeDriver: true, tension: 100, friction: 10 }),
+      Animated.timing(opacityAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
+    ]).start(() => onClose());
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={handleClose}>
+      <Animated.View style={[zoomStyles.backdrop, { opacity: opacityAnim }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+        <Animated.View style={[zoomStyles.card, { transform: [{ scale: scaleAnim }] }]}>
+          <Image source={LOGO} style={zoomStyles.bigLogo} resizeMode="contain" />
+          <Text style={zoomStyles.bigName}>Fix Omni</Text>
+          <Text style={zoomStyles.bigTagline}>Services Booking</Text>
+          <TouchableOpacity style={zoomStyles.closeBtn} onPress={handleClose} activeOpacity={0.8}>
+            <Text style={zoomStyles.closeBtnText}>Close</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const zoomStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  card: {
+    backgroundColor: '#111', borderRadius: 28,
+    padding: 32, alignItems: 'center', gap: 12,
+    borderWidth: 1.5, borderColor: '#6b21a8',
+    width: Math.min(SCREEN_W - 64, 320),
+  },
+  bigLogo: { width: 180, height: 180, borderRadius: 32 },
+  bigName: { fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: 0.5 },
+  bigTagline: { fontSize: 13, color: '#a78bfa', fontWeight: '600', letterSpacing: 1 },
+  closeBtn: {
+    marginTop: 8, backgroundColor: '#6b21a8',
+    borderRadius: 14, paddingHorizontal: 36, paddingVertical: 10,
+  },
+  closeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+});
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -154,6 +220,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const { user, logout } = useAppAuth();
+  const [logoModalVisible, setLogoModalVisible] = useState(false);
 
   const { data: recentBookings, isLoading } = useListBookings({});
   const { data: categories, isLoading: catsLoading } = useListServiceCategories({});
@@ -182,14 +249,19 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 80 }}
       >
         {/* ── Header Bar ── */}
+        <LogoZoomModal visible={logoModalVisible} onClose={() => setLogoModalVisible(false)} />
         <View style={[s.header, { paddingTop: topPad + 10 }]}>
           <View style={s.logoRow}>
-            <View style={s.logoBox}>
-              <Text style={s.logoEmoji}>❄️</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => setLogoModalVisible(true)}
+              activeOpacity={0.85}
+              style={s.logoBox}
+            >
+              <Image source={LOGO} style={s.logoImg} resizeMode="cover" />
+            </TouchableOpacity>
             <View style={{ flex: 1 }}>
-              <Text style={s.heroTitle}>ProBook</Text>
-              <Text style={s.heroTagline}>Trusted Services • विश्वसनीय सेवाएँ</Text>
+              <Text style={s.heroTitle}>Fix Omni</Text>
+              <Text style={s.heroTagline}>Services Booking • विश्वसनीय सेवाएँ</Text>
             </View>
           </View>
 
@@ -417,10 +489,10 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   logoBox: {
     width: 46, height: 46, borderRadius: 13,
-    backgroundColor: '#1e3a5f',
-    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1.5, borderColor: '#6b21a8',
   },
-  logoEmoji: { fontSize: 24 },
+  logoImg: { width: 46, height: 46, borderRadius: 11 },
   heroTitle: { fontSize: 22, fontWeight: '800', color: c.foreground, letterSpacing: -0.5 },
   heroTagline: { fontSize: 10, color: c.mutedForeground, marginTop: 1 },
   helplineIconBtn: {

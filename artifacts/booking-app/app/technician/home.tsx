@@ -3,8 +3,9 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, TextInput, Alert, ActivityIndicator,
   Dimensions, NativeScrollEvent, NativeSyntheticEvent,
-  KeyboardAvoidingView, Linking, Share, Modal,
+  KeyboardAvoidingView, Linking, Share, Modal, Image, Pressable,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -126,7 +127,21 @@ export default function TechnicianHomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, logout, loading: authLoading } = useAppAuth();
+  const { user, logout, updateUser, loading: authLoading } = useAppAuth();
+  const [nameModalVisible, setNameModalVisible] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+
+  const pickAvatar = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('Permission required', 'Photo library access is needed to change your picture.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) updateUser({ avatar: result.assets[0].uri });
+  };
+
+  const openNameEdit = () => { setNameInput(user?.name ?? ''); setNameModalVisible(true); };
+  const saveNameEdit = () => { const t = nameInput.trim(); if (t) updateUser({ name: t }); setNameModalVisible(false); };
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const [activeTab, setActiveTab] = useState(0);
@@ -239,12 +254,55 @@ export default function TechnicianHomeScreen() {
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
 
+      {/* ── Name Edit Modal ── */}
+      <Modal visible={nameModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setNameModalVisible(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setNameModalVisible(false)}>
+          <Pressable onPress={() => {}} style={{ backgroundColor: colors.background, borderRadius: 20, padding: 24, width: '100%', gap: 14, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: colors.foreground }}>Edit Name</Text>
+            <TextInput
+              style={{ backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, padding: 14, fontSize: 16, color: colors.foreground }}
+              value={nameInput} onChangeText={setNameInput}
+              placeholder="Your name" placeholderTextColor={colors.mutedForeground}
+              autoFocus returnKeyType="done" onSubmitEditing={saveNameEdit}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 13, alignItems: 'center' }} onPress={() => setNameModalVisible(false)}>
+                <Text style={{ color: colors.mutedForeground, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, borderRadius: 12, backgroundColor: colors.primary, paddingVertical: 13, alignItems: 'center' }} onPress={saveNameEdit}>
+                <Text style={{ color: '#000', fontWeight: '800' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* ── Fixed Header ── */}
       <View style={[s.header, { paddingTop: topPad + 8 }]}>
+        {/* Avatar (tappable → image picker) */}
+        <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8}>
+          <View style={[s.profileAvatar, { borderColor: colors.primary }]}>
+            {user.avatar ? (
+              <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
+            ) : (
+              <Text style={{ fontSize: 24 }}>🔧</Text>
+            )}
+          </View>
+          <View style={[s.editBadge, { backgroundColor: colors.primary }]}>
+            <Feather name="camera" size={9} color="#000" />
+          </View>
+        </TouchableOpacity>
+
+        {/* Name + sub-info (name tappable → edit modal) */}
         <View style={{ flex: 1 }}>
-          <Text style={s.greeting}>नमस्ते, {user.name.split(' ')[0]}! 👋</Text>
+          <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={s.greeting}>{user.name}</Text>
+            <Feather name="edit-2" size={13} color={colors.mutedForeground} />
+          </TouchableOpacity>
           <Text style={s.subGreeting}>{PROF_LABELS[user.professionType ?? ''] ?? 'Technician'} · {user.uniqueCode}</Text>
         </View>
+
+        {/* Logout */}
         <TouchableOpacity
           style={s.logoutBtn}
           onPress={async () => {
@@ -2026,7 +2084,19 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     paddingHorizontal: 16, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: c.border,
   },
-  greeting: { fontSize: 20, fontWeight: '800', color: c.foreground },
+  profileAvatar: {
+    width: 48, height: 48, borderRadius: 24,
+    borderWidth: 2.5, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.15)', overflow: 'hidden',
+  },
+  profileAvatarImg: { width: 48, height: 48, borderRadius: 24 },
+  editBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 18, height: 18, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.2)',
+  },
+  greeting: { fontSize: 17, fontWeight: '800', color: c.foreground },
   subGreeting: { fontSize: 11, color: c.mutedForeground, marginTop: 2 },
   logoutBtn: { padding: 8 },
 

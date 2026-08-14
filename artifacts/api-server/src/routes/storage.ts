@@ -87,6 +87,51 @@ router.post(
   }
 );
 
+// ── POST /api/storage/uploads/base64 ─────────────────────────────────────────
+// Mobile-friendly upload: accepts JSON { data: base64String, contentType }.
+// Avoids multipart/FormData parsing issues in React Native fetch.
+// Accepts Clerk auth OR X-Tech-Code header.
+router.post(
+  "/storage/uploads/base64",
+  requireAnyAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { data, contentType } = req.body as { data?: string; contentType?: string };
+      if (!data || !contentType) {
+        res.status(400).json({ error: "data and contentType are required" });
+        return;
+      }
+      // Validate size: 8MB base64 ≈ 6MB binary — stay within limits
+      if (data.length > 11_000_000) {
+        res.status(413).json({ error: "Image too large (max ~8MB base64)" });
+        return;
+      }
+      const buffer = Buffer.from(data, "base64");
+      const uploadURL = await storage.getObjectEntityUploadURL();
+      const gcsRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: buffer,
+      });
+      if (!gcsRes.ok) {
+        const gcsBody = await gcsRes.text().catch(() => "");
+        console.error("[storage/base64] GCS error:", gcsRes.status, gcsBody);
+        res.status(500).json({ error: "GCS upload failed" });
+        return;
+      }
+      const objectPath = storage.normalizeObjectEntityPath(uploadURL);
+      res.json({ objectPath });
+    } catch (err: any) {
+      console.error("[storage/base64] error:", err);
+      if (err?.message?.includes("suspended")) {
+        res.status(503).json({ error: "App Storage service suspended" });
+      } else {
+        res.status(500).json({ error: "Upload failed", details: String(err?.message ?? "") });
+      }
+    }
+  }
+);
+
 // ── GET /api/public/avatar/:objectId ─────────────────────────────────────────
 // Public (no-auth) serving for profile/avatar images.
 // objectId is the UUID portion of the GCS object path.

@@ -177,28 +177,28 @@ export default function TechnicianHomeScreen() {
 
     setUploadingAvatar(true);
     try {
-      // 1. Compress to ~150KB: resize to 400×400 and apply JPEG quality 0.65
+      // 1. Compress to 400×400 JPEG and capture base64 directly — no file URI
+      //    needed; avoids multipart FormData parsing issues in RN fetch.
       const compressed = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
         [{ resize: { width: 400, height: 400 } }],
-        { compress: 0.65, format: ImageManipulator.SaveFormat.JPEG }
+        { compress: 0.65, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
+      if (!compressed.base64) throw new Error('Compression produced no base64 data');
 
-      // 2. Upload via server-side multipart endpoint (accepts X-Tech-Code auth)
+      // 2. POST as JSON to the base64 upload endpoint
       const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
-      const formData = new FormData();
-      formData.append('file', {
-        uri: compressed.uri,
-        name: 'avatar.jpg',
-        type: 'image/jpeg',
-      } as any);
-      const uploadRes = await fetch(`${apiBase}/api/storage/uploads/multipart`, {
+      const uploadRes = await fetch(`${apiBase}/api/storage/uploads/base64`, {
         method: 'POST',
-        headers: { 'X-Tech-Code': user?.uniqueCode ?? '' },
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Tech-Code': user?.uniqueCode ?? '',
+        },
+        body: JSON.stringify({ data: compressed.base64, contentType: 'image/jpeg' }),
       });
-      if (!uploadRes.ok) throw new Error('Upload failed');
-      const { objectPath } = await uploadRes.json();
+      const json = await uploadRes.json().catch(() => ({}));
+      if (!uploadRes.ok) throw new Error((json as any).error ?? 'Upload failed');
+      const { objectPath } = json as { objectPath: string };
 
       // 3. Build the public (no-auth) serving URL for avatar images
       //    objectPath = "/objects/<uuid>" → serve via /api/public/avatar/<uuid>
@@ -206,8 +206,8 @@ export default function TechnicianHomeScreen() {
       const publicUrl = `${apiBase}/api/public/avatar/${objectId}`;
 
       setPendingAvatar(publicUrl);
-    } catch {
-      Alert.alert('Upload failed', 'Profile photo upload नहीं हुई। Please retry.');
+    } catch (err: any) {
+      Alert.alert('Upload failed', `Photo upload नहीं हुई: ${err?.message ?? 'Please retry.'}`);
     } finally {
       setUploadingAvatar(false);
     }

@@ -128,8 +128,16 @@ export default function TechnicianHomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, logout, updateUser, loading: authLoading } = useAppAuth();
-  const [nameModalVisible, setNameModalVisible] = useState(false);
-  const [nameInput, setNameInput] = useState('');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [pendingName, setPendingName] = useState('');
+  const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const openEditProfile = () => {
+    setPendingName(user?.name ?? '');
+    setPendingAvatar(null);
+    setEditModalVisible(true);
+  };
 
   const pickAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -138,29 +146,43 @@ export default function TechnicianHomeScreen() {
       mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
     });
     if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
-    // 1. Optimistic local update — UI feels instant
-    updateUser({ avatar: asset.uri });
-    // 2. Auto-save to server so avatar persists across sessions/devices
-    try {
-      const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
-      const res = await fetch(`${apiBase}/api/booking/technician/profile`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uniqueCode: user?.uniqueCode, avatarUrl: asset.uri }),
-      });
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        // If server returns a CDN/storage URL, prefer it over the local URI
-        if (data.avatarUrl) updateUser({ avatar: data.avatarUrl });
-      }
-    } catch {
-      // Network failure — local preview is kept via AsyncStorage
-    }
+    // Only update local pending state — nothing is saved until Save is tapped
+    setPendingAvatar(result.assets[0].uri);
   };
 
-  const openNameEdit = () => { setNameInput(user?.name ?? ''); setNameModalVisible(true); };
-  const saveNameEdit = () => { const t = nameInput.trim(); if (t) updateUser({ name: t }); setNameModalVisible(false); };
+  const saveEditProfile = async () => {
+    const trimmedName = pendingName.trim();
+    if (!trimmedName) return;
+    setSavingProfile(true);
+    try {
+      const updates: { name?: string; avatar?: string } = {};
+      if (trimmedName !== user?.name) updates.name = trimmedName;
+      if (pendingAvatar) updates.avatar = pendingAvatar;
+      // Apply locally
+      if (Object.keys(updates).length > 0) updateUser(updates);
+      // Persist to server
+      const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
+      const body: Record<string, string> = { uniqueCode: user?.uniqueCode ?? '' };
+      if (updates.name) body.name = updates.name;
+      if (updates.avatar) body.avatarUrl = updates.avatar;
+      if (Object.keys(body).length > 1) {
+        const res = await fetch(`${apiBase}/api/booking/technician/profile`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data.avatarUrl) updateUser({ avatar: data.avatarUrl });
+        }
+      }
+    } catch {
+      // Network failure — local changes are kept via AsyncStorage
+    } finally {
+      setSavingProfile(false);
+      setEditModalVisible(false);
+    }
+  };
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const [activeTab, setActiveTab] = useState(0);
@@ -273,23 +295,46 @@ export default function TechnicianHomeScreen() {
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
 
-      {/* ── Name Edit Modal ── */}
-      <Modal visible={nameModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setNameModalVisible(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setNameModalVisible(false)}>
-          <Pressable onPress={() => {}} style={{ backgroundColor: colors.background, borderRadius: 20, padding: 24, width: '100%', gap: 14, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: colors.foreground }}>Edit Name</Text>
+      {/* ── Edit Profile Modal (name + photo, both saved together) ── */}
+      <Modal visible={editModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setEditModalVisible(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setEditModalVisible(false)}>
+          <Pressable onPress={() => {}} style={{ backgroundColor: colors.background, borderRadius: 20, padding: 24, width: '100%', gap: 16, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: colors.foreground }}>Edit Profile</Text>
+
+            {/* Avatar picker */}
+            <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8} style={{ alignSelf: 'center' }}>
+              <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: colors.primary, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card }}>
+                {(pendingAvatar ?? user?.avatar) ? (
+                  <Image source={{ uri: pendingAvatar ?? user?.avatar ?? undefined }} style={{ width: 80, height: 80 }} />
+                ) : (
+                  <Text style={{ fontSize: 28 }}>🔧</Text>
+                )}
+              </View>
+              <View style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="camera" size={13} color="#000" />
+              </View>
+            </TouchableOpacity>
+            {pendingAvatar && (
+              <Text style={{ textAlign: 'center', fontSize: 12, color: colors.primary, marginTop: -8 }}>Photo selected — tap Save to apply</Text>
+            )}
+
+            {/* Name input */}
             <TextInput
               style={{ backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, padding: 14, fontSize: 16, color: colors.foreground }}
-              value={nameInput} onChangeText={setNameInput}
+              value={pendingName} onChangeText={setPendingName}
               placeholder="Your name" placeholderTextColor={colors.mutedForeground}
-              autoFocus returnKeyType="done" onSubmitEditing={saveNameEdit}
+              returnKeyType="done"
             />
+
+            {/* Actions */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 13, alignItems: 'center' }} onPress={() => setNameModalVisible(false)}>
+              <TouchableOpacity style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 13, alignItems: 'center' }} onPress={() => setEditModalVisible(false)} disabled={savingProfile}>
                 <Text style={{ color: colors.mutedForeground, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, borderRadius: 12, backgroundColor: colors.primary, paddingVertical: 13, alignItems: 'center' }} onPress={saveNameEdit}>
-                <Text style={{ color: '#000', fontWeight: '800' }}>Save</Text>
+              <TouchableOpacity style={{ flex: 1, borderRadius: 12, backgroundColor: colors.primary, paddingVertical: 13, alignItems: 'center', opacity: savingProfile ? 0.7 : 1 }} onPress={saveEditProfile} disabled={savingProfile}>
+                {savingProfile
+                  ? <ActivityIndicator size="small" color="#000" />
+                  : <Text style={{ color: '#000', fontWeight: '800' }}>Save</Text>}
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -298,28 +343,21 @@ export default function TechnicianHomeScreen() {
 
       {/* ── Fixed Header ── */}
       <View style={[s.header, { paddingTop: topPad + 8 }]}>
-        {/* Avatar + camera button below */}
-        <View style={{ alignItems: 'center', gap: 4 }}>
-          <View style={[s.profileAvatar, { borderColor: colors.primary }]}>
-            {user.avatar ? (
-              <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
-            ) : (
-              <Text style={{ fontSize: 24 }}>🔧</Text>
-            )}
-          </View>
-          {activeTab === 0 && (
-            <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}>
-              <Feather name="camera" size={14} color={colors.mutedForeground} />
-            </TouchableOpacity>
+        {/* Avatar (no camera icon — photo is changed via the pencil edit flow) */}
+        <View style={[s.profileAvatar, { borderColor: colors.primary }]}>
+          {user.avatar ? (
+            <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
+          ) : (
+            <Text style={{ fontSize: 24 }}>🔧</Text>
           )}
         </View>
 
-        {/* Name + sub-info (name tappable → edit modal) */}
+        {/* Name + sub-info */}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={s.greeting}>{user.name}</Text>
             {activeTab === 0 && (
-              <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={openEditProfile} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Feather name="edit-2" size={13} color={colors.mutedForeground} />
               </TouchableOpacity>
             )}

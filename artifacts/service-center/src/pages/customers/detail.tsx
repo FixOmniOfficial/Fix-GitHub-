@@ -52,8 +52,8 @@ import { useRole } from '@/lib/use-role';
 /* ─── Schemas ────────────────────────────────────────────────────────────── */
 
 const customerSchema = z.object({
-  name: z.string().min(1, 'नाम आवश्यक है'),
-  phone: z.string().min(10, 'फ़ोन नंबर आवश्यक है'),
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().min(10, 'Phone number is required'),
   whatsappPhone: z.string().optional(),
   houseNumber: z.string().optional(),
   floorNumber: z.string().optional(),
@@ -172,16 +172,16 @@ export default function CustomerDetail() {
         queryClient.invalidateQueries({ queryKey: getGetCustomerQueryKey(id) });
         queryClient.invalidateQueries({ queryKey: getGetCustomerHistoryQueryKey(id) });
         setIsEditOpen(false);
-        toast.success('ग्राहक विवरण सुरक्षित हो गया ✓');
+        toast.success('Customer details saved ✓');
       },
-      onError: () => toast.error('सुरक्षित नहीं हो सका'),
+      onError: () => toast.error('Could not save'),
     });
   };
 
   const onDelete = () => {
     deleteCustomer.mutate({ id }, {
-      onSuccess: () => { toast.success('ग्राहक हटा दिया गया'); navigate('/customers'); },
-      onError: () => toast.error('हटाने में विफल'),
+      onSuccess: () => { toast.success('Customer deleted'); navigate('/customers'); },
+      onError: () => toast.error('Delete failed'),
     });
   };
 
@@ -206,15 +206,15 @@ export default function CustomerDetail() {
         queryClient.invalidateQueries({ queryKey: getGetCustomerHistoryQueryKey(id) });
         setIsNewJobOpen(false);
         jobForm.reset();
-        toast.success('नया कार्य जोड़ा गया ✓');
+        toast.success('New job added ✓');
       },
-      onError: () => toast.error('कार्य जोड़ने में विफल'),
+      onError: () => toast.error('Failed to add job'),
     });
   };
 
   const handleWhatsApp = () => {
     if (!waForm?.whatsappLink) {
-      toast.error('WhatsApp लिंक उपलब्ध नहीं है');
+      toast.error('WhatsApp link not available');
       return;
     }
     window.open(waForm.whatsappLink, '_blank');
@@ -252,12 +252,12 @@ export default function CustomerDetail() {
         headers: { 'Content-Type': 'application/json' },
       });
       const json = await r.json();
-      if (!r.ok) { toast.error('लिंक नहीं बना'); return; }
+      if (!r.ok) { toast.error('Link could not be created'); return; }
       const url = `${window.location.origin}${BASE}/customer-form/${json.token}`;
       setShareUrl(url);
       setShareStep('url');
     } catch {
-      toast.error('कनेक्शन में समस्या');
+      toast.error('Connection error');
     } finally {
       setShareLoading(false);
     }
@@ -273,7 +273,7 @@ export default function CustomerDetail() {
   const shareOnWhatsApp = () => {
     const phone = customer ? (customer.whatsappPhone ?? customer.phone) : '';
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const msg = `नमस्ते! कृपया नीचे दिए लिंक पर अपनी जानकारी भरें:\n${shareUrl}`;
+    const msg = `Hello! Please fill in your details at the link below:\n${shareUrl}`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -291,7 +291,7 @@ export default function CustomerDetail() {
   }
 
   if (!customer || !history) {
-    return <div className="text-center py-12">ग्राहक नहीं मिला</div>;
+    return <div className="text-center py-12">Customer not found</div>;
   }
 
   const c = customer as any; // cast to access new fields until types propagate
@@ -326,8 +326,8 @@ export default function CustomerDetail() {
             disabled={shareLoading}
           >
             {shareLoading
-              ? <><span className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />लोड…</>
-              : <><Share2 className="w-4 h-4 mr-2" />फ़ॉर्म भेजें</>
+              ? <><span className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />Loading…</>
+              : <><Share2 className="w-4 h-4 mr-2" />Send Form</>
             }
           </Button>
           <Button
@@ -344,18 +344,18 @@ export default function CustomerDetail() {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>"{customer.name}" को हटाएं?</AlertDialogTitle>
+                <AlertDialogTitle>"Delete {customer.name}?"</AlertDialogTitle>
                 <AlertDialogDescription>
-                  यह ग्राहक और उनसे जुड़ा सारा डेटा हमेशा के लिए हट जाएगा।
+                  This customer and all associated data will be permanently deleted.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>रद्द करें</AlertDialogCancel>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={onDelete}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  हां, हटाएं
+                  Yes, Delete
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -374,7 +374,7 @@ export default function CustomerDetail() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base">ग्राहक विवरण</CardTitle>
+                  <CardTitle className="text-base">Customer Details</CardTitle>
                   <CardDescription className="text-xs">Customer Details</CardDescription>
                 </div>
                 {isAdmin ? (
@@ -395,15 +395,15 @@ export default function CustomerDetail() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <InfoRow icon={Phone}        label="नाम (Name)"              value={customer.name} />
-              <InfoRow icon={Phone}        label="मोबाइल नंबर (Mobile)"    value={customer.phone} />
-              <InfoRow icon={Home}         label="हाउस नंबर (House No.)"   value={c.houseNumber} />
-              <InfoRow icon={Layers}       label="फ्लोर नंबर (Floor No.)"  value={c.floorNumber} />
-              <InfoRow icon={MapPin}       label="पूरा पता (Address)"       value={customer.address} />
-              <InfoRow icon={Navigation}   label="लोकेशन (Location)"       value={c.location} />
+              <InfoRow icon={Phone}        label="Name"              value={customer.name} />
+              <InfoRow icon={Phone}        label="Mobile"    value={customer.phone} />
+              <InfoRow icon={Home}         label="House No."   value={c.houseNumber} />
+              <InfoRow icon={Layers}       label="Floor No."  value={c.floorNumber} />
+              <InfoRow icon={MapPin}       label="Address"       value={customer.address} />
+              <InfoRow icon={Navigation}   label="Location"       value={c.location} />
               <InfoRow
                 icon={IndianRupee}
-                label="विजिटिंग अमाउंट (Visiting)"
+                label="Visiting Amount"
                 value={c.visitingAmount != null ? `₹${c.visitingAmount}` : null}
               />
             </CardContent>
@@ -412,19 +412,19 @@ export default function CustomerDetail() {
           {/* ── Payment Summary ── */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">भुगतान सारांश</CardTitle>
+              <CardTitle className="text-base">Payment Summary</CardTitle>
               <CardDescription className="text-xs">Payment Summary</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center p-3 rounded-lg bg-emerald-50 border border-emerald-100">
-                <span className="text-sm font-medium text-emerald-800">कुल भुगतान (Paid)</span>
+                <span className="text-sm font-medium text-emerald-800">Total Paid</span>
                 <span className="font-bold text-emerald-700">₹{history.totalPaid}</span>
               </div>
               <div className={`flex justify-between items-center p-3 rounded-lg border ${
                 history.totalDue > 0 ? 'bg-rose-50 border-rose-100' : 'bg-muted/50 border-border'
               }`}>
                 <span className={`text-sm font-medium ${history.totalDue > 0 ? 'text-rose-800' : 'text-muted-foreground'}`}>
-                  कुल बकाया (Due)
+                  Balance Due
                 </span>
                 <span className={`font-bold ${history.totalDue > 0 ? 'text-rose-700' : 'text-foreground'}`}>
                   ₹{history.totalDue}
@@ -438,8 +438,8 @@ export default function CustomerDetail() {
         <div className="md:col-span-2">
           <Tabs defaultValue="jobs" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="jobs">कार्य इतिहास</TabsTrigger>
-              <TabsTrigger value="appliances">उपकरण</TabsTrigger>
+              <TabsTrigger value="jobs">Job History</TabsTrigger>
+              <TabsTrigger value="appliances">Appliances</TabsTrigger>
             </TabsList>
 
             {/* Job history */}
@@ -447,7 +447,7 @@ export default function CustomerDetail() {
               <div className="flex justify-end">
                 <Button size="sm" onClick={() => setIsNewJobOpen(true)}>
                   <Plus className="w-3 h-3 mr-2" />
-                  नया कार्य जोड़ें
+                  Add New Job
                 </Button>
               </div>
 
@@ -455,7 +455,7 @@ export default function CustomerDetail() {
                 <Card className="border-dashed">
                   <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                     <FileText className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                    <p className="text-lg font-medium">कोई कार्य इतिहास नहीं</p>
+                    <p className="text-lg font-medium">No Job History</p>
                     <p className="text-sm text-muted-foreground">No job history found</p>
                   </CardContent>
                 </Card>
@@ -502,7 +502,7 @@ export default function CustomerDetail() {
                 <Card className="border-dashed">
                   <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                     <Wrench className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                    <p className="text-lg font-medium">कोई उपकरण पंजीकृत नहीं</p>
+                    <p className="text-lg font-medium">No Appliances registered</p>
                     <p className="text-sm text-muted-foreground">No appliances registered</p>
                   </CardContent>
                 </Card>
@@ -516,9 +516,9 @@ export default function CustomerDetail() {
                           <Wrench className="w-4 h-4 text-muted-foreground" />
                         </div>
                         <div className="space-y-1 text-sm">
-                          {app.brand   && <p><span className="text-muted-foreground">ब्रांड:</span> {app.brand}</p>}
-                          {app.model   && <p><span className="text-muted-foreground">मॉडल:</span> {app.model}</p>}
-                          {app.serialNo && <p><span className="text-muted-foreground">सीरियल:</span> <span className="font-mono">{app.serialNo}</span></p>}
+                          {app.brand   && <p><span className="text-muted-foreground">Brand:</span> {app.brand}</p>}
+                          {app.model   && <p><span className="text-muted-foreground">Model:</span> {app.model}</p>}
+                          {app.serialNo && <p><span className="text-muted-foreground">Serial:</span> <span className="font-mono">{app.serialNo}</span></p>}
                         </div>
                       </CardContent>
                     </Card>
@@ -535,7 +535,7 @@ export default function CustomerDetail() {
     <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>ग्राहक विवरण संपादित करें</DialogTitle>
+          <DialogTitle>Edit Customer Details</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onUpdate)} className="space-y-4">
@@ -545,8 +545,8 @@ export default function CustomerDetail() {
               <FormField control={form.control} name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>नाम (Name) *</FormLabel>
-                    <FormControl><Input placeholder="राहुल कुमार" {...field} /></FormControl>
+                    <FormLabel>Name *</FormLabel>
+                    <FormControl><Input placeholder="Customer name" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -554,7 +554,7 @@ export default function CustomerDetail() {
               <FormField control={form.control} name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>मोबाइल नंबर *</FormLabel>
+                    <FormLabel>Mobile *</FormLabel>
                     <FormControl>
                       <PhoneInput
                         value={field.value}
@@ -571,7 +571,7 @@ export default function CustomerDetail() {
             <FormField control={form.control} name="whatsappPhone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>WhatsApp नंबर</FormLabel>
+                  <FormLabel>WhatsApp Number</FormLabel>
                   <FormControl>
                     <PhoneInput
                       value={field.value ?? ''}
@@ -589,7 +589,7 @@ export default function CustomerDetail() {
               <FormField control={form.control} name="houseNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>हाउस नंबर</FormLabel>
+                    <FormLabel>House No.</FormLabel>
                     <FormControl><Input placeholder="A-201" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -598,7 +598,7 @@ export default function CustomerDetail() {
               <FormField control={form.control} name="floorNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>फ्लोर नंबर</FormLabel>
+                    <FormLabel>Floor No.</FormLabel>
                     <FormControl><Input placeholder="2nd Floor" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -610,8 +610,8 @@ export default function CustomerDetail() {
             <FormField control={form.control} name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>पूरा पता (Full Address)</FormLabel>
-                  <FormControl><Textarea placeholder="सेक्टर 12, नोएडा..." rows={2} {...field} /></FormControl>
+                  <FormLabel>Full Address</FormLabel>
+                  <FormControl><Textarea placeholder="Sector 12, Noida..." rows={2} {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -622,8 +622,8 @@ export default function CustomerDetail() {
               <FormField control={form.control} name="location"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>लोकेशन (Location)</FormLabel>
-                    <FormControl><Input placeholder="नोएडा सेक्टर 62" {...field} /></FormControl>
+                    <FormLabel>Location</FormLabel>
+                    <FormControl><Input placeholder="City / Area" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -631,7 +631,7 @@ export default function CustomerDetail() {
               <FormField control={form.control} name="visitingAmount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>विजिटिंग अमाउंट ₹</FormLabel>
+                    <FormLabel>Visiting Amount ₹</FormLabel>
                     <FormControl><Input type="number" placeholder="200" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -643,8 +643,8 @@ export default function CustomerDetail() {
             <FormField control={form.control} name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>नोट्स (Notes)</FormLabel>
-                  <FormControl><Textarea placeholder="कोई अतिरिक्त जानकारी..." rows={2} {...field} /></FormControl>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl><Textarea placeholder="Any additional info..." rows={2} {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -652,10 +652,10 @@ export default function CustomerDetail() {
 
             <div className="flex gap-3 pt-2">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setIsEditOpen(false)}>
-                रद्द करें
+                Cancel
               </Button>
               <Button type="submit" className="flex-1" disabled={updateCustomer.isPending}>
-                {updateCustomer.isPending ? 'सुरक्षित हो रहा है...' : 'सुरक्षित करें ✓'}
+                {updateCustomer.isPending ? 'Saving...' : 'Save ✓'}
               </Button>
             </div>
           </form>
@@ -668,7 +668,7 @@ export default function CustomerDetail() {
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Share2 className="w-4 h-4" /> फ़ॉर्म लिंक शेयर करें
+            <Share2 className="w-4 h-4" /> Share Form Link
           </DialogTitle>
         </DialogHeader>
 
@@ -676,14 +676,14 @@ export default function CustomerDetail() {
           /* ── Step 1: Visiting charge input ── */
           <div className="space-y-4 pt-1">
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">{customer?.name}</span> के लिए फ़ॉर्म लिंक बनाएं।
+              Generate a form link for <span className="font-semibold text-foreground">{customer?.name}</span>.
             </p>
 
             {/* Visiting charge */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium flex items-center gap-1.5">
                 <IndianRupee className="w-3.5 h-3.5 text-amber-500" />
-                विजिटिंग चार्ज (Visiting Charge)
+                Visiting Charge
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">₹</span>
@@ -697,7 +697,7 @@ export default function CustomerDetail() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                ग्राहक को फ़ॉर्म में यह राशि दिखेगी। खाली छोड़ने पर नहीं दिखेगी।
+                This amount will be shown in the customer form. Leave blank to hide it.
               </p>
             </div>
 
@@ -707,8 +707,8 @@ export default function CustomerDetail() {
               disabled={shareLoading}
             >
               {shareLoading
-                ? <><span className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />लिंक बन रहा है…</>
-                : <><Share2 className="w-4 h-4 mr-2" />लिंक बनाएं</>
+                ? <><span className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />Generating link…</>
+                : <><Share2 className="w-4 h-4 mr-2" />Generate Link</>
               }
             </Button>
           </div>
@@ -716,8 +716,8 @@ export default function CustomerDetail() {
           /* ── Step 2: Show URL + share options ── */
           <div className="space-y-4 pt-1">
             <p className="text-sm text-muted-foreground">
-              नीचे का लिंक <span className="font-semibold text-foreground">{customer?.name}</span> को भेजें।
-              वो इस फ़ॉर्म को भरकर अपनी जानकारी दे सकते हैं।
+              Send the link below to <span className="font-semibold text-foreground">{customer?.name}</span> so they can fill in their details.
+              They can fill this form to share their details.
             </p>
 
             {/* Link preview */}
@@ -730,8 +730,8 @@ export default function CustomerDetail() {
             <div className="grid grid-cols-2 gap-3">
               <Button variant="outline" onClick={copyLink} className="gap-2">
                 {shareCopied
-                  ? <><Check className="w-4 h-4 text-emerald-500" />कॉपी हुआ!</>
-                  : <><Copy className="w-4 h-4" />लिंक कॉपी करें</>
+                  ? <><Check className="w-4 h-4 text-emerald-500" />Copied!</>
+                  : <><Copy className="w-4 h-4" />Copy Link</>
                 }
               </Button>
               <Button
@@ -739,7 +739,7 @@ export default function CustomerDetail() {
                 onClick={shareOnWhatsApp}
               >
                 <MessageCircle className="w-4 h-4" />
-                WhatsApp पर भेजें
+                Send via WhatsApp
               </Button>
             </div>
 
@@ -747,7 +747,7 @@ export default function CustomerDetail() {
               onClick={() => setShareStep('input')}
               className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 w-full text-center"
             >
-              ← वापस जाएं / चार्ज बदलें
+              ← Back / Change Charge
             </button>
           </div>
         )}
@@ -759,7 +759,7 @@ export default function CustomerDetail() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            नया कार्य — <span className="text-primary">{customer.name}</span>
+            New Job — <span className="text-primary">{customer.name}</span>
           </DialogTitle>
         </DialogHeader>
         <Form {...jobForm}>
@@ -767,8 +767,8 @@ export default function CustomerDetail() {
             <FormField control={jobForm.control} name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>समस्या / विवरण (Problem)</FormLabel>
-                  <FormControl><Textarea placeholder="जैसे: AC cooling नहीं कर रहा" rows={2} {...field} /></FormControl>
+                  <FormLabel>Problem / Description</FormLabel>
+                  <FormControl><Textarea placeholder="e.g. AC not cooling properly" rows={2} {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -777,7 +777,7 @@ export default function CustomerDetail() {
               <FormField control={jobForm.control} name="applianceType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>उपकरण (Appliance)</FormLabel>
+                    <FormLabel>Appliances (Appliance)</FormLabel>
                     <FormControl><Input placeholder="AC, Fridge…" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -786,7 +786,7 @@ export default function CustomerDetail() {
               <FormField control={jobForm.control} name="technicianName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>तकनीशियन</FormLabel>
+                    <FormLabel>Technician</FormLabel>
                     <FormControl><Input placeholder="Optional" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -797,7 +797,7 @@ export default function CustomerDetail() {
               <FormField control={jobForm.control} name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>राशि ₹ (Amount)</FormLabel>
+                    <FormLabel>Amount ₹</FormLabel>
                     <FormControl><Input type="number" placeholder="0" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -806,7 +806,7 @@ export default function CustomerDetail() {
               <FormField control={jobForm.control} name="scheduledDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>तारीख (Date)</FormLabel>
+                    <FormLabel>Date</FormLabel>
                     <FormControl><Input type="date" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -815,10 +815,10 @@ export default function CustomerDetail() {
             </div>
             <div className="flex gap-3">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setIsNewJobOpen(false)}>
-                रद्द करें
+                Cancel
               </Button>
               <Button type="submit" className="flex-1" disabled={createJob.isPending}>
-                {createJob.isPending ? 'जोड़ रहा है…' : 'कार्य जोड़ें ✓'}
+                {createJob.isPending ? 'Adding…' : 'Add Job ✓'}
               </Button>
             </div>
           </form>

@@ -38,7 +38,7 @@ export default function RatingScreen() {
   };
 
   const handleSubmit = () => {
-    if (rating === 0) { Alert.alert('', 'कृपया rating दें'); return; }
+    if (rating === 0) { Alert.alert('', 'Please select a rating'); return; }
     createRating.mutate(
       { data: { raterType, raterName: name.trim() || undefined, rating, comment: comment.trim() || undefined } },
       {
@@ -47,7 +47,7 @@ export default function RatingScreen() {
           queryClient.invalidateQueries();
           setSubmitted(true);
         },
-        onError: () => Alert.alert('Error', 'Rating submit नहीं हुई। Please retry.'),
+        onError: () => Alert.alert('Error', 'Rating could not be submitted. Please retry.'),
       },
     );
   };
@@ -62,8 +62,8 @@ export default function RatingScreen() {
             <Feather key={i} name="star" size={28} color="#f59e0b" />
           ))}
         </View>
-        <Text style={s.thankTitle}>आपकी Rating के लिए धन्यवाद! 🙏</Text>
-        <Text style={s.thankSub}>आपका feedback हमें बेहतर बनाने में मदद करता है।</Text>
+        <Text style={s.thankTitle}>Thank you for your rating! 🙏</Text>
+        <Text style={s.thankSub}>Your feedback helps us improve.</Text>
         {summary && (
           <View style={s.summaryCard}>
             <Text style={[s.avgNum, { color: colors.primary }]}>{summary.averageRating?.toFixed(1)}</Text>
@@ -74,7 +74,7 @@ export default function RatingScreen() {
           </View>
         )}
         <TouchableOpacity style={[s.submitBtn, { backgroundColor: colors.primary, marginTop: 28 }]} onPress={() => router.back()}>
-          <Text style={[s.submitText, { color: colors.primaryForeground }]}>Home जाएं</Text>
+          <Text style={[s.submitText, { color: colors.primaryForeground }]}>Go to Home</Text>
         </TouchableOpacity>
       </View>
     );
@@ -88,7 +88,7 @@ export default function RatingScreen() {
         </TouchableOpacity>
         <View>
           <Text style={s.headerTitle}>Rate the App</Text>
-          <Text style={s.headerSub}>ऐप को rate करें</Text>
+          <Text style={s.headerSub}>Rate the App</Text>
         </View>
       </View>
 
@@ -110,7 +110,7 @@ export default function RatingScreen() {
 
         {/* Rater type */}
         <View style={s.field}>
-          <Text style={s.label}>आप कौन हैं?</Text>
+          <Text style={s.label}>Who are you?</Text>
           <View style={s.typeRow}>
             {RATER_TYPES.map(t => (
               <TouchableOpacity key={t.key} style={[s.typeBtn, raterType === t.key && s.typeBtnActive]} onPress={() => setRaterType(t.key as any)}>
@@ -123,14 +123,14 @@ export default function RatingScreen() {
 
         {/* Name (optional) */}
         <View style={s.field}>
-          <Text style={s.label}>नाम (Optional)</Text>
+          <Text style={s.label}>Name (Optional)</Text>
           <TextInput style={s.input} value={name} onChangeText={setName}
-            placeholder="आपका नाम" placeholderTextColor={colors.mutedForeground} />
+            placeholder="Your name" placeholderTextColor={colors.mutedForeground} />
         </View>
 
         {/* Stars */}
         <View style={s.field}>
-          <Text style={s.label}>Rating दें <Text style={s.required}>*</Text></Text>
+          <Text style={s.label}>Give Rating <Text style={s.required}>*</Text></Text>
           <View style={s.starRow}>
             {[1, 2, 3, 4, 5].map((star) => (
               <TouchableOpacity key={star} onPress={() => handleStar(star)} activeOpacity={0.7}>
@@ -144,7 +144,7 @@ export default function RatingScreen() {
           </View>
           {rating > 0 && (
             <Text style={s.ratingLabel}>
-              {['', 'बहुत बुरा 😞', 'बुरा 😕', 'ठीक है 😐', 'अच्छा 😊', 'बहुत अच्छा 🤩'][rating]}
+              {['', 'Very Bad 😞', 'Bad 😕', 'Okay 😐', 'Good 😊', 'Excellent 🤩'][rating]}
             </Text>
           )}
         </View>
@@ -155,7 +155,7 @@ export default function RatingScreen() {
           <TextInput
             style={[s.input, s.multiline]}
             value={comment} onChangeText={setComment}
-            placeholder="ऐप के बारे में अपनी राय लिखें..." placeholderTextColor={colors.mutedForeground}
+            placeholder="Share your thoughts about the app..." placeholderTextColor={colors.mutedForeground}
             multiline numberOfLines={4}
           />
         </View>
@@ -166,7 +166,7 @@ export default function RatingScreen() {
           disabled={createRating.isPending}
           activeOpacity={0.85}
         >
-          {createRating.isPending ? <ActivityIndicator color="#000" /> : <Text style={s.submitText}>⭐ Rating Submit करें</Text>}
+          {createRating.isPending ? <ActivityIndicator color="#000" /> : <Text style={s.submitText}>⭐ Submit Rating</Text>}
         </TouchableOpacity>
       </ScrollView>
     </View>

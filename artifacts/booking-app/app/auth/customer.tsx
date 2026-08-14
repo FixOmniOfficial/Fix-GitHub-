@@ -87,8 +87,8 @@ export default function CustomerAuthScreen() {
 
   // ── Login ─────────────────────────────────────────────────────────
   const handleLogin = async () => {
-    if (!loginInput.trim()) { Alert.alert('', t.mobileOrEmail + ' जरूरी है।'); return; }
-    if (!loginPass)         { Alert.alert('', t.password + ' जरूरी है।'); return; }
+    if (!loginInput.trim()) { Alert.alert('', t.mobileOrEmail + ' is required.'); return; }
+    if (!loginPass)         { Alert.alert('', t.password + ' is required.'); return; }
     setLoading(true);
     try {
       const data = await api('/booking/customer/login-v2', {
@@ -112,10 +112,10 @@ export default function CustomerAuthScreen() {
 
   // ── Register ──────────────────────────────────────────────────────
   const handleRegister = async () => {
-    if (!regName.trim())  { Alert.alert('', t.fullName + ' जरूरी है।'); return; }
-    if (!regPhone.trim()) { Alert.alert('', t.mobileNumber + ' जरूरी है।'); return; }
-    if (!regEmail.trim()) { Alert.alert('', t.emailId + ' जरूरी है।'); return; }
-    if (regPass.length < 8) { Alert.alert('', 'Password कम से कम 8 characters का होना चाहिए।'); return; }
+    if (!regName.trim())  { Alert.alert('', t.fullName + ' is required.'); return; }
+    if (!regPhone.trim()) { Alert.alert('', t.mobileNumber + ' is required.'); return; }
+    if (!regEmail.trim()) { Alert.alert('', t.emailId + ' is required.'); return; }
+    if (regPass.length < 8) { Alert.alert('', 'Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
       const data = await api('/booking/customer/register', {
@@ -142,7 +142,7 @@ export default function CustomerAuthScreen() {
 
   // ── Forgot password: Step 1 — send OTP ───────────────────────────
   const handleSendForgotOtp = async () => {
-    if (!forgotEmail.trim()) { Alert.alert('', 'Email जरूरी है।'); return; }
+    if (!forgotEmail.trim()) { Alert.alert('', 'Email is required.'); return; }
     setLoading(true);
     try {
       const res = await api('/booking/customer/forgot-password', { email: forgotEmail.trim().toLowerCase() });
@@ -159,7 +159,7 @@ export default function CustomerAuthScreen() {
 
   // ── Forgot password: Step 2 — verify OTP ─────────────────────────
   const handleVerifyForgotOtp = async () => {
-    if (forgotOtp.trim().length < 6) { Alert.alert('', '6-digit OTP डालें।'); return; }
+    if (forgotOtp.trim().length < 6) { Alert.alert('', 'Please enter the 6-digit OTP.'); return; }
     setLoading(true);
     try {
       await api('/booking/customer/verify-otp-email', {
@@ -168,13 +168,13 @@ export default function CustomerAuthScreen() {
       setScreen('new_password');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (e: any) {
-      Alert.alert(t.error, e.message ?? 'OTP गलत है');
+      Alert.alert(t.error, e.message ?? 'Incorrect OTP');
     } finally { setLoading(false); }
   };
 
   // ── Forgot password: Step 3 — set new password ───────────────────
   const handleResetPassword = async () => {
-    if (forgotNewPass.length < 8) { Alert.alert('', 'Password कम से कम 8 characters का होना चाहिए।'); return; }
+    if (forgotNewPass.length < 8) { Alert.alert('', 'Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
       await api('/booking/customer/reset-password', {
@@ -182,8 +182,8 @@ export default function CustomerAuthScreen() {
         otp: forgotOtp.trim(),
         newPassword: forgotNewPass,
       });
-      Alert.alert('✅ ' + t.resetSuccess, 'अब अपने नए password से login करें।', [{
-        text: 'Login करें',
+      Alert.alert('✅ ' + t.resetSuccess, 'You can now login with your new password.', [{
+        text: 'Login',
         onPress: () => { setTab('login'); setScreen('auth'); setForgotEmail(''); setForgotOtp(''); setForgotNewPass(''); },
       }]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -202,7 +202,7 @@ export default function CustomerAuthScreen() {
           <Text style={{ fontSize: 52, textAlign: 'center' }}>🎉</Text>
           <Text style={[s.bigTitle, { color: colors.foreground }]}>{t.accountCreated}</Text>
           <Text style={{ color: colors.mutedForeground, fontSize: 13, textAlign: 'center' }}>
-            Welcome, {successMsg}! आपका account बन गया है।
+            Welcome, {successMsg}! Your account has been created.
           </Text>
           <TouchableOpacity style={[s.submitBtn, { backgroundColor: '#3b82f6', width: '100%' }]}
             onPress={() => router.replace('/(tabs)' as any)}>
@@ -274,7 +274,7 @@ export default function CustomerAuthScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ color: '#84cc16', fontWeight: '800', fontSize: 13 }}>Demo OTP: {demoOtp}</Text>
                 <Text style={{ color: '#84cc16', fontSize: 11, marginTop: 2 }}>
-                  SMTP configure होने पर real email आएगा
+                  A real email will be sent once SMTP is configured
                 </Text>
               </View>
             </View>
@@ -311,7 +311,7 @@ export default function CustomerAuthScreen() {
           </TouchableOpacity>
 
           <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: 'center' }}>
-            OTP 10 minutes तक valid है
+            OTP is valid for 10 minutes
           </Text>
         </ScrollView>
       </View>
@@ -335,7 +335,7 @@ export default function CustomerAuthScreen() {
             <TextInput
               style={[s.input, { color: colors.foreground, borderColor: '#6366f1', backgroundColor: colors.card, paddingRight: 48 }]}
               value={forgotNewPass} onChangeText={setForgotNewPass}
-              placeholder="कम से कम 8 characters" placeholderTextColor={colors.mutedForeground}
+              placeholder="At least 8 characters" placeholderTextColor={colors.mutedForeground}
               secureTextEntry={!showNewPass}
             />
             <TouchableOpacity onPress={() => setShowNewPass(v => !v)}
@@ -347,7 +347,7 @@ export default function CustomerAuthScreen() {
             style={[s.submitBtn, { backgroundColor: '#6366f1' }, (forgotNewPass.length < 8 || loading) && { opacity: 0.5 }]}
             onPress={handleResetPassword} disabled={forgotNewPass.length < 8 || loading}>
             {loading ? <ActivityIndicator color="#fff" /> : (
-              <Text style={[s.submitText, { color: '#fff' }]}>Password Save करें</Text>
+              <Text style={[s.submitText, { color: '#fff' }]}>Save Password</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -390,7 +390,7 @@ export default function CustomerAuthScreen() {
             <View style={[s.infoBox, { backgroundColor: colors.card + 'cc', borderColor: colors.border }]}>
               <Feather name="shield" size={15} color={colors.mutedForeground} />
               <Text style={{ color: colors.mutedForeground, fontSize: 12, flex: 1 }}>
-                {t.phoneUnique} — अपना registered mobile या email दर्ज करें
+                {t.phoneUnique} — enter your registered mobile or email
               </Text>
             </View>
 
@@ -399,7 +399,7 @@ export default function CustomerAuthScreen() {
             <TextInput
               style={[s.input, { color: colors.foreground, borderColor: '#3b82f6', backgroundColor: colors.card }]}
               value={loginInput} onChangeText={setLoginInput}
-              placeholder="9876543210 या example@gmail.com"
+              placeholder="9876543210 or example@gmail.com"
               placeholderTextColor={colors.mutedForeground}
               keyboardType="default" autoCapitalize="none" autoCorrect={false}
             />
@@ -448,7 +448,7 @@ export default function CustomerAuthScreen() {
             <View style={[s.infoBox, { backgroundColor: '#052e16', borderColor: '#22c55e55' }]}>
               <Feather name="user-check" size={15} color="#22c55e" />
               <Text style={{ color: '#22c55e', fontSize: 12, flex: 1 }}>
-                Free account बनाएं — Bookings track करें, updates पाएं।
+                Create a free account — track bookings, get updates.
               </Text>
             </View>
 
@@ -456,7 +456,7 @@ export default function CustomerAuthScreen() {
             <TextInput
               style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
               value={regName} onChangeText={setRegName}
-              placeholder="पूरा नाम" placeholderTextColor={colors.mutedForeground}
+              placeholder="Full name" placeholderTextColor={colors.mutedForeground}
             />
 
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.mobileNumber} *</Text>
@@ -476,7 +476,7 @@ export default function CustomerAuthScreen() {
               <TextInput
                 style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, paddingRight: 48 }]}
                 value={regPass} onChangeText={setRegPass}
-                placeholder="कम से कम 8 characters"
+                placeholder="At least 8 characters"
                 placeholderTextColor={colors.mutedForeground}
                 secureTextEntry={!showRegPass}
               />
@@ -493,7 +493,7 @@ export default function CustomerAuthScreen() {
               {loading ? <ActivityIndicator color="#fff" /> : (
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <Feather name="user-check" size={18} color="#fff" />
-                  <Text style={[s.submitText, { color: '#fff' }]}>Account बनाएं</Text>
+                  <Text style={[s.submitText, { color: '#fff' }]}>Create Account</Text>
                 </View>
               )}
             </TouchableOpacity>

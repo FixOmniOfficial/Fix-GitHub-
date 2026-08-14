@@ -32,8 +32,8 @@ export default function HelplineScreen() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!name.trim()) e.name = 'नाम आवश्यक है';
-    if (!message.trim()) e.message = 'Message आवश्यक है';
+    if (!name.trim()) e.name = 'Name is required';
+    if (!message.trim()) e.message = 'Message is required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -47,7 +47,7 @@ export default function HelplineScreen() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setSubmitted(true);
         },
-        onError: () => Alert.alert('Error', 'Message send नहीं हुआ। Please retry.'),
+        onError: () => Alert.alert('Error', 'Message could not be sent. Please retry.'),
       },
     );
   };
@@ -62,10 +62,10 @@ export default function HelplineScreen() {
         </TouchableOpacity>
         <View style={s.successCenter}>
           <View style={s.successIcon}><Feather name="check-circle" size={52} color="#22c55e" /></View>
-          <Text style={s.successTitle}>Message भेज दिया गया!</Text>
-          <Text style={s.successSub}>Admin जल्द आपसे contact करेगा।</Text>
+          <Text style={s.successTitle}>Message sent!</Text>
+          <Text style={s.successSub}>Admin will contact you soon.</Text>
           <TouchableOpacity style={[s.btn, { backgroundColor: colors.primary, marginTop: 28 }]} onPress={() => router.back()}>
-            <Text style={[s.btnText, { color: colors.primaryForeground }]}>Back जाएं</Text>
+            <Text style={[s.btnText, { color: colors.primaryForeground }]}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -80,7 +80,7 @@ export default function HelplineScreen() {
         </TouchableOpacity>
         <View>
           <Text style={s.headerTitle}>Helpline</Text>
-          <Text style={s.headerSub}>Admin को direct message करें</Text>
+          <Text style={s.headerSub}>Send a direct message to Admin</Text>
         </View>
       </View>
 
@@ -91,7 +91,7 @@ export default function HelplineScreen() {
       >
         {/* Who are you */}
         <View style={s.field}>
-          <Text style={s.label}>आप कौन हैं?</Text>
+          <Text style={s.label}>Who are you?</Text>
           <View style={s.typeRow}>
             {SENDER_TYPES.map(t => (
               <TouchableOpacity
@@ -108,7 +108,7 @@ export default function HelplineScreen() {
 
         {/* Name */}
         <View style={s.field}>
-          <Text style={s.label}>आपका नाम <Text style={s.required}>*</Text></Text>
+          <Text style={s.label}>Your Name <Text style={s.required}>*</Text></Text>
           <TextInput
             style={[s.input, errors.name && s.inputError]}
             value={name} onChangeText={setName}
@@ -130,11 +130,11 @@ export default function HelplineScreen() {
 
         {/* Message */}
         <View style={s.field}>
-          <Text style={s.label}>आपका Message <Text style={s.required}>*</Text></Text>
+          <Text style={s.label}>Your Message <Text style={s.required}>*</Text></Text>
           <TextInput
             style={[s.input, s.multiline, errors.message && s.inputError]}
             value={message} onChangeText={setMessage}
-            placeholder="आपकी समस्या या सुझाव यहाँ लिखें..." placeholderTextColor={colors.mutedForeground}
+            placeholder="Describe your issue or suggestion..." placeholderTextColor={colors.mutedForeground}
             multiline numberOfLines={5}
           />
           {errors.message && <Text style={s.errorText}>{errors.message}</Text>}
@@ -148,7 +148,7 @@ export default function HelplineScreen() {
         >
           {createMessage.isPending
             ? <ActivityIndicator color="#fff" />
-            : <><Feather name="send" size={16} color="#fff" /><Text style={[s.btnText, { color: '#fff' }]}>Message भेजें</Text></>
+            : <><Feather name="send" size={16} color="#fff" /><Text style={[s.btnText, { color: '#fff' }]}>Send Message</Text></>
           }
         </TouchableOpacity>
       </ScrollView>

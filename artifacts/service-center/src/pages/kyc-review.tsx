@@ -41,9 +41,9 @@ interface KycEntry {
 }
 
 const STATUS_CONFIG = {
-  pending:  { label: 'Pending',  labelHi: 'लंबित',   icon: Clock,         color: 'text-amber-400',  bg: 'bg-amber-500/15 border-amber-500/30' },
-  verified: { label: 'Verified', labelHi: 'सत्यापित', icon: CheckCircle2,  color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-500/30' },
-  rejected: { label: 'Rejected', labelHi: 'अस्वीकृत', icon: XCircle,      color: 'text-rose-400',   bg: 'bg-rose-500/15 border-rose-500/30' },
+  pending:  { label: 'Pending',  labelHi: 'Pending',   icon: Clock,         color: 'text-amber-400',  bg: 'bg-amber-500/15 border-amber-500/30' },
+  verified: { label: 'Verified', labelHi: 'Verified', icon: CheckCircle2,  color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-500/30' },
+  rejected: { label: 'Rejected', labelHi: 'Rejected', icon: XCircle,      color: 'text-rose-400',   bg: 'bg-rose-500/15 border-rose-500/30' },
 };
 
 async function fetchKyc(status: string): Promise<KycEntry[]> {
@@ -125,7 +125,7 @@ export default function KycReviewPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">
             KYC Review
-            <span className="ml-2 text-base font-normal text-muted-foreground">तकनीशियन सत्यापन</span>
+            <span className="ml-2 text-base font-normal text-muted-foreground">Technician Verification</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Review and approve technician identity documents</p>
         </div>

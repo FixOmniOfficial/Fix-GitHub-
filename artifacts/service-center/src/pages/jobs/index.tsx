@@ -20,19 +20,19 @@ export default function Jobs() {
 
   const getStatusConfig = (status: string) => {
     switch(status) {
-      case 'pending': return { label: 'लंबित', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50 border-amber-200' };
-      case 'in_progress': return { label: 'प्रगति पर', icon: Wrench, color: 'text-blue-500', bg: 'bg-blue-50 border-blue-200' };
-      case 'completed': return { label: 'पूरा हुआ', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50 border-emerald-200' };
-      case 'cancelled': return { label: 'रद्द', icon: XCircle, color: 'text-red-500', bg: 'bg-red-50 border-red-200' };
+      case 'pending': return { label: 'Pending', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50 border-amber-200' };
+      case 'in_progress': return { label: 'In Progress', icon: Wrench, color: 'text-blue-500', bg: 'bg-blue-50 border-blue-200' };
+      case 'completed': return { label: 'Completed', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50 border-emerald-200' };
+      case 'cancelled': return { label: 'Cancelled', icon: XCircle, color: 'text-red-500', bg: 'bg-red-50 border-red-200' };
       default: return { label: status, icon: Clock, color: 'text-gray-500', bg: 'bg-gray-100 border-gray-200' };
     }
   };
 
   const getPaymentConfig = (status: string) => {
     switch(status) {
-      case 'paid': return { label: 'भुगतान पूर्ण', color: 'bg-emerald-500 text-white border-emerald-600' };
-      case 'partial': return { label: 'आंशिक', color: 'bg-amber-500 text-white border-amber-600' };
-      case 'unpaid': return { label: 'बकाया', color: 'bg-rose-500 text-white border-rose-600' };
+      case 'paid': return { label: 'Paid', color: 'bg-emerald-500 text-white border-emerald-600' };
+      case 'partial': return { label: 'Partial', color: 'bg-amber-500 text-white border-amber-600' };
+      case 'unpaid': return { label: 'Unpaid', color: 'bg-rose-500 text-white border-rose-600' };
       default: return { label: status, color: 'bg-gray-500 text-white border-gray-600' };
     }
   };
@@ -41,8 +41,8 @@ export default function Jobs() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">कार्य सूची <span className="text-xl font-normal text-muted-foreground ml-2">Service Jobs</span></h1>
-          <p className="text-muted-foreground mt-1">सभी सर्विस जॉब्स का प्रबंधन करें (Manage all service jobs)</p>
+          <h1 className="text-3xl font-bold tracking-tight">Service Jobs </h1>
+          <p className="text-muted-foreground mt-1">Manage all service jobs</p>
         </div>
         
         {/* We would typically have a Create Job button here, but it usually requires selecting a customer first, so we might omit it or link to a dedicated form */}
@@ -52,7 +52,7 @@ export default function Jobs() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="जॉब नंबर या ग्राहक खोजें (Search job or customer)..." 
+            placeholder="Search job or customer..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -62,11 +62,11 @@ export default function Jobs() {
 
       <Tabs defaultValue="all" value={statusFilter} onValueChange={setStatusFilter}>
         <TabsList className="grid grid-cols-5 mb-6 w-full max-w-2xl">
-          <TabsTrigger value="all">सभी (All)</TabsTrigger>
-          <TabsTrigger value="pending">लंबित (Pending)</TabsTrigger>
-          <TabsTrigger value="in_progress">प्रगति पर (In Progress)</TabsTrigger>
-          <TabsTrigger value="completed">पूर्ण (Done)</TabsTrigger>
-          <TabsTrigger value="cancelled">रद्द (Cancelled)</TabsTrigger>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="in_progress">In Progress</TabsTrigger>
+          <TabsTrigger value="completed">Done</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
         </TabsList>
 
         <TabsContent value={statusFilter} className="m-0">
@@ -130,7 +130,7 @@ export default function Jobs() {
               {jobs?.length === 0 && (
                 <div className="text-center py-12 bg-card rounded-lg border border-dashed">
                   <Wrench className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-                  <h3 className="text-lg font-medium text-foreground">कोई कार्य नहीं मिला</h3>
+                  <h3 className="text-lg font-medium text-foreground">No jobs found</h3>
                   <p className="text-muted-foreground text-sm">No jobs found for the selected filters</p>
                 </div>
               )}

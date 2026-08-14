@@ -40,7 +40,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       const data = await authApi.login(loginVal.trim(), passVal);
       if (data.error) { toast.error(data.error); return; }
       onLogin();
-    } catch { toast.error('Server से connection नहीं हो पाया'); }
+    } catch { toast.error('Could not connect to server'); }
     finally { setLoading(false); }
   }
 
@@ -55,8 +55,8 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       setOtpUserId(data.userId ?? null);
       setDevOtp(data.otp ?? null); // dev-mode OTP shown in UI
       setStep('otp');
-      toast.success('OTP generate हुआ');
-    } catch { toast.error('कुछ गलत हुआ'); }
+      toast.success('OTP sent');
+    } catch { toast.error('Something went wrong'); }
     finally { setLoading(false); }
   }
 
@@ -76,29 +76,29 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
   async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     const code = otp.join('');
-    if (code.length < 6) { toast.error('6 अंक का OTP डालें'); return; }
-    if (!otpUserId) { toast.error('Session expire हो गया, फिर से try करें'); setStep('forgot'); return; }
+    if (code.length < 6) { toast.error('Please enter the 6-digit OTP'); return; }
+    if (!otpUserId) { toast.error('Session expired, please try again'); setStep('forgot'); return; }
     setLoading(true);
     try {
       const data = await authApi.verifyOtp(otpUserId, code);
       if (data.error) { toast.error(data.error); return; }
       setStep('reset');
-    } catch { toast.error('कुछ गलत हुआ'); }
+    } catch { toast.error('Something went wrong'); }
     finally { setLoading(false); }
   }
 
   // ── Reset password ─────────────────────────────────────────
   async function handleResetPassword(e: React.FormEvent) {
     e.preventDefault();
-    if (newPass.length < 4) { toast.error('Password कम से कम 4 अक्षर का होना चाहिए'); return; }
-    if (newPass !== confirmPass) { toast.error('दोनों passwords match नहीं कर रहे'); return; }
+    if (newPass.length < 4) { toast.error('Password must be at least 4 characters'); return; }
+    if (newPass !== confirmPass) { toast.error('Passwords do not match'); return; }
     if (!otpUserId) return;
     setLoading(true);
     try {
       const data = await authApi.resetPassword(otpUserId, newPass);
       if (data.error) { toast.error(data.error); return; }
       setStep('done');
-    } catch { toast.error('कुछ गलत हुआ'); }
+    } catch { toast.error('Something went wrong'); }
     finally { setLoading(false); }
   }
 
@@ -137,8 +137,8 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
             {step === 'login' && (
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <p className="text-white font-semibold text-lg mb-1">Login करें</p>
-                  <p className="text-slate-400 text-sm">Username या email और password डालें</p>
+                  <p className="text-white font-semibold text-lg mb-1">Login</p>
+                  <p className="text-slate-400 text-sm">Enter your username or email and password</p>
                 </div>
 
                 <div className="space-y-3 pt-1">
@@ -174,12 +174,12 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                 <Button type="submit" disabled={loading || !loginVal || !passVal}
                   className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold h-10">
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
-                  Login करें
+                  Login
                 </Button>
 
                 <button type="button" onClick={() => setStep('forgot')}
                   className="w-full text-center text-sm text-slate-500 hover:text-amber-400 transition-colors pt-1">
-                  Password भूल गए? / Forgot Password?
+                  Forgot Password?
                 </button>
               </form>
             )}
@@ -189,13 +189,13 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
                   <p className="text-white font-semibold text-lg mb-1">Password Reset</p>
-                  <p className="text-slate-400 text-sm">अपना username, email या phone डालें। OTP मिलेगा।</p>
+                  <p className="text-slate-400 text-sm">Enter your username, email or phone. You'll receive an OTP.</p>
                 </div>
                 <div className="space-y-1.5 pt-1">
                   <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Username / Email / Phone</label>
                   <Input
                     value={forgotLogin} onChange={e => setForgotLogin(e.target.value)}
-                    placeholder="admin या admin@example.com"
+                    placeholder="admin or admin@example.com"
                     className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 focus-visible:ring-amber-500/50"
                     autoFocus
                   />
@@ -203,7 +203,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                 <Button type="submit" disabled={loading || !forgotLogin.trim()}
                   className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold h-10">
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Shield className="w-4 h-4 mr-2" />}
-                  OTP भेजें / Send OTP
+                  Send OTP
                 </Button>
               </form>
             )}
@@ -212,16 +212,16 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
             {step === 'otp' && (
               <form onSubmit={handleVerifyOtp} className="space-y-5">
                 <div>
-                  <p className="text-white font-semibold text-lg mb-1">OTP Verify करें</p>
-                  <p className="text-slate-400 text-sm">6 अंक का OTP डालें (10 मिनट में expire होगा)</p>
+                  <p className="text-white font-semibold text-lg mb-1">Verify OTP</p>
+                  <p className="text-slate-400 text-sm">Enter the 6-digit OTP (expires in 10 minutes)</p>
                 </div>
 
                 {/* Dev-mode OTP display */}
                 {devOtp && (
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
-                    <p className="text-xs text-amber-400/80 mb-1">आपका OTP (Dev Mode)</p>
+                    <p className="text-xs text-amber-400/80 mb-1">Your OTP (Dev Mode)</p>
                     <p className="text-2xl font-bold text-amber-400 tracking-[0.3em]">{devOtp}</p>
-                    <p className="text-[10px] text-slate-500 mt-1">Production में यह SMS/WhatsApp पर जाएगा</p>
+                    <p className="text-[10px] text-slate-500 mt-1">In production this will be sent via SMS/WhatsApp</p>
                   </div>
                 )}
 
@@ -247,12 +247,12 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                 <Button type="submit" disabled={loading || otp.join('').length < 6}
                   className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold h-10">
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
-                  OTP Verify करें
+                  Verify OTP
                 </Button>
 
                 <button type="button" onClick={() => { setOtp(['','','','','','']); handleSendOtp(new Event('click') as unknown as React.FormEvent); }}
                   className="w-full text-center text-sm text-slate-500 hover:text-amber-400 transition-colors">
-                  OTP दोबारा भेजें / Resend OTP
+                  Resend OTP
                 </button>
               </form>
             )}
@@ -261,17 +261,17 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
             {step === 'reset' && (
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div>
-                  <p className="text-white font-semibold text-lg mb-1">नया Password</p>
-                  <p className="text-slate-400 text-sm">OTP verified! अब नया password set करें</p>
+                  <p className="text-white font-semibold text-lg mb-1">New Password</p>
+                  <p className="text-slate-400 text-sm">OTP verified! Now set your new password</p>
                 </div>
                 <div className="space-y-3 pt-1">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">नया Password</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">New Password</label>
                     <div className="relative">
                       <Input
                         type={showNewPass ? 'text' : 'password'}
                         value={newPass} onChange={e => setNewPass(e.target.value)}
-                        placeholder="कम से कम 4 अक्षर"
+                        placeholder="At least 4 characters"
                         className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 pr-10 focus-visible:ring-amber-500/50"
                         autoFocus
                       />
@@ -283,22 +283,22 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Password Confirm करें</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Confirm Password</label>
                     <Input
                       type="password"
                       value={confirmPass} onChange={e => setConfirmPass(e.target.value)}
-                      placeholder="दोबारा डालें"
+                      placeholder="Re-enter password"
                       className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 focus-visible:ring-amber-500/50"
                     />
                     {confirmPass && newPass !== confirmPass && (
-                      <p className="text-xs text-rose-400">Passwords match नहीं कर रहे</p>
+                      <p className="text-xs text-rose-400">Passwords do not match</p>
                     )}
                   </div>
                 </div>
                 <Button type="submit" disabled={loading || !newPass || !confirmPass || newPass !== confirmPass}
                   className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold h-10">
                   {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
-                  Password Save करें
+                  Save Password
                 </Button>
               </form>
             )}
@@ -308,12 +308,12 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
               <div className="text-center py-4 space-y-4">
                 <CheckCircle2 className="w-14 h-14 text-emerald-400 mx-auto" />
                 <div>
-                  <p className="text-white font-semibold text-lg">Password बदल गया!</p>
-                  <p className="text-slate-400 text-sm mt-1">अब नए password से login करें</p>
+                  <p className="text-white font-semibold text-lg">Password changed!</p>
+                  <p className="text-slate-400 text-sm mt-1">You can now login with your new password</p>
                 </div>
                 <Button onClick={() => { setStep('login'); setLoginVal(forgotLogin); setPassVal(''); }}
                   className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold h-10">
-                  Login करें
+                  Login
                 </Button>
               </div>
             )}

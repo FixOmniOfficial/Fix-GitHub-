@@ -31,7 +31,7 @@ export default function MoreScreen() {
   const s = styles(colors);
 
   const ACTIONS = [
-    { icon: 'phone' as const,  label: t.helpline,    sub: 'Admin को मैसेज करें',        path: '/helpline', color: '#22c55e' },
+    { icon: 'phone' as const,  label: t.helpline,    sub: 'Message the Admin',        path: '/helpline', color: '#22c55e' },
     { icon: 'shield' as const, label: 'Admin Panel', sub: 'Admin Login (PIN required)', path: '/admin',    color: '#8b5cf6' },
   ];
 
@@ -85,7 +85,7 @@ export default function MoreScreen() {
           <View style={s.actionText}>
             <Text style={s.actionLabel}>{t.language}</Text>
             <Text style={s.actionSub}>
-              {lang === 'en' ? `Currently: English — Switch to हिंदी` : `Currently: हिंदी — Switch to English`}
+              {lang === 'en' ? `Currently: English — Switch to Hindi` : `Currently: Hindi — Switch to English`}
             </Text>
           </View>
           <View style={{ backgroundColor: lang === 'hi' ? '#6366f1' : colors.card, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: lang === 'hi' ? '#6366f1' : colors.border }}>

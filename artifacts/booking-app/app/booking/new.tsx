@@ -34,7 +34,7 @@ function GuestAuthModal({
             <Text style={{ fontSize: 36 }}>🔐</Text>
             <Text style={{ fontSize: 18, fontWeight: '800', color: colors.foreground }}>Login to Confirm Booking</Text>
             <Text style={{ color: colors.mutedForeground, fontSize: 13, textAlign: 'center', lineHeight: 20 }}>
-              Free account बनाएं — Booking track करें, updates पाएं, history देखें।
+              Create a free account — track bookings, get updates, view history.
             </Text>
           </View>
 
@@ -44,7 +44,7 @@ function GuestAuthModal({
             onPress={onLogin}>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <Feather name="log-in" size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Login / Register करें</Text>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Login / Register</Text>
             </View>
           </TouchableOpacity>
 
@@ -53,7 +53,7 @@ function GuestAuthModal({
             style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
             onPress={onContinueAsGuest}>
             <Text style={{ color: colors.mutedForeground, fontWeight: '600', fontSize: 14 }}>
-              Guest के रूप में Continue करें (tracking नहीं होगी)
+              Continue as Guest (booking won't be tracked)
             </Text>
           </TouchableOpacity>
         </Pressable>
@@ -187,7 +187,7 @@ export default function NewBookingScreen() {
         </TouchableOpacity>
         <View>
           <Text style={s.headerTitle}>Booking Form</Text>
-          <Text style={s.headerSub}>अपनी जानकारी भरें</Text>
+          <Text style={s.headerSub}>Fill in your details</Text>
         </View>
       </View>
 
@@ -218,7 +218,7 @@ export default function NewBookingScreen() {
             onPress={() => router.push('/auth/customer' as any)}>
             <Feather name="log-in" size={16} color="#3b82f6" />
             <Text style={{ flex: 1, color: '#3b82f6', fontSize: 13 }}>
-              Login करें — bookings track होंगी और updates मिलेंगे
+              Login — bookings will be tracked and you'll get updates
             </Text>
             <Feather name="chevron-right" size={14} color="#3b82f6" />
           </TouchableOpacity>
@@ -231,7 +231,7 @@ export default function NewBookingScreen() {
             <TextInput
               style={[s.input, errors.name ? s.inputError : null]}
               value={name} onChangeText={setName}
-              placeholder="अपना नाम" placeholderTextColor={colors.mutedForeground}
+              placeholder="Your name" placeholderTextColor={colors.mutedForeground}
             />
             {errors.name && <Text style={s.errorText}>{errors.name}</Text>}
           </View>

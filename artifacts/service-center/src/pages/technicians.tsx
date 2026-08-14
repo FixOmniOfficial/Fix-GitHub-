@@ -541,7 +541,7 @@ export default function TechniciansPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-rose-400">Delete Technician?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-semibold text-slate-200">{deleteTarget?.name}</span> ({deleteTarget?.uniqueCode}) को permanently delete kar diya jayega.
+              <span className="font-semibold text-slate-200">{deleteTarget?.name}</span> ({deleteTarget?.uniqueCode}) will be permanently deleted.
               Unke KYC documents bhi hata diye jaayenge. Yeh action undo nahi ho sakta.
             </AlertDialogDescription>
           </AlertDialogHeader>

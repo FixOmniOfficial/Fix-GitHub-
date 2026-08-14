@@ -45,7 +45,7 @@ export default function ProfessionalListScreen() {
         </View>
         <View>
           <Text style={s.headerTitle}>{meta.label}</Text>
-          <Text style={s.headerSub}>Professional चुनें</Text>
+          <Text style={s.headerSub}>Choose Professional</Text>
         </View>
       </View>
 
@@ -60,8 +60,8 @@ export default function ProfessionalListScreen() {
           ListEmptyComponent={
             <View style={s.empty}>
               <Feather name="user-x" size={40} color={colors.mutedForeground} />
-              <Text style={s.emptyTitle}>कोई professional नहीं मिला</Text>
-              <Text style={s.emptyDesc}>इस category में अभी कोई professional available नहीं है।</Text>
+              <Text style={s.emptyTitle}>No professional found</Text>
+              <Text style={s.emptyDesc}>No professionals available in this category yet.</Text>
             </View>
           }
           renderItem={({ item: p }) => (

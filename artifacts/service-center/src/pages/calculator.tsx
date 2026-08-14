@@ -58,9 +58,9 @@ export default function Calculator() {
     <div className="space-y-6 animate-in fade-in duration-500 flex flex-col items-center justify-center min-h-[calc(100vh-120px)]">
       <div className="text-center mb-4">
         <h1 className="text-3xl font-bold tracking-tight flex items-center justify-center gap-3">
-          <CalcIcon className="w-8 h-8 text-primary" /> कैलकुलेटर
+          <CalcIcon className="w-8 h-8 text-primary" /> Calculator
         </h1>
-        <p className="text-muted-foreground">बिलिंग और हिसाब के लिए (Quick Billing Math)</p>
+        <p className="text-muted-foreground">Quick billing calculator</p>
       </div>
 
       <Card className="w-full max-w-sm shadow-xl bg-card border-2">
@@ -71,7 +71,7 @@ export default function Calculator() {
           </div>
 
           <div className="grid grid-cols-4 gap-3">
-            <Button variant="destructive" className="col-span-2 font-bold text-lg" onClick={clear}>C (साफ़)</Button>
+            <Button variant="destructive" className="col-span-2 font-bold text-lg" onClick={clear}>C (Clear)</Button>
             <Button variant="outline" className="font-bold text-lg border-primary/20 hover:bg-primary/10" onClick={del}>
               <Delete className="w-5 h-5" />
             </Button>

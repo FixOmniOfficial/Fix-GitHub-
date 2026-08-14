@@ -285,12 +285,12 @@ export default function Settings() {
                 {/* Live preview */}
                 <div className="mt-3 p-3 rounded-lg bg-muted/40 border border-dashed text-sm space-y-1">
                   <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-2">Preview</p>
-                  {language === 'hi'   && <><div className="font-semibold">डैशबोर्ड</div><div className="font-semibold">ग्राहक</div><div className="font-semibold">कार्य</div></>}
+                  {language === 'hi'   && <><div className="font-semibold">Dashboard</div><div className="font-semibold">Customers</div><div className="font-semibold">Jobs</div></>}
                   {language === 'en'   && <><div className="font-semibold">Dashboard</div><div className="font-semibold">Customers</div><div className="font-semibold">Jobs</div></>}
                   {language === 'both' && <>
-                    <div><span className="font-semibold">डैशबोर्ड</span> <span className="text-muted-foreground text-xs">Dashboard</span></div>
-                    <div><span className="font-semibold">ग्राहक</span> <span className="text-muted-foreground text-xs">Customers</span></div>
-                    <div><span className="font-semibold">कार्य</span> <span className="text-muted-foreground text-xs">Jobs</span></div>
+                    <div><span className="font-semibold">Dashboard</span></div>
+                    <div><span className="font-semibold">Customers</span></div>
+                    <div><span className="font-semibold">Jobs</span></div>
                   </>}
                 </div>
               </CardContent>

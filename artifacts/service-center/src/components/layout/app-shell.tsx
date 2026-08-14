@@ -16,33 +16,33 @@ import { useRole } from '@/lib/use-role';
 
 // All nav items — label = Hindi, subtitle = English
 const NAV_ITEMS = [
-  { label: 'डैशबोर्ड', subtitle: 'Dashboard',   icon: Home,            href: '/' },
-  { label: 'ग्राहक / कार्य', subtitle: 'Customers & Jobs', icon: Users, href: '/customers' },
-  { label: 'रिमाइंडर', subtitle: 'Reminders',    icon: Bell,            href: '/reminders' },
-  { label: 'कैलकुलेटर', subtitle: 'Calculator',  icon: CalculatorIcon,  href: '/calculator' },
-  { label: 'रिपोर्ट्स', subtitle: 'Reports',     icon: BarChart3,       href: '/reports' },
+  { label: 'Dashboard', subtitle: 'Dashboard',   icon: Home,            href: '/' },
+  { label: 'Customers & Jobs', subtitle: 'Customers & Jobs', icon: Users, href: '/customers' },
+  { label: 'Reminders', subtitle: 'Reminders',    icon: Bell,            href: '/reminders' },
+  { label: 'Calculator', subtitle: 'Calculator',  icon: CalculatorIcon,  href: '/calculator' },
+  { label: 'Reports', subtitle: 'Reports',     icon: BarChart3,       href: '/reports' },
 ];
 
 // Admin-only items in the System section
 const ADMIN_ITEMS = [
-  { label: 'तकनीशियन',  subtitle: 'Technicians',          icon: Hammer,      href: '/technicians' },
-  { label: 'स्टाफ',      subtitle: 'Staff',               icon: UserCog,     href: '/staff' },
-  { label: 'कैटेगरी',   subtitle: 'Service Categories',   icon: Layers,      href: '/service-categories' },
+  { label: 'Technicians',  subtitle: 'Technicians',          icon: Hammer,      href: '/technicians' },
+  { label: 'Staff',      subtitle: 'Staff',               icon: UserCog,     href: '/staff' },
+  { label: 'Categories',   subtitle: 'Service Categories',   icon: Layers,      href: '/service-categories' },
 ];
 
 // Items visible to admin OR staff with kyc_review permission
 const KYC_ITEMS = [
-  { label: 'KYC समीक्षा', subtitle: 'KYC Review', icon: Fingerprint, href: '/kyc-review' },
+  { label: 'KYC Review', subtitle: 'KYC Review', icon: Fingerprint, href: '/kyc-review' },
 ];
 
 // Super-admin only
 const SUPER_ADMIN_ITEMS = [
-  { label: 'सैंडबॉक्स', subtitle: 'Testing Sandbox', icon: FlaskConical, href: '/sandbox' },
+  { label: 'Sandbox', subtitle: 'Testing Sandbox', icon: FlaskConical, href: '/sandbox' },
 ];
 
 const BOTTOM_ITEMS = [
-  { label: 'यूज़र्स',  subtitle: 'Users',    icon: UserCircle, href: '/users' },
-  { label: 'सेटिंग्स', subtitle: 'Settings', icon: Settings,   href: '/settings' },
+  { label: 'Users',  subtitle: 'Users',    icon: UserCircle, href: '/users' },
+  { label: 'Settings', subtitle: 'Settings', icon: Settings,   href: '/settings' },
 ];
 
 /** Pick the display text based on language setting */
@@ -155,7 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={() => setLogoZoomOpen(true)}
               className="shrink-0 rounded-xl ring-0 hover:ring-2 hover:ring-amber-400/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              title="Logo zoom करें"
+              title="Zoom logo"
             >
               <Avatar className="w-9 h-9 rounded-xl border border-amber-500/30">
                 <AvatarImage src={logoUrl} className="object-cover rounded-xl" />
@@ -235,7 +235,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all text-xs"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Logout / लॉगआउट</span>
+            <span>Logout</span>
           </button>
         </div>
       </div>

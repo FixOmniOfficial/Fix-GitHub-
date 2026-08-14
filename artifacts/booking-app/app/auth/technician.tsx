@@ -130,15 +130,15 @@ export default function TechnicianAuthScreen() {
     setLoginInputErr(''); setLoginTechIdErr(''); setLoginPassErr('');
     // Client-side required checks
     if (!loginInput.trim()) {
-      setLoginInputErr(t.mobileOrEmail + ' जरूरी है।');
+      setLoginInputErr(t.mobileOrEmail + ' is required.');
       triggerShake(shakeInput); return;
     }
     if (!loginTechId.trim()) {
-      setLoginTechIdErr(t.techId + ' जरूरी है।');
+      setLoginTechIdErr(t.techId + ' is required.');
       triggerShake(shakeTechId); return;
     }
     if (!loginPass) {
-      setLoginPassErr(t.password + ' जरूरी है।');
+      setLoginPassErr(t.password + ' is required.');
       triggerShake(shakePass); return;
     }
     setLoading(true);
@@ -180,10 +180,10 @@ export default function TechnicianAuthScreen() {
 
   // ── Register ──────────────────────────────────────────────────────
   const handleRegister = async () => {
-    if (!regName.trim())  { Alert.alert('', t.fullName + ' जरूरी है।'); return; }
-    if (!regPhone.trim()) { Alert.alert('', t.mobileNumber + ' जरूरी है।'); return; }
-    if (!regEmail.trim()) { Alert.alert('', t.emailId + ' जरूरी है।'); return; }
-    if (regPass.length < 8) { Alert.alert('', 'Password कम से कम 8 characters का होना चाहिए।'); return; }
+    if (!regName.trim())  { Alert.alert('', t.fullName + ' is required.'); return; }
+    if (!regPhone.trim()) { Alert.alert('', t.mobileNumber + ' is required.'); return; }
+    if (!regEmail.trim()) { Alert.alert('', t.emailId + ' is required.'); return; }
+    if (regPass.length < 8) { Alert.alert('', 'Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
       const data = await api('/booking/technician/register', {
@@ -211,8 +211,8 @@ export default function TechnicianAuthScreen() {
 
   // ── Temp passcode login ───────────────────────────────────────────
   const handleTempLogin = async () => {
-    if (!tempTechId.trim()) { Alert.alert('', t.techId + ' जरूरी है।'); return; }
-    if (!tempPasscode.trim()) { Alert.alert('', 'Temporary Passcode जरूरी है।'); return; }
+    if (!tempTechId.trim()) { Alert.alert('', t.techId + ' is required.'); return; }
+    if (!tempPasscode.trim()) { Alert.alert('', 'Temporary Passcode is required.'); return; }
     setLoading(true);
     try {
       const data = await api('/booking/technician/temp-passcode-login', {
@@ -231,7 +231,7 @@ export default function TechnicianAuthScreen() {
   // ── Forced password set (after temp passcode) ─────────────────────
   const handleSetForcedPassword = async () => {
     if (forcedNewPass.length < 8) {
-      Alert.alert('', 'Password कम से कम 8 characters का होना चाहिए।'); return;
+      Alert.alert('', 'Password must be at least 8 characters.'); return;
     }
     setLoading(true);
     try {
@@ -253,7 +253,7 @@ export default function TechnicianAuthScreen() {
       // But that requires email. Let's use the direct approach:
       const techEmail = loggedInTech?.email;
       if (!techEmail) {
-        Alert.alert('त्रुटि', 'Email registered नहीं है। Admin से contact करें।');
+        Alert.alert('Error', 'Email not registered. Please contact Admin.');
         setLoading(false);
         return;
       }
@@ -274,7 +274,7 @@ export default function TechnicianAuthScreen() {
 
   // ── Forgot password steps ─────────────────────────────────────────
   const handleSendForgotOtp = async () => {
-    if (!forgotEmail.trim()) { Alert.alert('', 'Email जरूरी है।'); return; }
+    if (!forgotEmail.trim()) { Alert.alert('', 'Email is required.'); return; }
     setLoading(true);
     try {
       const res = await api('/booking/technician/forgot-password', { email: forgotEmail.trim().toLowerCase() });
@@ -290,7 +290,7 @@ export default function TechnicianAuthScreen() {
   };
 
   const handleVerifyForgotOtp = async () => {
-    if (forgotOtp.trim().length < 6) { Alert.alert('', '6-digit OTP डालें।'); return; }
+    if (forgotOtp.trim().length < 6) { Alert.alert('', 'Please enter the 6-digit OTP.'); return; }
     setLoading(true);
     try {
       await api('/booking/technician/verify-otp-email', {
@@ -299,12 +299,12 @@ export default function TechnicianAuthScreen() {
       setScreen('new_password');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (e: any) {
-      Alert.alert(t.error, e.message ?? 'OTP गलत है');
+      Alert.alert(t.error, e.message ?? 'Incorrect OTP');
     } finally { setLoading(false); }
   };
 
   const handleResetPassword = async () => {
-    if (forgotNewPass.length < 8) { Alert.alert('', 'Password कम से कम 8 characters का होना चाहिए।'); return; }
+    if (forgotNewPass.length < 8) { Alert.alert('', 'Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
       await api('/booking/technician/reset-password', {
@@ -324,13 +324,13 @@ export default function TechnicianAuthScreen() {
           professionType: loggedInTech.professionType,
           loginMethod: 'password',
         });
-        Alert.alert('✅ Password Set!', 'आपका नया password set हो गया। Dashboard पर जाएं।', [{
+        Alert.alert('✅ Password Set!', 'Your new password has been set. Go to Dashboard.', [{
           text: 'Dashboard',
           onPress: () => router.replace('/technician/home' as any),
         }]);
       } else {
-        Alert.alert('✅ ' + t.resetSuccess, 'अब नए password से login करें।', [{
-          text: 'Login करें',
+        Alert.alert('✅ ' + t.resetSuccess, 'You can now login with your new password.', [{
+          text: 'Login',
           onPress: () => { setTab('login'); setScreen('auth'); setForgotEmail(''); setForgotOtp(''); setForgotNewPass(''); },
         }]);
       }
@@ -343,7 +343,7 @@ export default function TechnicianAuthScreen() {
   const copyCode = () => {
     Clipboard.setString(generatedCode);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert('Copied!', 'Technician ID clipboard में copy हो गई।');
+    Alert.alert('Copied!', 'Technician ID copied to clipboard.');
   };
 
   // ════════ SCREENS ═══════════════════════════════════════════════
@@ -362,14 +362,14 @@ export default function TechnicianAuthScreen() {
           </View>
           <TouchableOpacity style={[s.outlineBtn, { borderColor: colors.border }]} onPress={copyCode}>
             <Feather name="copy" size={16} color={colors.foreground} />
-            <Text style={[s.outlineBtnText, { color: colors.foreground }]}>Code Copy करें</Text>
+            <Text style={[s.outlineBtnText, { color: colors.foreground }]}>Copy Code</Text>
           </TouchableOpacity>
           <Text style={{ fontSize: 12, color: '#f59e0b', textAlign: 'center', lineHeight: 18 }}>
             {t.saveTechId}
           </Text>
           <TouchableOpacity style={[s.submitBtn, { backgroundColor: colors.primary, width: '100%' }]}
             onPress={() => router.replace('/technician/home' as any)}>
-            <Text style={[s.submitText, { color: '#000' }]}>Dashboard पर जाएं</Text>
+            <Text style={[s.submitText, { color: '#000' }]}>Go to Dashboard</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -381,8 +381,8 @@ export default function TechnicianAuthScreen() {
       <View style={[s.root, { backgroundColor: colors.background }]}>
         <View style={[s.header, { paddingTop: topPad + 6 }]}>
           <View style={{ flex: 1 }}>
-            <Text style={s.headerTitle}>नया Password Set करें</Text>
-            <Text style={[s.headerSub, { color: '#f59e0b' }]}>⚠️ Security के लिए नया password जरूरी है</Text>
+            <Text style={s.headerTitle}>Set New Password</Text>
+            <Text style={[s.headerSub, { color: '#f59e0b' }]}>⚠️ A new password is required for security</Text>
           </View>
         </View>
         <ScrollView keyboardShouldPersistTaps="handled"
@@ -390,13 +390,13 @@ export default function TechnicianAuthScreen() {
           <View style={[s.infoBox, { backgroundColor: '#1c0a00', borderColor: '#f59e0b55' }]}>
             <Feather name="alert-triangle" size={16} color="#f59e0b" />
             <Text style={{ color: '#f59e0b', fontSize: 13, flex: 1 }}>
-              Admin द्वारा दिए गए temporary passcode से login हुए हैं।
-              Dashboard access के लिए नया password set करें।
+              You logged in with an Admin-issued temporary passcode.
+              Set a new password to access your Dashboard.
             </Text>
           </View>
 
           <Text style={[s.label, { color: colors.mutedForeground }]}>
-            नया Password * (OTP आपके email पर आएगा)
+            New Password * (OTP will be sent to your email)
           </Text>
           <TouchableOpacity
             style={[s.submitBtn, { backgroundColor: '#f59e0b' }, loading && { opacity: 0.5 }]}
@@ -404,7 +404,7 @@ export default function TechnicianAuthScreen() {
             {loading ? <ActivityIndicator color="#000" /> : (
               <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                 <Feather name="mail" size={18} color="#000" />
-                <Text style={[s.submitText, { color: '#000' }]}>Email OTP से Password Reset करें</Text>
+                <Text style={[s.submitText, { color: '#000' }]}>Reset Password via Email OTP</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -430,7 +430,7 @@ export default function TechnicianAuthScreen() {
           <View style={[s.infoBox, { backgroundColor: '#1c1000', borderColor: '#a78bfa44' }]}>
             <Feather name="info" size={15} color="#a78bfa" />
             <Text style={{ color: '#a78bfa', fontSize: 12, flex: 1 }}>
-              Email पर OTP के साथ आपकी Technician ID भी भेजी जाएगी।
+              Your Technician ID will also be sent with the OTP email.
             </Text>
           </View>
           <Text style={[s.label, { color: colors.mutedForeground }]}>{t.emailId} *</Text>
@@ -478,7 +478,7 @@ export default function TechnicianAuthScreen() {
               <Feather name="terminal" size={16} color="#84cc16" />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: '#84cc16', fontWeight: '800', fontSize: 13 }}>Demo OTP: {demoOtp}</Text>
-                <Text style={{ color: '#84cc16', fontSize: 11, marginTop: 2 }}>SMTP configure होने पर real email आएगा</Text>
+                <Text style={{ color: '#84cc16', fontSize: 11, marginTop: 2 }}>A real email will be sent once SMTP is configured</Text>
               </View>
             </View>
           ) : null}
@@ -512,7 +512,7 @@ export default function TechnicianAuthScreen() {
             </Text>
           </TouchableOpacity>
           <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: 'center' }}>
-            OTP 10 minutes तक valid है · Email में Technician ID भी देखें
+            OTP valid for 10 minutes · Check email for Technician ID too
           </Text>
         </ScrollView>
       </View>
@@ -535,7 +535,7 @@ export default function TechnicianAuthScreen() {
             <TextInput
               style={[s.input, { color: colors.foreground, borderColor: '#6366f1', backgroundColor: colors.card, paddingRight: 48 }]}
               value={forgotNewPass} onChangeText={setForgotNewPass}
-              placeholder="कम से कम 8 characters" placeholderTextColor={colors.mutedForeground}
+              placeholder="At least 8 characters" placeholderTextColor={colors.mutedForeground}
               secureTextEntry={!showNewPass}
             />
             <TouchableOpacity onPress={() => setShowNewPass(v => !v)}
@@ -547,7 +547,7 @@ export default function TechnicianAuthScreen() {
             style={[s.submitBtn, { backgroundColor: '#6366f1' }, (forgotNewPass.length < 8 || loading) && { opacity: 0.5 }]}
             onPress={handleResetPassword} disabled={forgotNewPass.length < 8 || loading}>
             {loading ? <ActivityIndicator color="#fff" /> : (
-              <Text style={[s.submitText, { color: '#fff' }]}>Password Save करें</Text>
+              <Text style={[s.submitText, { color: '#fff' }]}>Save Password</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -592,7 +592,7 @@ export default function TechnicianAuthScreen() {
             <View style={[s.infoBox, { backgroundColor: '#1c0a00', borderColor: '#f59e0b44' }]}>
               <Feather name="shield" size={15} color="#f59e0b" />
               <Text style={{ color: '#f59e0b', fontSize: 12, flex: 1 }}>
-                सभी 3 fields mandatory हैं — Mobile/Email + Technician ID + Password
+                All 3 fields are required — Mobile/Email + Technician ID + Password
               </Text>
             </View>
 
@@ -604,7 +604,7 @@ export default function TechnicianAuthScreen() {
                   borderColor: loginInputErr ? '#ef4444' : colors.primary }]}
                 value={loginInput}
                 onChangeText={v => { setLoginInput(v); if (loginInputErr) setLoginInputErr(''); }}
-                placeholder="9876543210 या example@gmail.com"
+                placeholder="9876543210 or example@gmail.com"
                 placeholderTextColor={colors.mutedForeground}
                 keyboardType="default" autoCapitalize="none" autoCorrect={false}
               />
@@ -680,13 +680,13 @@ export default function TechnicianAuthScreen() {
             <View style={[s.infoBox, { backgroundColor: '#052e16', borderColor: '#22c55e44' }]}>
               <Feather name="user-check" size={15} color="#22c55e" />
               <Text style={{ color: '#22c55e', fontSize: 12, flex: 1 }}>
-                Register करने पर unique Technician ID मिलेगी — इसे login में हमेशा use करें।
+                After registering you'll receive a unique Technician ID — always use it to login.
               </Text>
             </View>
 
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.fullName} *</Text>
             <TextInput style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
-              value={regName} onChangeText={setRegName} placeholder="पूरा नाम" placeholderTextColor={colors.mutedForeground} />
+              value={regName} onChangeText={setRegName} placeholder="Full name" placeholderTextColor={colors.mutedForeground} />
 
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.mobileNumber} *</Text>
             <PhoneInput value={regPhone} onChangeText={setRegPhone} />
@@ -699,7 +699,7 @@ export default function TechnicianAuthScreen() {
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.password} *</Text>
             <View style={{ position: 'relative' }}>
               <TextInput style={[s.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, paddingRight: 48 }]}
-                value={regPass} onChangeText={setRegPass} placeholder="कम से कम 8 characters"
+                value={regPass} onChangeText={setRegPass} placeholder="At least 8 characters"
                 placeholderTextColor={colors.mutedForeground} secureTextEntry={!showRegPass} />
               <TouchableOpacity onPress={() => setShowRegPass(v => !v)}
                 style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
@@ -726,7 +726,7 @@ export default function TechnicianAuthScreen() {
               {loading ? <ActivityIndicator color="#000" /> : (
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <Feather name="user-check" size={18} color="#000" />
-                  <Text style={s.submitText}>Register → ID पाएं</Text>
+                  <Text style={s.submitText}>Register → Get ID</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -745,8 +745,8 @@ export default function TechnicianAuthScreen() {
             <View style={[s.infoBox, { backgroundColor: '#1c0a00', borderColor: '#f59e0b55' }]}>
               <Feather name="key" size={15} color="#f59e0b" />
               <Text style={{ color: '#f59e0b', fontSize: 12, flex: 1 }}>
-                Admin द्वारा दिया गया temporary passcode यहाँ डालें।
-                Login के बाद नया password set करना होगा।
+                Enter the temporary passcode provided by the Admin.
+                After login you must set a new password.
               </Text>
             </View>
 
@@ -762,7 +762,7 @@ export default function TechnicianAuthScreen() {
             <TextInput
               style={[s.input, { color: '#f59e0b', borderColor: '#f59e0b', backgroundColor: colors.card, fontSize: 18, fontWeight: '800', letterSpacing: 2, textAlign: 'center' }]}
               value={tempPasscode} onChangeText={(v) => setTempPasscode(v.toUpperCase())}
-              placeholder="Admin से मिला code" placeholderTextColor={colors.mutedForeground}
+              placeholder="Code from Admin" placeholderTextColor={colors.mutedForeground}
               autoCapitalize="characters" autoCorrect={false}
             />
 
@@ -772,7 +772,7 @@ export default function TechnicianAuthScreen() {
               {loading ? <ActivityIndicator color="#000" /> : (
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <Feather name="unlock" size={18} color="#000" />
-                  <Text style={s.submitText}>Temp Login करें</Text>
+                  <Text style={s.submitText}>Login with Temp Code</Text>
                 </View>
               )}
             </TouchableOpacity>

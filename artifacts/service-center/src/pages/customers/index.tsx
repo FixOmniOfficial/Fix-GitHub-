@@ -51,15 +51,15 @@ import { toast } from 'sonner';
 /* ─── Schemas ────────────────────────────────────────────────────────────── */
 
 const addSchema = z.object({
-  name: z.string().min(1, 'नाम आवश्यक है'),
-  phone: z.string().min(10, 'फ़ोन नंबर आवश्यक है'),
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().min(10, 'Phone number is required'),
   whatsappPhone: z.string().optional(),
   address: z.string().optional(),
 });
 
 const editSchema = z.object({
-  name: z.string().min(1, 'नाम आवश्यक है'),
-  phone: z.string().min(10, 'फ़ोन नंबर आवश्यक है'),
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().min(10, 'Phone number is required'),
 });
 
 type AddForm = z.infer<typeof addSchema>;
@@ -122,7 +122,7 @@ function CustomerCard({
               <DropdownMenuContent align="start" className="w-48">
                 <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={onEdit}>
                   <Pencil className="w-4 h-4 text-blue-400" />
-                  नाम / नंबर बदलें
+                  Edit Name / Number
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -130,7 +130,7 @@ function CustomerCard({
                   onSelect={onDelete}
                 >
                   <Trash2 className="w-4 h-4" />
-                  हटाएं (Delete)
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -139,7 +139,7 @@ function CustomerCard({
             <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
               <button
                 className="flex items-center gap-1 text-primary hover:underline font-medium"
-                title="Call करें"
+                title="Call"
                 onClick={(e) => { e.stopPropagation(); onDial(e, customer.phone); }}
               >
                 <Phone className="w-3 h-3" />
@@ -155,9 +155,9 @@ function CustomerCard({
         {/* Right: stats + WhatsApp + arrow */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="hidden sm:flex flex-col items-end gap-1 mr-1">
-            <span className="text-xs text-muted-foreground">कार्य: {customer.totalJobs || 0}</span>
+            <span className="text-xs text-muted-foreground">Jobs: {customer.totalJobs || 0}</span>
             {customer.unpaidAmount ? (
-              <Badge variant="destructive" className="text-xs">बकाया ₹{customer.unpaidAmount}</Badge>
+              <Badge variant="destructive" className="text-xs">Unpaid ₹{customer.unpaidAmount}</Badge>
             ) : (
               <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-600 border-emerald-200">Clear</Badge>
             )}
@@ -183,10 +183,10 @@ function CustomerCard({
 
 function getStatusConfig(status: string) {
   switch (status) {
-    case 'pending':     return { label: 'लंबित',     icon: Clock,         color: 'text-amber-500',  bg: 'border-amber-300' };
-    case 'in_progress': return { label: 'प्रगति पर', icon: Wrench,        color: 'text-blue-500',   bg: 'border-blue-300' };
-    case 'completed':   return { label: 'पूरा हुआ',  icon: CheckCircle2,  color: 'text-emerald-500',bg: 'border-emerald-300' };
-    case 'cancelled':   return { label: 'रद्द',       icon: XCircle,       color: 'text-red-500',    bg: 'border-red-300' };
+    case 'pending':     return { label: 'Pending',     icon: Clock,         color: 'text-amber-500',  bg: 'border-amber-300' };
+    case 'in_progress': return { label: 'In Progress', icon: Wrench,        color: 'text-blue-500',   bg: 'border-blue-300' };
+    case 'completed':   return { label: 'Completed',  icon: CheckCircle2,  color: 'text-emerald-500',bg: 'border-emerald-300' };
+    case 'cancelled':   return { label: 'Cancelled',       icon: XCircle,       color: 'text-red-500',    bg: 'border-red-300' };
     default:            return { label: status,       icon: Clock,         color: 'text-gray-500',   bg: 'border-gray-200' };
   }
 }
@@ -248,11 +248,11 @@ export default function Customers() {
         queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
         setAddOpen(false);
         addForm.reset();
-        toast.success('ग्राहक जोड़ा गया ✓');
+        toast.success('Customer added ✓');
         // Navigate to the new customer's detail page
         if (newCustomer?.id) navigate(`/customers/${newCustomer.id}`);
       },
-      onError: () => toast.error('जोड़ने में विफल'),
+      onError: () => toast.error('Add failed'),
     });
   };
 
@@ -262,9 +262,9 @@ export default function Customers() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
         setEditTarget(null);
-        toast.success('बदलाव सुरक्षित हो गया ✓');
+        toast.success('Changes saved ✓');
       },
-      onError: () => toast.error('बदलाव नहीं हो सका'),
+      onError: () => toast.error('Could not save changes'),
     });
   };
 
@@ -274,9 +274,9 @@ export default function Customers() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
         setDeleteTarget(null);
-        toast.success('ग्राहक हटा दिया गया');
+        toast.success('Customer deleted');
       },
-      onError: () => toast.error('हटाने में विफल'),
+      onError: () => toast.error('Delete failed'),
     });
   };
 
@@ -297,19 +297,19 @@ export default function Customers() {
       {/* Page title */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          ग्राहक & कार्य <span className="text-xl font-normal text-muted-foreground ml-2">Customers & Jobs</span>
+          Customers & Jobs 
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">सभी ग्राहक और सर्विस जॉब्स एक जगह</p>
+        <p className="text-muted-foreground mt-1 text-sm">All customers and service jobs in one place</p>
       </div>
 
       {/* Top-level tabs */}
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="grid grid-cols-2 w-full max-w-xs">
           <TabsTrigger value="customers" className="flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5" /> ग्राहक
+            <Users className="w-3.5 h-3.5" /> Customers
           </TabsTrigger>
           <TabsTrigger value="jobs" className="flex items-center gap-1.5">
-            <Wrench className="w-3.5 h-3.5" /> कार्य
+            <Wrench className="w-3.5 h-3.5" /> Jobs
           </TabsTrigger>
         </TabsList>
 
@@ -319,14 +319,14 @@ export default function Customers() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="नाम या फ़ोन नंबर से खोजें..."
+                placeholder="Search by name or phone..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
             <Button className="shadow-sm shrink-0" onClick={() => setAddOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" /> नया ग्राहक
+              <Plus className="w-4 h-4 mr-2" /> New Customer
             </Button>
           </div>
 
@@ -350,7 +350,7 @@ export default function Customers() {
               {customers?.length === 0 && (
                 <div className="text-center py-16 bg-card rounded-xl border-2 border-dashed">
                   <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-                  <h3 className="text-lg font-medium">कोई ग्राहक नहीं मिला</h3>
+                  <h3 className="text-lg font-medium">No customers found</h3>
                   <p className="text-muted-foreground text-sm mt-1">No customers found</p>
                 </div>
               )}
@@ -364,7 +364,7 @@ export default function Customers() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="जॉब नंबर या ग्राहक खोजें..."
+              placeholder="Search job or customer..."
               value={jobSearch}
               onChange={(e) => setJobSearch(e.target.value)}
               className="pl-10"
@@ -373,11 +373,11 @@ export default function Customers() {
 
           <Tabs value={jobStatus} onValueChange={setJobStatus}>
             <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-              <TabsTrigger value="all">सभी</TabsTrigger>
-              <TabsTrigger value="pending">लंबित</TabsTrigger>
-              <TabsTrigger value="in_progress">प्रगति</TabsTrigger>
-              <TabsTrigger value="completed">पूर्ण</TabsTrigger>
-              <TabsTrigger value="cancelled">रद्द</TabsTrigger>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="in_progress">In Progress</TabsTrigger>
+              <TabsTrigger value="completed">Done</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
             </TabsList>
 
             <TabsContent value={jobStatus} className="mt-3">
@@ -441,7 +441,7 @@ export default function Customers() {
                               onClick={(e) => e.stopPropagation()}
                               className="text-[10px] text-muted-foreground hover:text-primary underline underline-offset-2"
                             >
-                              Job विवरण →
+                              Job Details →
                             </Link>
                           </div>
                         </CardContent>
@@ -451,7 +451,7 @@ export default function Customers() {
                   {jobs?.length === 0 && (
                     <div className="text-center py-12 bg-card rounded-xl border-2 border-dashed">
                       <Wrench className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-                      <h3 className="text-lg font-medium">कोई कार्य नहीं मिला</h3>
+                      <h3 className="text-lg font-medium">No jobs found</h3>
                       <p className="text-muted-foreground text-sm">No jobs found</p>
                     </div>
                   )}
@@ -466,15 +466,15 @@ export default function Customers() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>नया ग्राहक जोड़ें</DialogTitle>
+            <DialogTitle>Add New Customer</DialogTitle>
           </DialogHeader>
           <Form {...addForm}>
             <form onSubmit={addForm.handleSubmit(handleAdd)} className="space-y-4">
               <FormField control={addForm.control} name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>नाम (Name)</FormLabel>
-                    <FormControl><Input placeholder="राहुल कुमार" {...field} /></FormControl>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl><Input placeholder="Customer name" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -483,7 +483,7 @@ export default function Customers() {
                 <FormField control={addForm.control} name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>फ़ोन (Phone)</FormLabel>
+                      <FormLabel>Phone</FormLabel>
                       <FormControl><Input placeholder="9876543210" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -502,14 +502,14 @@ export default function Customers() {
               <FormField control={addForm.control} name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>पता (Address)</FormLabel>
-                    <FormControl><Input placeholder="पूर्ण पता" {...field} /></FormControl>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl><Input placeholder="Full address" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <Button type="submit" className="w-full" disabled={createCustomer.isPending}>
-                {createCustomer.isPending ? 'जोड़ रहा है...' : 'सुरक्षित करें'}
+                {createCustomer.isPending ? 'Adding...' : 'Save'}
               </Button>
             </form>
           </Form>
@@ -520,14 +520,14 @@ export default function Customers() {
       <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>नाम / नंबर बदलें</DialogTitle>
+            <DialogTitle>Edit Name / Number</DialogTitle>
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4">
               <FormField control={editForm.control} name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>नाम (Name)</FormLabel>
+                    <FormLabel>Name</FormLabel>
                     <FormControl><Input {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -536,7 +536,7 @@ export default function Customers() {
               <FormField control={editForm.control} name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>फ़ोन नंबर (Phone)</FormLabel>
+                    <FormLabel>Phone</FormLabel>
                     <FormControl><Input {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -544,10 +544,10 @@ export default function Customers() {
               />
               <div className="flex gap-3">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setEditTarget(null)}>
-                  रद्द करें
+                  Cancel
                 </Button>
                 <Button type="submit" className="flex-1" disabled={updateCustomer.isPending}>
-                  {updateCustomer.isPending ? 'सुरक्षित हो रहा है...' : 'सुरक्षित करें ✓'}
+                  {updateCustomer.isPending ? 'Saving...' : 'Save ✓'}
                 </Button>
               </div>
             </form>
@@ -559,19 +559,19 @@ export default function Customers() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>"{deleteTarget?.name}" को हटाएं?</AlertDialogTitle>
+            <AlertDialogTitle>"Delete {deleteTarget?.name}?"</AlertDialogTitle>
             <AlertDialogDescription>
-              यह ग्राहक और उनसे जुड़ा सारा डेटा हमेशा के लिए हट जाएगा। यह वापस नहीं होगा।
+              This customer and all associated data will be permanently deleted. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>रद्द करें</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteCustomer.isPending}
             >
-              {deleteCustomer.isPending ? 'हटा रहा है...' : 'हां, हटाएं'}
+              {deleteCustomer.isPending ? 'Deleting...' : 'Yes, Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

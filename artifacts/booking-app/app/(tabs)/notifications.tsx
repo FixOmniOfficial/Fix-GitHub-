@@ -43,7 +43,7 @@ export default function NotificationsScreen() {
         <View style={s.headerRow}>
           <View>
             <Text style={s.headerTitle}>Notifications</Text>
-            <Text style={s.headerSub}>नई बुकिंग अलर्ट</Text>
+            <Text style={s.headerSub}>New Booking Alerts</Text>
           </View>
           {bookings && bookings.filter(b => new Date(b.createdAt).getTime() > twentyFourHoursAgo).length > 0 && (
             <View style={s.badge}>
@@ -67,7 +67,7 @@ export default function NotificationsScreen() {
           ListEmptyComponent={
             <View style={s.empty}>
               <Feather name="bell-off" size={36} color={colors.mutedForeground} />
-              <Text style={s.emptyText}>कोई notification नहीं</Text>
+              <Text style={s.emptyText}>No notifications yet</Text>
             </View>
           }
           renderItem={({ item: b }) => {

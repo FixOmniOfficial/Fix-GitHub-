@@ -35,10 +35,10 @@ interface KycDoc {
 }
 
 const STATUS_CONFIG: Record<KycStatus, { label: string; labelHi: string; color: string; bg: string; icon: string }> = {
-  not_submitted: { label: 'Not Submitted', labelHi: 'जमा नहीं',  color: '#94a3b8', bg: '#1e293b', icon: 'file-text' },
-  pending:       { label: 'Pending',       labelHi: 'समीक्षाधीन', color: '#f59e0b', bg: '#451a03', icon: 'clock'     },
-  verified:      { label: 'Verified ✅',   labelHi: 'सत्यापित',   color: '#10b981', bg: '#064e3b', icon: 'check-circle' },
-  rejected:      { label: 'Rejected ❌',   labelHi: 'अस्वीकृत',   color: '#f43f5e', bg: '#4c0519', icon: 'x-circle'  },
+  not_submitted: { label: 'Not Submitted', labelHi: 'Not Submitted',  color: '#94a3b8', bg: '#1e293b', icon: 'file-text' },
+  pending:       { label: 'Pending',       labelHi: 'Under Review', color: '#f59e0b', bg: '#451a03', icon: 'clock'     },
+  verified:      { label: 'Verified ✅',   labelHi: 'Verified',   color: '#10b981', bg: '#064e3b', icon: 'check-circle' },
+  rejected:      { label: 'Rejected ❌',   labelHi: 'Rejected',   color: '#f43f5e', bg: '#4c0519', icon: 'x-circle'  },
 };
 
 // ── Upload a photo to the API server (multipart) ──────────────────────────────
@@ -270,7 +270,7 @@ export default function KycScreen() {
             {/* PAN Card */}
             <DocUploadRow
               label="PAN Card"
-              labelHi="पैन कार्ड"
+              labelHi="PAN Card"
               icon="credit-card"
               localUri={panUri}
               uploaded={!!panPath}
@@ -282,7 +282,7 @@ export default function KycScreen() {
             {/* Address Proof */}
             <DocUploadRow
               label="Address Proof"
-              labelHi="पता प्रमाण"
+              labelHi="Address Proof"
               icon="home"
               localUri={addrUri}
               uploaded={!!addrPath}

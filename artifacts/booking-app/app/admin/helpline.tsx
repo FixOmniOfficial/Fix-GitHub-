@@ -84,7 +84,7 @@ export default function AdminHelplineScreen() {
           ListEmptyComponent={
             <View style={s.empty}>
               <Feather name="inbox" size={36} color={colors.mutedForeground} />
-              <Text style={s.emptyText}>कोई message नहीं</Text>
+              <Text style={s.emptyText}>No messages yet</Text>
             </View>
           }
           renderItem={({ item: m }) => (

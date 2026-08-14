@@ -20,20 +20,20 @@ export default function Reports() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            रिपोर्ट्स <span className="text-xl font-normal text-muted-foreground ml-2">Reports & Statistics</span>
+            Reports 
           </h1>
-          <p className="text-muted-foreground mt-1">व्यापार प्रदर्शन विश्लेषण (Business Performance Analysis)</p>
+          <p className="text-muted-foreground mt-1">Business Performance Analysis</p>
         </div>
         
         <Select value={period} onValueChange={(val: any) => setPeriod(val)}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="अवधि चुनें (Select Period)" />
+            <SelectValue placeholder="Select Period" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="week">इस सप्ताह (This Week)</SelectItem>
-            <SelectItem value="month">इस महीने (This Month)</SelectItem>
-            <SelectItem value="year">इस वर्ष (This Year)</SelectItem>
-            <SelectItem value="all">सभी (All Time)</SelectItem>
+            <SelectItem value="week">This Week</SelectItem>
+            <SelectItem value="month">This Month</SelectItem>
+            <SelectItem value="year">This Year</SelectItem>
+            <SelectItem value="all">All Time</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -46,8 +46,8 @@ export default function Reports() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>आय रुझान (Revenue Trend)</CardTitle>
-              <CardDescription>समय के साथ कमाई (Earnings over time)</CardDescription>
+              <CardTitle>Revenue Trend</CardTitle>
+              <CardDescription>Earnings over time</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -56,7 +56,7 @@ export default function Reports() {
                   <XAxis dataKey="date" tick={{fontSize: 12}} stroke="hsl(var(--muted-foreground))" />
                   <YAxis tick={{fontSize: 12}} stroke="hsl(var(--muted-foreground))" tickFormatter={value => `₹${value}`} />
                   <RechartsTooltip 
-                    formatter={(value) => [`₹${value}`, 'आय (Revenue)']}
+                    formatter={(value) => [`₹${value}`, 'Revenue']}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
                   />
                   <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={3} dot={{r: 4, fill: 'hsl(var(--primary))'}} activeDot={{r: 6}} />
@@ -67,8 +67,8 @@ export default function Reports() {
 
           <Card>
             <CardHeader>
-              <CardTitle>भुगतान स्थिति (Payment Status)</CardTitle>
-              <CardDescription>भुगतान का वितरण (Distribution of payments)</CardDescription>
+              <CardTitle>Payment Status</CardTitle>
+              <CardDescription>Distribution of payments</CardDescription>
             </CardHeader>
             <CardContent className="h-80 flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
@@ -93,7 +93,7 @@ export default function Reports() {
                     ))}
                   </Pie>
                   <RechartsTooltip 
-                    formatter={(value) => [`₹${value}`, 'राशि (Amount)']}
+                    formatter={(value) => [`₹${value}`, 'Amount']}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
                   />
                 </PieChart>
@@ -103,8 +103,8 @@ export default function Reports() {
 
           <Card>
             <CardHeader>
-              <CardTitle>कार्य स्थिति (Job Status)</CardTitle>
-              <CardDescription>कार्यों की वर्तमान स्थिति (Current status of jobs)</CardDescription>
+              <CardTitle>Job Status</CardTitle>
+              <CardDescription>Current status of jobs</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -113,7 +113,7 @@ export default function Reports() {
                   <XAxis type="number" tick={{fontSize: 12}} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
                   <YAxis dataKey="status" type="category" tick={{fontSize: 12}} stroke="hsl(var(--muted-foreground))" width={100} />
                   <RechartsTooltip 
-                    formatter={(value) => [value, 'कार्य (Jobs)']}
+                    formatter={(value) => [value, 'Jobs']}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
                   />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]}>
@@ -128,8 +128,8 @@ export default function Reports() {
 
           <Card>
             <CardHeader>
-              <CardTitle>शीर्ष उपकरण (Top Appliances)</CardTitle>
-              <CardDescription>सर्वाधिक मरम्मत किए जाने वाले उपकरण (Most repaired appliances)</CardDescription>
+              <CardTitle>Top Appliances</CardTitle>
+              <CardDescription>Most repaired appliances</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -138,7 +138,7 @@ export default function Reports() {
                   <XAxis dataKey="type" tick={{fontSize: 12}} stroke="hsl(var(--muted-foreground))" />
                   <YAxis tick={{fontSize: 12}} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
                   <RechartsTooltip 
-                    formatter={(value) => [value, 'संख्या (Count)']}
+                    formatter={(value) => [value, 'Count']}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
                   />
                   <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
@@ -150,7 +150,7 @@ export default function Reports() {
       ) : (
         <div className="text-center py-24 text-muted-foreground border-2 border-dashed rounded-xl bg-card">
           <BarChart2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p className="text-lg">डेटा लोड करने में विफल (Failed to load data)</p>
+          <p className="text-lg">Failed to load data</p>
         </div>
       )}
     </div>

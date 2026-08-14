@@ -23,9 +23,9 @@ import * as z from 'zod';
 import { Link } from 'wouter';
 
 const reminderSchema = z.object({
-  title: z.string().min(1, 'शीर्षक आवश्यक है (Title required)'),
+  title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  reminderAt: z.string().min(1, 'दिनांक और समय आवश्यक है (Date & time required)'),
+  reminderAt: z.string().min(1, 'Date & time required'),
 });
 
 export default function Reminders() {
@@ -58,7 +58,7 @@ export default function Reminders() {
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey() });
         setIsDialogOpen(false);
         form.reset();
-        toast.success('रिमाइंडर सेट किया गया (Reminder set)');
+        toast.success('Reminder set');
       }
     });
   };
@@ -67,7 +67,7 @@ export default function Reminders() {
     updateReminder.mutate({ id, data: { isActive: false } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey() });
-        toast.success('रिमाइंडर पूरा हुआ (Reminder completed)');
+        toast.success('Reminder completed');
       }
     });
   };
@@ -76,7 +76,7 @@ export default function Reminders() {
     deleteReminder.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey() });
-        toast.success('रिमाइंडर हटा दिया गया (Reminder deleted)');
+        toast.success('Reminder deleted');
       }
     });
   };
@@ -88,22 +88,22 @@ export default function Reminders() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            रिमाइंडर <span className="text-xl font-normal text-muted-foreground">Reminders & Alarms</span>
+            Reminders <span className="text-xl font-normal text-muted-foreground">Reminders & Alarms</span>
             <BellRing className="w-6 h-6 text-amber-500" />
           </h1>
-          <p className="text-muted-foreground mt-1">महत्वपूर्ण कार्यों और कॉल के लिए रिमाइंडर (Set alerts for important tasks)</p>
+          <p className="text-muted-foreground mt-1">Set alerts for important tasks and calls</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="shadow-sm">
               <Plus className="w-4 h-4 mr-2" />
-              नया रिमाइंडर (New Reminder)
+              New Reminder
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>रिमाइंडर सेट करें (Set Reminder)</DialogTitle>
+              <DialogTitle>Set Reminder</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -112,8 +112,8 @@ export default function Reminders() {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>शीर्षक (Title)</FormLabel>
-                      <FormControl><Input placeholder="उदा: कॉल करें" {...field} /></FormControl>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl><Input placeholder="e.g. Call back" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -123,7 +123,7 @@ export default function Reminders() {
                   name="reminderAt"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>दिनांक और समय (Date & Time)</FormLabel>
+                      <FormLabel>Date & Time</FormLabel>
                       <FormControl><Input type="datetime-local" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -134,14 +134,14 @@ export default function Reminders() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>विवरण (Description)</FormLabel>
+                      <FormLabel>Description</FormLabel>
                       <FormControl><Input placeholder="Optional notes" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 <Button type="submit" className="w-full" disabled={createReminder.isPending}>
-                  {createReminder.isPending ? 'सेट कर रहा है...' : 'सुरक्षित करें (Save)'}
+                  {createReminder.isPending ? 'Setting...' : 'Save'}
                 </Button>
               </form>
             </Form>
@@ -157,7 +157,7 @@ export default function Reminders() {
         ) : reminders?.length === 0 ? (
           <div className="text-center py-16 bg-card border-2 border-dashed rounded-xl">
             <Bell className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-xl font-medium">कोई सक्रिय रिमाइंडर नहीं</h3>
+            <h3 className="text-xl font-medium">No active reminders</h3>
             <p className="text-muted-foreground mt-1">No active reminders</p>
           </div>
         ) : (
@@ -177,7 +177,7 @@ export default function Reminders() {
                       <Clock className="w-5 h-5" />
                       {date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </div>
-                    {isOverdue && <Badge variant="destructive" className="mt-2 text-[10px]">अतिदेय (Overdue)</Badge>}
+                    {isOverdue && <Badge variant="destructive" className="mt-2 text-[10px]">Overdue</Badge>}
                   </div>
                   
                   <div className="p-4 sm:p-6 flex-1 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -208,7 +208,7 @@ export default function Reminders() {
                           onClick={() => handleMarkDone(reminder.id)}
                         >
                           <CheckCircle className="w-4 h-4 mr-2" />
-                          पूरा हुआ
+                          Done
                         </Button>
                         <Button 
                           variant="ghost" 

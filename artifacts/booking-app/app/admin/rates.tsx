@@ -37,7 +37,7 @@ export default function AdminRatesScreen() {
   const handleSave = () => {
     if (!editing || !newRate) return;
     const val = parseFloat(newRate);
-    if (isNaN(val) || val <= 0) { Alert.alert('Error', 'Valid rate enter करें'); return; }
+    if (isNaN(val) || val <= 0) { Alert.alert('Error', 'Please enter a valid rate'); return; }
     updateRate.mutate(
       { id: editing.id, data: { rate: val } },
       {
@@ -76,7 +76,7 @@ export default function AdminRatesScreen() {
         </TouchableOpacity>
         <View>
           <Text style={s.headerTitle}>Market Rates</Text>
-          <Text style={s.headerSub}>Rate edit करें (tap to edit)</Text>
+          <Text style={s.headerSub}>Tap a rate to edit</Text>
         </View>
       </View>
 
@@ -117,7 +117,7 @@ export default function AdminRatesScreen() {
       <Modal visible={!!editing} transparent animationType="slide">
         <View style={s.modalOverlay}>
           <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
-            <Text style={s.modalTitle}>Rate Edit करें</Text>
+            <Text style={s.modalTitle}>Edit Rate</Text>
             <Text style={s.modalService}>{editing?.serviceName}</Text>
             <TextInput
               style={[s.modalInput, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.secondary }]}

@@ -91,7 +91,7 @@ const PROFESSION_LABELS_FALLBACK: Record<string, string> = {
   painter: 'Painter', repair: 'Repair',
 };
 
-const STAR_LABELS = ['', 'बहुत बुरा 😞', 'बुरा 😕', 'ठीक है 😐', 'अच्छा 😊', 'बहुत अच्छा 🤩'];
+const STAR_LABELS = ['', 'Very Bad 😞', 'Bad 😕', 'Okay 😐', 'Good 😊', 'Excellent 🤩'];
 
 // ── Inline Rating Widget ──────────────────────────────────────────────────────
 function RatingWidget({ colors }: { colors: ReturnType<typeof useColors> }) {
@@ -122,7 +122,7 @@ function RatingWidget({ colors }: { colors: ReturnType<typeof useColors> }) {
           queryClient.invalidateQueries();
           setDone(true);
         },
-        onError: () => Alert.alert('Error', 'Rating submit नहीं हुई। Please retry.'),
+        onError: () => Alert.alert('Error', 'Rating could not be submitted. Please retry.'),
       }
     );
   };
@@ -139,7 +139,7 @@ function RatingWidget({ colors }: { colors: ReturnType<typeof useColors> }) {
         <View style={{ alignItems: 'center', gap: 4 }}>
           <Text style={{ fontSize: 30 }}>🙏</Text>
           <Text style={[s.ratingWidgetTitle, { color: colors.foreground }]}>
-            धन्यवाद! आपकी Rating मिल गई
+            Thank you! Your rating was received
           </Text>
           <View style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}>
             {[1,2,3,4,5].map(s => (
@@ -285,7 +285,7 @@ export default function HomeScreen() {
   const handleLogout = () => {
     Alert.alert(
       'Logout',
-      `${user?.name} — logout करना चाहते हैं?`,
+      `${user?.name} — are you sure you want to logout?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Logout', style: 'destructive', onPress: logout },
@@ -312,7 +312,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={s.heroTitle}>Fix Omni</Text>
-              <Text style={s.heroTagline}>Services Booking • विश्वसनीय सेवाएँ</Text>
+              <Text style={s.heroTagline}>Services Booking • Trusted Service</Text>
             </View>
           </View>
 
@@ -435,8 +435,8 @@ export default function HomeScreen() {
               <Feather name="user" size={22} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[s.loginCtaTitle, { color: colors.foreground }]}>Login / Register करें</Text>
-              <Text style={[s.loginCtaSub, { color: colors.mutedForeground }]}>Bookings track करें, history देखें, account बनाएं</Text>
+              <Text style={[s.loginCtaTitle, { color: colors.foreground }]}>Login / Register</Text>
+              <Text style={[s.loginCtaSub, { color: colors.mutedForeground }]}>Track bookings, view history, create account</Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.primary} />
           </TouchableOpacity>
@@ -468,7 +468,7 @@ export default function HomeScreen() {
 
         {/* ── 3. Service Categories (with search bar) ── */}
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Service चुनें</Text>
+          <Text style={s.sectionTitle}>Choose a Service</Text>
           {/* Search bar */}
           <View style={[s.searchBar, { borderColor: colors.border, backgroundColor: colors.card }]}>
             <Feather name="search" size={15} color={colors.mutedForeground} />

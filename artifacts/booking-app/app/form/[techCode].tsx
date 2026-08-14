@@ -58,7 +58,7 @@ export default function TechFormScreen() {
     fetch(`${API_BASE}/api/booking/tech-form-config/${techCode}`)
       .then(r => r.json())
       .then(data => {
-        if (data.error) { setError('Technician नहीं मिला'); return; }
+        if (data.error) { setError('Technician not found'); return; }
         setTechInfo(data.technician);
         setFormConfig(data.config);
         setVisitingCharge(String(data.config?.defaultVisitingCharge ?? ''));
@@ -68,9 +68,9 @@ export default function TechFormScreen() {
   }, [techCode]);
 
   const handleSubmit = async () => {
-    if (!customerName.trim()) { Alert.alert('', 'नाम डालें'); return; }
-    if (!phone.trim() || phone.length < 10) { Alert.alert('', 'सही phone number डालें'); return; }
-    if (!fullAddress.trim()) { Alert.alert('', 'पता डालें'); return; }
+    if (!customerName.trim()) { Alert.alert('', 'Please enter your name'); return; }
+    if (!phone.trim() || phone.length < 10) { Alert.alert('', 'Please enter a valid phone number'); return; }
+    if (!fullAddress.trim()) { Alert.alert('', 'Please enter your address'); return; }
     setSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/api/booking/tech-form-submit/${techCode}`, {
@@ -81,7 +81,7 @@ export default function TechFormScreen() {
       if (!res.ok) throw new Error('Submit failed');
       setSubmitted(true);
     } catch {
-      Alert.alert('Error', 'Submit नहीं हो सका, दोबारा try करें');
+      Alert.alert('Error', 'Could not submit, please try again');
     } finally {
       setSubmitting(false);
     }
@@ -112,9 +112,9 @@ export default function TechFormScreen() {
         <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#14532d', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
           <Feather name="check" size={40} color="#22c55e" />
         </View>
-        <Text style={{ fontSize: 22, fontWeight: '800', color: colors.foreground, textAlign: 'center' }}>धन्यवाद! 🙏</Text>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: colors.foreground, textAlign: 'center' }}>Thank you! 🙏</Text>
         <Text style={{ fontSize: 15, color: colors.mutedForeground, marginTop: 10, textAlign: 'center', lineHeight: 22 }}>
-          आपकी request {techInfo.name} को भेज दी गई है।{'\n'}जल्द ही आपसे contact किया जाएगा।
+          Your request {techInfo.name} has been sent to{'\n'}We will contact you shortly.
         </Text>
         <View style={[s.thankCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={{ fontSize: 13, color: colors.mutedForeground }}>Technician</Text>
@@ -159,13 +159,13 @@ export default function TechFormScreen() {
           <Text style={s.sectionLabel}>Customer Details</Text>
 
           <View style={s.field}>
-            <Text style={s.label}>नाम *</Text>
-            <TextInput style={s.input} placeholder="आपका पूरा नाम" placeholderTextColor={colors.mutedForeground} value={customerName} onChangeText={setCustomerName} />
+            <Text style={s.label}>Name *</Text>
+            <TextInput style={s.input} placeholder="Your full name" placeholderTextColor={colors.mutedForeground} value={customerName} onChangeText={setCustomerName} />
           </View>
 
           <View style={s.field}>
             <Text style={s.label}>Phone Number *</Text>
-            <TextInput style={s.input} placeholder="10 अंकों का mobile number" placeholderTextColor={colors.mutedForeground} value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={10} />
+            <TextInput style={s.input} placeholder="10-digit mobile number" placeholderTextColor={colors.mutedForeground} value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={10} />
           </View>
 
           <Text style={[s.sectionLabel, { marginTop: 4 }]}>Address Details</Text>
@@ -187,7 +187,7 @@ export default function TechFormScreen() {
           </View>
 
           <View style={s.field}>
-            <Text style={s.label}>पूरा पता *</Text>
+            <Text style={s.label}>Full Address *</Text>
             <TextInput
               style={[s.input, { height: 80, textAlignVertical: 'top' }]}
               placeholder="Street name, near landmark..."
@@ -214,7 +214,7 @@ export default function TechFormScreen() {
             <Text style={s.label}>Extra Notes (optional)</Text>
             <TextInput
               style={[s.input, { height: 72, textAlignVertical: 'top' }]}
-              placeholder="कोई खास बात / problem description..."
+              placeholder="Issue description..."
               placeholderTextColor={colors.mutedForeground}
               value={notes}
               onChangeText={setNotes}
@@ -233,7 +233,7 @@ export default function TechFormScreen() {
             ) : (
               <>
                 <Feather name="send" size={17} color="#000" />
-                <Text style={s.submitText}>Request भेजें</Text>
+                <Text style={s.submitText}>Send Request</Text>
               </>
             )}
           </TouchableOpacity>

@@ -47,7 +47,7 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      title: 'कुल ग्राहक',
+      title: 'Total Customers',
       subtitle: 'Total Customers',
       value: summary?.totalCustomers || 0,
       icon: Users,
@@ -55,7 +55,7 @@ export default function Dashboard() {
       href: '/customers',
     },
     {
-      title: 'लंबित कार्य',
+      title: 'Pending Jobs',
       subtitle: 'Pending Jobs',
       value: summary?.pendingJobs || 0,
       icon: Wrench,
@@ -63,7 +63,7 @@ export default function Dashboard() {
       href: '/jobs?status=pending',
     },
     {
-      title: 'कुल आय',
+      title: 'Total Revenue',
       subtitle: 'Total Revenue',
       value: `₹${summary?.totalRevenue?.toLocaleString('en-IN') || 0}`,
       icon: IndianRupee,
@@ -71,7 +71,7 @@ export default function Dashboard() {
       href: '/reports',
     },
     {
-      title: 'अतिदेय भुगतान',
+      title: 'Overdue Payments',
       subtitle: 'Overdue Payments',
       value: summary?.overduePayments || 0,
       icon: AlertTriangle,
@@ -83,7 +83,7 @@ export default function Dashboard() {
   const analyticsCards = [
     {
       label: 'Customers',
-      labelHi: 'कुल ग्राहक',
+      labelHi: 'Total Customers',
       value: analytics?.totalCustomers ?? 0,
       icon: Users,
       color: 'text-blue-400',
@@ -92,7 +92,7 @@ export default function Dashboard() {
     },
     {
       label: 'Technicians',
-      labelHi: 'तकनीशियन',
+      labelHi: 'Technicians',
       value: analytics?.totalTechnicians ?? 0,
       icon: Wrench,
       color: 'text-amber-400',
@@ -101,7 +101,7 @@ export default function Dashboard() {
     },
     {
       label: 'Staff',
-      labelHi: 'स्टाफ सदस्य',
+      labelHi: 'Staff Members',
       value: analytics?.totalStaff ?? 0,
       icon: UserCog,
       color: 'text-violet-400',
@@ -110,7 +110,7 @@ export default function Dashboard() {
     },
     {
       label: 'Bookings',
-      labelHi: 'कुल बुकिंग',
+      labelHi: 'Total Bookings',
       value: analytics?.totalBookings ?? 0,
       icon: CalendarCheck,
       color: 'text-emerald-400',
@@ -119,7 +119,7 @@ export default function Dashboard() {
     },
     {
       label: 'Avg Rating',
-      labelHi: 'औसत रेटिंग',
+      labelHi: 'Avg Rating',
       value: analytics?.avgRating ?? '—',
       icon: Star,
       color: 'text-yellow-400',
@@ -129,7 +129,7 @@ export default function Dashboard() {
     },
     {
       label: 'Active Categories',
-      labelHi: 'सक्रिय कैटेगरी',
+      labelHi: 'Active Categories',
       value: analytics?.activeCategories ?? 0,
       icon: Layers,
       color: 'text-cyan-400',
@@ -142,10 +142,10 @@ export default function Dashboard() {
     <div className="space-y-8 animate-in fade-in zoom-in duration-500">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          डैशबोर्ड{' '}
+          Dashboard{' '}
           <span className="text-xl font-normal text-muted-foreground ml-2">Dashboard</span>
         </h1>
-        <p className="text-muted-foreground mt-1">आपकी कार्यशाला का अवलोकन (Workshop Overview)</p>
+        <p className="text-muted-foreground mt-1">Workshop Overview</p>
       </div>
 
       {/* ── Analytics Section (admin only) ───────────────────────────────── */}
@@ -155,7 +155,7 @@ export default function Dashboard() {
             <div>
               <h2 className="text-base font-semibold text-slate-200">
                 Platform Analytics
-                <span className="ml-2 text-xs font-normal text-slate-500">रियल-टाइम आँकड़े</span>
+                <span className="ml-2 text-xs font-normal text-slate-500">Real-time stats</span>
               </h2>
             </div>
             <Button
@@ -201,7 +201,7 @@ export default function Dashboard() {
           <div className="flex gap-2 flex-wrap">
             <Link href="/staff">
               <Button variant="outline" size="sm" className="h-7 text-xs border-slate-700 text-slate-400 hover:text-violet-400 hover:border-violet-500/50 hover:bg-violet-500/5">
-                <UserCog className="w-3 h-3 mr-1" /> Staff Manage करें
+                <UserCog className="w-3 h-3 mr-1" /> Manage Staff
               </Button>
             </Link>
             <Link href="/service-categories">
@@ -248,11 +248,11 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
                 <span>
-                  नवीनतम कार्य{' '}
+                  Recent Jobs{' '}
                   <span className="text-sm font-normal text-muted-foreground ml-2">Recent Jobs</span>
                 </span>
                 <Link href="/jobs" className="text-sm text-primary hover:underline">
-                  सभी देखें (View All)
+                  View All
                 </Link>
               </CardTitle>
             </CardHeader>
@@ -265,7 +265,7 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   {recentJobs?.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      कोई नवीनतम कार्य नहीं (No recent jobs)
+                      No recent jobs
                     </div>
                   ) : (
                     recentJobs?.map(job => (
@@ -289,12 +289,12 @@ export default function Dashboard() {
                               variant={job.status === 'completed' ? 'default' : 'secondary'}
                             >
                               {job.status === 'pending'
-                                ? 'लंबित (Pending)'
+                                ? 'Pending'
                                 : job.status === 'in_progress'
-                                ? 'प्रगति पर (In Progress)'
+                                ? 'In Progress'
                                 : job.status === 'completed'
-                                ? 'पूरा हुआ (Completed)'
-                                : 'रद्द (Cancelled)'}
+                                ? 'Completed'
+                                : 'Cancelled'}
                             </Badge>
                             <span className="text-xs font-medium">₹{job.amount || 0}</span>
                           </div>
@@ -314,7 +314,7 @@ export default function Dashboard() {
               <CardTitle className="flex items-center gap-2">
                 <Bell className="w-5 h-5 text-amber-500" />
                 <span>
-                  आज के रिमाइंडर{' '}
+                  Today's Reminders{' '}
                   <span className="text-sm font-normal text-muted-foreground ml-2">Today's</span>
                 </span>
               </CardTitle>
@@ -323,13 +323,13 @@ export default function Dashboard() {
               <div className="text-center py-12">
                 <Bell className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
                 <p className="text-lg font-medium text-foreground">
-                  {summary?.todayReminders || 0} रिमाइंडर
+                  {summary?.todayReminders || 0} Reminders
                 </p>
                 <p className="text-sm text-muted-foreground mb-6">
-                  आज के लिए अनुसूचित (Scheduled for today)
+                  Scheduled for today
                 </p>
                 <Link href="/reminders" className="text-primary text-sm hover:underline font-medium">
-                  रिमाइंडर प्रबंधित करें (Manage Reminders)
+                  Manage Reminders
                 </Link>
               </div>
             </CardContent>

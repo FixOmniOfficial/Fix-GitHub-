@@ -24,7 +24,7 @@ function PinScreen({ onLogin }: { onLogin: (pin: string) => Promise<boolean> }) 
     const ok = await onLogin(pin);
     setLoading(false);
     if (!ok) {
-      setError('गलत PIN। कृपया Admin से पूछें।');
+      setError('Incorrect PIN. Please ask the Admin.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setPin('');
     } else {
@@ -45,7 +45,7 @@ function PinScreen({ onLogin }: { onLogin: (pin: string) => Promise<boolean> }) 
           <Feather name="shield" size={36} color="#8b5cf6" />
         </View>
         <Text style={s.pinTitle}>Admin Login</Text>
-        <Text style={s.pinSub}>4-अंक का PIN दर्ज करें</Text>
+        <Text style={s.pinSub}>Enter 4-digit PIN</Text>
         <TextInput
           style={[s.pinInput, { borderColor: error ? colors.destructive : colors.border, color: colors.foreground, backgroundColor: colors.card }]}
           value={pin}
@@ -64,7 +64,7 @@ function PinScreen({ onLogin }: { onLogin: (pin: string) => Promise<boolean> }) 
           onPress={handleLogin}
           disabled={pin.length < 4 || loading}
         >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.pinBtnText}>Login करें</Text>}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.pinBtnText}>Login</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -101,10 +101,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const blocked = (professionals ?? []).filter(p => !p.isActive).length;
 
   const ACTIONS = [
-    { icon: 'users' as const,     label: 'Professionals',   sub: 'Block / Unblock Manage करें',  path: '/admin/professionals',  color: '#3b82f6' },
+    { icon: 'users' as const,     label: 'Professionals',   sub: 'Block / Unblock manage',  path: '/admin/professionals',  color: '#3b82f6' },
     { icon: 'phone' as const,     label: 'Helpline',        sub: `${pending} pending messages`,  path: '/admin/helpline',       color: '#22c55e' },
-    { icon: 'tag' as const,       label: 'Market Rates',    sub: 'Rates view/edit करें',         path: '/admin/rates',          color: '#f59e0b' },
-    { icon: 'home' as const,      label: 'Home Config',     sub: 'Services & Helpline सेटअप करें', path: '/admin/home-config',   color: '#8b5cf6' },
+    { icon: 'tag' as const,       label: 'Market Rates',    sub: 'View / edit rates',         path: '/admin/rates',          color: '#f59e0b' },
+    { icon: 'home' as const,      label: 'Home Config',     sub: 'Set up Services & Helpline', path: '/admin/home-config',   color: '#8b5cf6' },
   ];
 
   return (
@@ -113,10 +113,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         <View style={s.headerRow}>
           <View>
             <Text style={s.headerTitle}>Admin Dashboard</Text>
-            <Text style={s.headerSub}>पूरा नियंत्रण</Text>
+            <Text style={s.headerSub}>Full Control</Text>
           </View>
           <TouchableOpacity
-            onPress={() => Alert.alert('Logout', 'Admin logout करना चाहते हैं?', [
+            onPress={() => Alert.alert('Logout', 'Are you sure you want to logout as Admin?', [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Logout', onPress: onLogout, style: 'destructive' },
             ])}
@@ -140,7 +140,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </View>
 
         {/* Action cards */}
-        <Text style={s.sectionLabel}>Manage करें</Text>
+        <Text style={s.sectionLabel}>Manage</Text>
         {ACTIONS.map((a) => (
           <TouchableOpacity key={a.path} style={s.actionCard} onPress={() => router.push(a.path as any)} activeOpacity={0.8}>
             <View style={[s.actionIcon, { backgroundColor: a.color + '22' }]}>

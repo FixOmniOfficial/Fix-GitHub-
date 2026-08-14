@@ -60,7 +60,7 @@ export default function FormManagerScreen() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      Alert.alert('Error', 'Save नहीं हो सका');
+      Alert.alert('Error', 'Save failed');
     } finally {
       setSaving(false);
     }
@@ -83,7 +83,7 @@ export default function FormManagerScreen() {
       `📝 *Please fill out this quick form with your address and location so our technician can reach you on time!*`
     );
     Linking.openURL(`https://wa.me/?text=${msg}`).catch(() =>
-      Alert.alert('WhatsApp', 'WhatsApp नहीं खुल सका')
+      Alert.alert('WhatsApp', 'Could not open WhatsApp')
     );
   };
 
@@ -131,7 +131,7 @@ export default function FormManagerScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>My Form</Text>
-          <Text style={s.headerSub}>Customer को WhatsApp से भेजें</Text>
+          <Text style={s.headerSub}>Send to Customer via WhatsApp</Text>
         </View>
       </View>
 
@@ -147,12 +147,12 @@ export default function FormManagerScreen() {
           <View style={[s.linkCard, { backgroundColor: colors.card, borderColor: colors.primary + '55' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Feather name="link" size={16} color={colors.primary} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>आपका Form Link</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Your Form Link</Text>
             </View>
             <Text style={{ fontSize: 11, color: colors.mutedForeground, fontFamily: 'monospace' }} numberOfLines={2}>{formUrl}</Text>
             <View style={s.linkBtns}>
               <TouchableOpacity style={[s.shareBtn, { backgroundColor: '#25D366', flex: 1 }]} onPress={shareOnWhatsApp} activeOpacity={0.8}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff' }}>📲 WhatsApp से Share करें</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff' }}>📲 Share via WhatsApp</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[s.copyBtn, { borderColor: copied ? colors.primary : colors.border, backgroundColor: copied ? colors.primary + '22' : 'transparent' }]} onPress={copyLink} activeOpacity={0.8}>
                 <Feather name={copied ? 'check' : 'copy'} size={16} color={copied ? colors.primary : colors.foreground} />
@@ -165,7 +165,7 @@ export default function FormManagerScreen() {
 
           <View style={s.field}>
             <Text style={s.label}>Default Visiting Charge (₹)</Text>
-            <Text style={{ fontSize: 12, color: colors.mutedForeground, marginBottom: 4 }}>Customer को form में यही charge दिखेगा</Text>
+            <Text style={{ fontSize: 12, color: colors.mutedForeground, marginBottom: 4 }}>This charge will be shown to the customer in the form</Text>
             <TextInput
               style={s.input}
               placeholder="e.g. 500"
@@ -178,10 +178,10 @@ export default function FormManagerScreen() {
 
           <View style={s.field}>
             <Text style={s.label}>Custom Message (optional)</Text>
-            <Text style={{ fontSize: 12, color: colors.mutedForeground, marginBottom: 4 }}>Form के top पर customer को दिखेगा</Text>
+            <Text style={{ fontSize: 12, color: colors.mutedForeground, marginBottom: 4 }}>Shown to the customer at the top of the form</Text>
             <TextInput
               style={[s.input, { height: 88, textAlignVertical: 'top' }]}
-              placeholder="e.g. नमस्ते! Form भरें, हम जल्द आएंगे। AC service के लिए ₹500 visiting charge लगेगा।"
+              placeholder="e.g. Hello! Please fill the form, we'll arrive soon. ₹500 visiting charge for AC service."
               placeholderTextColor={colors.mutedForeground}
               value={customMessage}
               onChangeText={setCustomMessage}
@@ -200,7 +200,7 @@ export default function FormManagerScreen() {
             ) : (
               <>
                 <Feather name={saved ? 'check' : 'save'} size={17} color="#000" />
-                <Text style={s.saveBtnText}>{saved ? 'Saved!' : 'Save करें'}</Text>
+                <Text style={s.saveBtnText}>{saved ? 'Saved!' : 'Save'}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -209,7 +209,7 @@ export default function FormManagerScreen() {
           <View style={[s.previewNote, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="info" size={14} color={colors.mutedForeground} />
             <Text style={{ flex: 1, fontSize: 12, color: colors.mutedForeground, lineHeight: 18 }}>
-              Customer form open करेगा → details भरेगा → Submit करने पर आपको notification मिलेगी। Customer को "धन्यवाद" confirmation दिखेगी।
+              Customer will open the form → fill details → on Submit you'll get a notification. Customer will see a "Thank You" confirmation.
             </Text>
           </View>
         </ScrollView>

@@ -90,13 +90,13 @@ export default function AdminHomeConfigScreen() {
   };
 
   const openAdd = () => {
-    if (isLocked) { Alert.alert('Locked', 'Home page locked है। पहले unlock करें।'); return; }
+    if (isLocked) { Alert.alert('Locked', 'Home page is locked. Please unlock it first.'); return; }
     setEditModal({ visible: true, category: null });
     setEditName(''); setEditIcon('settings'); setEditAccent('#6b7280'); setEditProfType('');
   };
 
   const openEdit = (cat: Category) => {
-    if (isLocked) { Alert.alert('Locked', 'Home page locked है। पहले unlock करें।'); return; }
+    if (isLocked) { Alert.alert('Locked', 'Home page is locked. Please unlock it first.'); return; }
     setEditModal({ visible: true, category: cat });
     setEditName(cat.name); setEditIcon(cat.icon); setEditAccent(cat.accent); setEditProfType(cat.professionType);
   };
@@ -105,7 +105,7 @@ export default function AdminHomeConfigScreen() {
 
   const handleSaveCategory = async () => {
     if (!editName.trim() || !editProfType.trim()) {
-      Alert.alert('Required', 'Name और Profession Type जरूरी हैं।'); return;
+      Alert.alert('Required', 'Name and Profession Type are required.'); return;
     }
     setSaving(true);
     try {
@@ -119,15 +119,15 @@ export default function AdminHomeConfigScreen() {
       closeModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      Alert.alert('Error', 'Save नहीं हुआ।');
+      Alert.alert('Error', 'Save failed.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (cat: Category) => {
-    if (isLocked) { Alert.alert('Locked', 'Home page locked है।'); return; }
-    Alert.alert('Delete?', `"${cat.name}" को delete करें?`, [
+    if (isLocked) { Alert.alert('Locked', 'Home page is locked.'); return; }
+    Alert.alert('Delete?', `Delete "${cat.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         await deleteCat({ id: cat.id });
@@ -138,7 +138,7 @@ export default function AdminHomeConfigScreen() {
   };
 
   const handleMove = async (cat: Category, direction: 'up' | 'down') => {
-    if (isLocked) { Alert.alert('Locked', 'Home page locked है।'); return; }
+    if (isLocked) { Alert.alert('Locked', 'Home page is locked.'); return; }
     const sorted = [...(categories ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
     const idx = sorted.findIndex(c => c.id === cat.id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -153,7 +153,7 @@ export default function AdminHomeConfigScreen() {
   };
 
   const handleToggleActive = async (cat: Category) => {
-    if (isLocked) { Alert.alert('Locked', 'Home page locked है।'); return; }
+    if (isLocked) { Alert.alert('Locked', 'Home page is locked.'); return; }
     await updateCat({ id: cat.id, data: { isActive: !cat.isActive } });
     invalidate();
   };
@@ -161,13 +161,13 @@ export default function AdminHomeConfigScreen() {
   const handleToggleLock = async () => {
     const newLock = !isLocked;
     Alert.alert(
-      newLock ? '🔒 Lock करें?' : '🔓 Unlock करें?',
+      newLock ? '🔒 Lock?' : '🔓 Unlock?',
       newLock
-        ? 'Home page lock होने के बाद कोई बदलाव नहीं होगा।'
-        : 'Home page unlock होगा — edit किया जा सकेगा।',
+        ? 'Home page will be locked — no changes allowed.'
+        : 'Home page will be unlocked — editing allowed.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: newLock ? 'Lock करें' : 'Unlock करें', onPress: async () => {
+        { text: newLock ? 'Lock' : 'Unlock', onPress: async () => {
           await updateConfig({ data: { isLocked: newLock } });
           invalidate();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -177,7 +177,7 @@ export default function AdminHomeConfigScreen() {
   };
 
   const handleSaveHelpline = async () => {
-    if (!helplineNum.trim()) { Alert.alert('Required', 'Phone number जरूरी है।'); return; }
+    if (!helplineNum.trim()) { Alert.alert('Required', 'Phone number is required.'); return; }
     await updateConfig({ data: { helplineNumber: helplineNum.trim(), helplineName: helplineName.trim() || 'Admin Helpline' } });
     invalidate();
     setHelplineEditing(false);
@@ -195,7 +195,7 @@ export default function AdminHomeConfigScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>Home Config</Text>
-          <Text style={s.headerSub}>Services & Helpline manage करें</Text>
+          <Text style={s.headerSub}>Manage Services & Helpline</Text>
         </View>
         <TouchableOpacity onPress={openAdd} style={[s.addBtn, isLocked && { opacity: 0.4 }]}>
           <Feather name="plus" size={20} color={colors.primary} />
@@ -220,7 +220,7 @@ export default function AdminHomeConfigScreen() {
               {isLocked ? '🔒 Home Page Locked' : '🔓 Home Page Unlocked'}
             </Text>
             <Text style={s.lockSub}>
-              {isLocked ? 'Tap करें unlock करने के लिए' : 'Tap करें lock करने के लिए'}
+              {isLocked ? 'Tap to unlock' : 'Tap to lock'}
             </Text>
           </View>
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
@@ -248,7 +248,7 @@ export default function AdminHomeConfigScreen() {
               />
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <TouchableOpacity style={[s.saveBtn, { flex: 1, backgroundColor: colors.primary }]} onPress={handleSaveHelpline}>
-                  <Text style={{ fontWeight: '700', color: '#000' }}>Save करें</Text>
+                  <Text style={{ fontWeight: '700', color: '#000' }}>Save</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.saveBtn, { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]} onPress={() => setHelplineEditing(false)}>
                   <Text style={{ fontWeight: '700', color: colors.foreground }}>Cancel</Text>
@@ -279,7 +279,7 @@ export default function AdminHomeConfigScreen() {
           <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
         ) : sorted.length === 0 ? (
           <View style={[s.card, { alignItems: 'center', padding: 32 }]}>
-            <Text style={{ color: colors.mutedForeground }}>कोई category नहीं। + से जोड़ें।</Text>
+            <Text style={{ color: colors.mutedForeground }}>No categories. Tap + to add one.</Text>
           </View>
         ) : (
           sorted.map((cat, idx) => (
@@ -331,7 +331,7 @@ export default function AdminHomeConfigScreen() {
           disabled={isLocked}
         >
           <Feather name="plus" size={18} color={colors.primary} />
-          <Text style={{ color: colors.primary, fontWeight: '700', marginLeft: 8 }}>नई Service जोड़ें</Text>
+          <Text style={{ color: colors.primary, fontWeight: '700', marginLeft: 8 }}>Add New Service</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -341,7 +341,7 @@ export default function AdminHomeConfigScreen() {
           <View style={[s.modalSheet, { backgroundColor: colors.card }]}>
             <View style={s.modalHeader}>
               <Text style={[s.headerTitle, { color: colors.foreground }]}>
-                {editModal.category ? 'Edit Service' : 'नई Service जोड़ें'}
+                {editModal.category ? 'Edit Service' : 'Add New Service'}
               </Text>
               <TouchableOpacity onPress={closeModal}>
                 <Feather name="x" size={22} color={colors.mutedForeground} />
@@ -371,7 +371,7 @@ export default function AdminHomeConfigScreen() {
               />
 
               {/* Icon picker */}
-              <Text style={s.fieldLabel}>Icon चुनें</Text>
+              <Text style={s.fieldLabel}>Choose Icon</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                 {ICON_OPTIONS.map(ic => (
                   <TouchableOpacity
@@ -385,7 +385,7 @@ export default function AdminHomeConfigScreen() {
               </ScrollView>
 
               {/* Accent color */}
-              <Text style={s.fieldLabel}>रंग चुनें</Text>
+              <Text style={s.fieldLabel}>Choose Color</Text>
               <View style={s.colorRow}>
                 {ACCENT_OPTIONS.map(ac => (
                   <TouchableOpacity
@@ -412,7 +412,7 @@ export default function AdminHomeConfigScreen() {
             >
               {saving
                 ? <ActivityIndicator color="#000" />
-                : <Text style={{ fontWeight: '800', color: '#000', fontSize: 16 }}>Save करें</Text>
+                : <Text style={{ fontWeight: '800', color: '#000', fontSize: 16 }}>Save</Text>
               }
             </TouchableOpacity>
           </View>

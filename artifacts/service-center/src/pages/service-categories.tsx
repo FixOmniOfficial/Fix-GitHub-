@@ -191,7 +191,7 @@ export default function ServiceCategoriesPage() {
     mutationFn: createCategory,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-service-categories'] });
-      toast.success('Category बन गई ✅');
+      toast.success('Category created ✅');
       setShowAdd(false);
       setAddForm({ ...EMPTY_FORM });
       setAddMode('icon');
@@ -211,7 +211,7 @@ export default function ServiceCategoriesPage() {
     mutationFn: deleteCategory,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-service-categories'] });
-      toast.success('Category हटा दी गई');
+      toast.success('Category deleted');
       setDeleteTarget(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -221,7 +221,7 @@ export default function ServiceCategoriesPage() {
     updateMut.mutate(
       { id: cat.id, data: { isActive: !cat.isActive } },
       {
-        onSuccess: () => toast.success(cat.isActive ? '❌ Category बंद कर दी' : '✅ Category चालू कर दी'),
+        onSuccess: () => toast.success(cat.isActive ? '❌ Category disabled' : '✅ Category enabled'),
       }
     );
   }
@@ -259,7 +259,7 @@ export default function ServiceCategoriesPage() {
       { id: editTarget.id, data: payload },
       {
         onSuccess: () => {
-          toast.success('Category update हो गई ✅');
+          toast.success('Category updated ✅');
           setEditTarget(null);
         },
       }
@@ -279,7 +279,7 @@ export default function ServiceCategoriesPage() {
       <div className="flex flex-col items-center justify-center py-24 text-center space-y-3">
         <Shield className="w-14 h-14 text-slate-700" />
         <h2 className="text-xl font-bold text-slate-300">Admin Only</h2>
-        <p className="text-slate-500">यह पेज सिर्फ Admin देख सकता है।</p>
+        <p className="text-slate-500">Only the Admin can view this page.</p>
       </div>
     );
   }
@@ -290,11 +290,11 @@ export default function ServiceCategoriesPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            सर्विस कैटेगरी{' '}
+            Service Categories{' '}
             <span className="text-xl font-normal text-slate-500 ml-2">Service Categories</span>
           </h1>
           <p className="text-slate-400 mt-1">
-            Categories manage करें — ON/OFF toggle, नाम, icon या image, और order बदलें
+            Manage categories — ON/OFF toggle, name, icon or image, and order
           </p>
         </div>
         <Button
@@ -302,7 +302,7 @@ export default function ServiceCategoriesPage() {
           className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold shrink-0"
         >
           <Plus className="w-4 h-4 mr-2" />
-          नई Category
+          New Category
         </Button>
       </div>
 
@@ -310,7 +310,7 @@ export default function ServiceCategoriesPage() {
       <div className="flex items-start gap-2 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-300">
         <ToggleLeft className="w-4 h-4 mt-0.5 shrink-0" />
         <span>
-          <strong>Master Toggle:</strong> जब category OFF होती है, वो customer booking form से hide हो जाती है।
+          <strong>Master Toggle:</strong> When a category is OFF, it is hidden from the customer booking form.
           Each category can display a <strong>Vector Icon</strong> (Feather icon set) or an <strong>Image URL</strong>.
         </span>
       </div>
@@ -320,13 +320,13 @@ export default function ServiceCategoriesPage() {
         {isLoading ? (
           [1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl bg-slate-800" />)
         ) : error ? (
-          <div className="text-center py-12 text-rose-400">Categories load नहीं हुईं।</div>
+          <div className="text-center py-12 text-rose-400">Categories could not be loaded.</div>
         ) : cats?.length === 0 ? (
           <Card className="bg-slate-900 border-slate-800 border-dashed">
             <CardContent className="py-16 text-center">
               <Layers className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-400 font-medium">कोई Category नहीं है</p>
-              <p className="text-slate-600 text-sm mt-1">ऊपर "नई Category" बटन से जोड़ें</p>
+              <p className="text-slate-400 font-medium">No categories yet</p>
+              <p className="text-slate-600 text-sm mt-1">Tap "New Category" above to add one</p>
             </CardContent>
           </Card>
         ) : (
@@ -429,7 +429,7 @@ export default function ServiceCategoriesPage() {
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">नई Service Category</DialogTitle>
+            <DialogTitle className="text-white">New Service Category</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -437,7 +437,7 @@ export default function ServiceCategoriesPage() {
               <Input
                 value={addForm.name}
                 onChange={(e) => setAddForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="जैसे: AC Service, Painting"
+                placeholder="e.g. AC Service, Painting"
                 className="bg-slate-800 border-slate-700 text-white"
               />
             </div>
@@ -535,7 +535,7 @@ export default function ServiceCategoriesPage() {
               disabled={createMut.isPending || !addForm.name || !addForm.professionType}
               className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
             >
-              {createMut.isPending ? 'बन रही है…' : 'Category जोड़ें'}
+              {createMut.isPending ? 'Creating…' : 'Add Category'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -545,7 +545,7 @@ export default function ServiceCategoriesPage() {
       <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
         <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">Category Edit करें</DialogTitle>
+            <DialogTitle className="text-white">Edit Category</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -619,7 +619,7 @@ export default function ServiceCategoriesPage() {
               disabled={updateMut.isPending}
               className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
             >
-              {updateMut.isPending ? 'Save हो रही है…' : 'Save करें'}
+              {updateMut.isPending ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -629,9 +629,9 @@ export default function ServiceCategoriesPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent className="bg-slate-900 border-slate-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Category हटाएं?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">Delete Category?</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              <strong className="text-slate-200">{deleteTarget?.name}</strong> permanently delete होगी।
+              <strong className="text-slate-200">{deleteTarget?.name}</strong> will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -642,7 +642,7 @@ export default function ServiceCategoriesPage() {
               onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
               className="bg-rose-600 hover:bg-rose-500 text-white"
             >
-              {deleteMut.isPending ? 'हटा रहे हैं…' : 'हाँ, हटाएं'}
+              {deleteMut.isPending ? 'Deleting…' : 'Yes, Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

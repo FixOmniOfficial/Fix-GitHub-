@@ -24,8 +24,8 @@ export default function AuthIndexScreen() {
       {/* Title */}
       <View style={s.titleBlock}>
         <Text style={s.emoji}>👋</Text>
-        <Text style={s.title}>आप कौन हैं?</Text>
-        <Text style={s.sub}>अपना रोल चुनें — इससे आपका अनुभव personalize होगा</Text>
+        <Text style={s.title}>Who are you?</Text>
+        <Text style={s.sub}>Choose your role — this personalises your experience</Text>
       </View>
 
       {/* Cards */}
@@ -39,10 +39,10 @@ export default function AuthIndexScreen() {
           <View style={[s.cardIcon, { backgroundColor: '#3b82f622' }]}>
             <Text style={{ fontSize: 36 }}>👤</Text>
           </View>
-          <Text style={s.cardTitle}>Customer हूँ</Text>
-          <Text style={s.cardSub}>Service book करें, bookings track करें, history देखें</Text>
+          <Text style={s.cardTitle}>I am a Customer</Text>
+          <Text style={s.cardSub}>Book services, track bookings, view history</Text>
           <View style={[s.cardBadge, { backgroundColor: '#3b82f622', borderColor: '#3b82f644' }]}>
-            <Text style={[s.cardBadgeText, { color: '#3b82f6' }]}>Guest booking भी available</Text>
+            <Text style={[s.cardBadgeText, { color: '#3b82f6' }]}>Guest booking also available</Text>
           </View>
           <Feather name="arrow-right" size={20} color="#3b82f6" style={{ alignSelf: 'flex-end' }} />
         </TouchableOpacity>
@@ -56,10 +56,10 @@ export default function AuthIndexScreen() {
           <View style={[s.cardIcon, { backgroundColor: colors.primary + '22' }]}>
             <Text style={{ fontSize: 36 }}>🔧</Text>
           </View>
-          <Text style={s.cardTitle}>Technician हूँ</Text>
-          <Text style={s.cardSub}>Unique ID से login करें, bookings manage करें, profile track करें</Text>
+          <Text style={s.cardTitle}>I am a Technician</Text>
+          <Text style={s.cardSub}>Login with your unique ID, manage bookings, track profile</Text>
           <View style={[s.cardBadge, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}>
-            <Text style={[s.cardBadgeText, { color: colors.primary }]}>Unique ID मिलेगी</Text>
+            <Text style={[s.cardBadgeText, { color: colors.primary }]}>You'll get a Unique ID</Text>
           </View>
           <Feather name="arrow-right" size={20} color={colors.primary} style={{ alignSelf: 'flex-end' }} />
         </TouchableOpacity>

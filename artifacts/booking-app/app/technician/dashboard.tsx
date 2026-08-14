@@ -60,7 +60,7 @@ export default function TechnicianDashboardScreen() {
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: colors.mutedForeground }}>Technician login required</Text>
         <TouchableOpacity onPress={() => router.push('/auth' as any)} style={{ marginTop: 16, padding: 12 }}>
-          <Text style={{ color: colors.primary, fontWeight: '700' }}>Login करें</Text>
+          <Text style={{ color: colors.primary, fontWeight: '700' }}>Login</Text>
         </TouchableOpacity>
       </View>
     );
@@ -139,9 +139,9 @@ export default function TechnicianDashboardScreen() {
             <View style={s.notifDot} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#f59e0b' }}>
-                {pendingCount} नई Request{pendingCount > 1 ? 'ें' : ''} Pending
+                {pendingCount} New Request{pendingCount > 1 ? 's' : ''} Pending
               </Text>
-              <Text style={{ fontSize: 12, color: '#f59e0b99', marginTop: 2 }}>Tap करके देखें और complete करें</Text>
+              <Text style={{ fontSize: 12, color: '#f59e0b99', marginTop: 2 }}>Tap to view and complete</Text>
             </View>
             <Feather name="chevron-right" size={18} color="#f59e0b" />
           </TouchableOpacity>
@@ -158,7 +158,7 @@ export default function TechnicianDashboardScreen() {
               <Text style={{ fontSize: 22 }}>📲</Text>
             </View>
             <Text style={s.formCardTitle}>My Form</Text>
-            <Text style={s.formCardSub}>WhatsApp से share करें</Text>
+            <Text style={s.formCardSub}>Share via WhatsApp</Text>
             <Feather name="arrow-right" size={14} color={colors.mutedForeground} style={{ marginTop: 6 }} />
           </TouchableOpacity>
 
@@ -173,7 +173,7 @@ export default function TechnicianDashboardScreen() {
             </View>
             <Text style={s.formCardTitle}>Customer Requests</Text>
             <Text style={s.formCardSub}>
-              {pendingCount > 0 ? `${pendingCount} pending` : 'सभी records'}
+              {pendingCount > 0 ? `${pendingCount} pending` : 'All Records'}
             </Text>
             {pendingCount > 0 && (
               <View style={[s.pendingBadge, { backgroundColor: '#ef4444' }]}>
@@ -184,13 +184,13 @@ export default function TechnicianDashboardScreen() {
         </View>
 
         {/* My Bookings (from main booking system) */}
-        <Text style={s.sectionTitle}>मेरी Bookings</Text>
+        <Text style={s.sectionTitle}>My Bookings</Text>
         {isLoading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
         ) : myBookings.length === 0 ? (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="inbox" size={32} color={colors.mutedForeground} />
-            <Text style={{ color: colors.mutedForeground, marginTop: 8 }}>अभी कोई booking assign नहीं हुई</Text>
+            <Text style={{ color: colors.mutedForeground, marginTop: 8 }}>No bookings assigned yet</Text>
           </View>
         ) : (
           myBookings.slice().reverse().map(b => (

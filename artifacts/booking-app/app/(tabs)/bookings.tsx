@@ -43,7 +43,7 @@ export default function BookingsScreen() {
       {/* Header */}
       <View style={[s.header, { paddingTop: topPad + 8 }]}>
         <Text style={s.headerTitle}>Bookings</Text>
-        <Text style={s.headerSub}>सभी बुकिंग्स</Text>
+        <Text style={s.headerSub}>All Bookings</Text>
       </View>
 
       {/* Filter tabs */}
@@ -78,7 +78,7 @@ export default function BookingsScreen() {
           ListEmptyComponent={
             <View style={s.emptyCard}>
               <Feather name="calendar" size={36} color={colors.mutedForeground} />
-              <Text style={s.emptyText}>कोई booking नहीं मिली</Text>
+              <Text style={s.emptyText}>No bookings found</Text>
             </View>
           }
           renderItem={({ item: b }) => (

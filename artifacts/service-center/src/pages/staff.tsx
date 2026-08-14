@@ -30,7 +30,7 @@ const PERMISSION_CONFIG = [
   {
     key: 'booking_management',
     label: 'Booking Management',
-    labelHi: 'बुकिंग प्रबंधन',
+    labelHi: 'Booking Management',
     icon: BookOpen,
     color: 'text-blue-400',
     bg: 'bg-blue-500/10',
@@ -38,7 +38,7 @@ const PERMISSION_CONFIG = [
   {
     key: 'user_management',
     label: 'User Management',
-    labelHi: 'उपयोगकर्ता प्रबंधन',
+    labelHi: 'User Management',
     icon: Users,
     color: 'text-violet-400',
     bg: 'bg-violet-500/10',
@@ -46,7 +46,7 @@ const PERMISSION_CONFIG = [
   {
     key: 'analytics',
     label: 'Analytics',
-    labelHi: 'एनालिटिक्स',
+    labelHi: 'Analytics',
     icon: BarChart3,
     color: 'text-emerald-400',
     bg: 'bg-emerald-500/10',
@@ -54,7 +54,7 @@ const PERMISSION_CONFIG = [
   {
     key: 'kyc_review',
     label: 'KYC Review',
-    labelHi: 'KYC समीक्षा',
+    labelHi: 'KYC Review',
     icon: Fingerprint,
     color: 'text-cyan-400',
     bg: 'bg-cyan-500/10',
@@ -116,7 +116,7 @@ export default function StaffPage() {
     mutationFn: createStaff,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-staff'] });
-      toast.success('Staff account बन गया ✅');
+      toast.success('Staff account created ✅');
       setShowCreate(false);
       setForm({ firstName: '', lastName: '', email: '', password: '', permissions: [] });
     },
@@ -127,7 +127,7 @@ export default function StaffPage() {
     mutationFn: deleteStaff,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-staff'] });
-      toast.success('Staff account हटा दिया गया');
+      toast.success('Staff account deleted');
       setDeleteTarget(null);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -141,7 +141,7 @@ export default function StaffPage() {
     try {
       await updatePermissions(member.id, newPerms);
       qc.invalidateQueries({ queryKey: ['admin-staff'] });
-      toast.success(`Permission ${enabled ? 'दिया' : 'हटाया'} गया`);
+      toast.success(`Permission ${enabled ? 'granted' : 'removed'}`);
     } catch (e: any) {
       toast.error(e.message || 'Permission update failed');
     } finally {
@@ -154,7 +154,7 @@ export default function StaffPage() {
       <div className="flex flex-col items-center justify-center py-24 text-center space-y-3">
         <Shield className="w-14 h-14 text-slate-700" />
         <h2 className="text-xl font-bold text-slate-300">Admin Only</h2>
-        <p className="text-slate-500">यह पेज सिर्फ Admin देख सकता है।</p>
+        <p className="text-slate-500">Only the Admin can view this page.</p>
       </div>
     );
   }
@@ -165,9 +165,9 @@ export default function StaffPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            स्टाफ <span className="text-xl font-normal text-slate-500 ml-2">Staff Management</span>
+            Staff 
           </h1>
-          <p className="text-slate-400 mt-1">Staff accounts बनाएं और उनकी permissions manage करें</p>
+          <p className="text-slate-400 mt-1">Create staff accounts and manage their permissions</p>
         </div>
         {isSuperAdmin && (
           <Button
@@ -175,7 +175,7 @@ export default function StaffPage() {
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold shrink-0"
           >
             <Plus className="w-4 h-4 mr-2" />
-            नया Staff
+            New Staff
           </Button>
         )}
       </div>
@@ -195,13 +195,13 @@ export default function StaffPage() {
         {isLoading ? (
           [1, 2, 3].map(i => <Skeleton key={i} className="h-36 w-full rounded-xl bg-slate-800" />)
         ) : error ? (
-          <div className="text-center py-12 text-rose-400">Staff load नहीं हुआ। Server check करें।</div>
+          <div className="text-center py-12 text-rose-400">Staff could not be loaded. Check the server.</div>
         ) : staff?.length === 0 ? (
           <Card className="bg-slate-900 border-slate-800 border-dashed">
             <CardContent className="py-16 text-center">
               <UserCog className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-400 font-medium">कोई Staff नहीं है</p>
-              <p className="text-slate-600 text-sm mt-1">ऊपर "नया Staff" बटन से account बनाएं</p>
+              <p className="text-slate-400 font-medium">No staff members yet</p>
+              <p className="text-slate-600 text-sm mt-1">Tap "New Staff" above to create an account</p>
             </CardContent>
           </Card>
         ) : (
@@ -284,7 +284,7 @@ export default function StaffPage() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white">नया Staff Account बनाएं</DialogTitle>
+            <DialogTitle className="text-white">Create New Staff Account</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
@@ -323,12 +323,12 @@ export default function StaffPage() {
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm(f => ({ ...f, password: e.target.value }))}
-                placeholder="कम से कम 8 characters"
+                placeholder="At least 8 characters"
                 className="bg-slate-800 border-slate-700 text-white"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300 text-xs">Permissions (शुरू में)</Label>
+              <Label className="text-slate-300 text-xs">Initial Permissions</Label>
               <div className="space-y-2">
                 {PERMISSION_CONFIG.map((perm) => {
                   const enabled = form.permissions.includes(perm.key);
@@ -362,7 +362,7 @@ export default function StaffPage() {
               disabled={createMut.isPending || !form.email || !form.password}
               className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
             >
-              {createMut.isPending ? 'बन रहा है…' : 'Account बनाएं'}
+              {createMut.isPending ? 'Creating…' : 'Create Account'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -372,10 +372,10 @@ export default function StaffPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent className="bg-slate-900 border-slate-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Staff हटाएं?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">Delete Staff?</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              <strong className="text-slate-200">{deleteTarget?.name}</strong> का account permanently delete हो जाएगा।
-              यह action undo नहीं हो सकती।
+              <strong className="text-slate-200">{deleteTarget?.name}</strong> 's account will be permanently deleted.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -386,7 +386,7 @@ export default function StaffPage() {
               onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
               className="bg-rose-600 hover:bg-rose-500 text-white"
             >
-              {deleteMut.isPending ? 'हटा रहे हैं…' : 'हाँ, हटाएं'}
+              {deleteMut.isPending ? 'Deleting…' : 'Yes, Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -45,14 +45,14 @@ export default function MarketRatesScreen() {
         </TouchableOpacity>
         <View>
           <Text style={s.headerTitle}>Market Rates</Text>
-          <Text style={s.headerSub}>तय दरें — सभी काम इसी rate पर</Text>
+          <Text style={s.headerSub}>Fixed rates — all work at these rates</Text>
         </View>
       </View>
 
       {/* Note banner */}
       <View style={s.noteBanner}>
         <Feather name="info" size={14} color={colors.primary} />
-        <Text style={s.noteText}>ये दरें Admin द्वारा निर्धारित हैं। सभी टेक्नीशियन इन्हीं दरों पर काम करते हैं।</Text>
+        <Text style={s.noteText}>These rates are set by the Admin. All technicians work at these rates.</Text>
       </View>
 
       {isLoading ? (
@@ -87,7 +87,7 @@ export default function MarketRatesScreen() {
           ListEmptyComponent={
             <View style={s.empty}>
               <Feather name="tag" size={36} color={colors.mutedForeground} />
-              <Text style={s.emptyText}>कोई rate list नहीं मिली</Text>
+              <Text style={s.emptyText}>No rate list found</Text>
             </View>
           }
         />

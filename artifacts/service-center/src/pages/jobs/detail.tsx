@@ -50,7 +50,7 @@ export default function JobDetail() {
     updatePayment.mutate({ data: { paymentStatus: next, jobId: id } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
-        toast.success(`भुगतान स्थिति अपडेट की गई: ${next}`);
+        toast.success(`Payment status updated: ${next}`);
       }
     });
   };
@@ -107,7 +107,7 @@ export default function JobDetail() {
     );
   }
 
-  if (!job) return <div className="text-center py-12">कार्य नहीं मिला (Job not found)</div>;
+  if (!job) return <div className="text-center py-12">Job not found</div>;
 
   const paymentColors = {
     unpaid: 'bg-rose-500 hover:bg-rose-600',
@@ -116,9 +116,9 @@ export default function JobDetail() {
   };
 
   const paymentLabels = {
-    unpaid: 'बकाया (Unpaid)',
-    partial: 'आंशिक (Partial)',
-    paid: 'भुगतान पूर्ण (Paid)'
+    unpaid: 'Unpaid',
+    partial: 'Partial',
+    paid: 'Paid'
   };
 
   return (
@@ -132,9 +132,9 @@ export default function JobDetail() {
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight">#{job.jobNumber || job.id}</h1>
               <Badge variant={job.status === 'completed' ? 'default' : 'secondary'} className="text-sm">
-                {job.status === 'pending' ? 'लंबित' : 
-                 job.status === 'in_progress' ? 'प्रगति पर' : 
-                 job.status === 'completed' ? 'पूरा हुआ' : 'रद्द'}
+                {job.status === 'pending' ? 'Pending' : 
+                 job.status === 'in_progress' ? 'In Progress' : 
+                 job.status === 'completed' ? 'Completed' : 'Cancelled'}
               </Badge>
             </div>
             <p className="text-muted-foreground mt-1 text-lg">
@@ -170,24 +170,24 @@ export default function JobDetail() {
           <Card className="overflow-hidden">
             <div className="bg-primary/5 p-4 border-b">
               <h2 className="font-semibold text-primary flex items-center gap-2">
-                <Wrench className="w-4 h-4" /> कार्य विवरण (Job Details)
+                <Wrench className="w-4 h-4" /> Job Details
               </h2>
             </div>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">उपकरण (Appliance)</p>
+                    <p className="text-sm text-muted-foreground mb-1">Appliance</p>
                     <p className="font-medium text-lg">{job.applianceType || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">समस्या / विवरण (Description)</p>
+                    <p className="text-sm text-muted-foreground mb-1">Description</p>
                     <p className="font-medium">{job.description || 'No description provided'}</p>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">दिनांक (Date)</p>
+                    <p className="text-sm text-muted-foreground mb-1">Date</p>
                     <div className="flex items-center gap-2 font-medium">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
                       {job.scheduledDate ? new Date(job.scheduledDate).toLocaleDateString('hi-IN', {
@@ -196,7 +196,7 @@ export default function JobDetail() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">तकनीशियन (Technician)</p>
+                    <p className="text-sm text-muted-foreground mb-1">Technician</p>
                     <div className="flex items-center gap-2 font-medium">
                       <User className="w-4 h-4 text-muted-foreground" />
                       {job.technicianName || 'Unassigned'}
@@ -212,7 +212,7 @@ export default function JobDetail() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-amber-500" />
-                  मुख्य बिंदु एवं चेकमार्क
+                  Highlights & Checkmarks
                 </CardTitle>
                 <CardDescription>Highlights & Tick Marks</CardDescription>
               </div>
@@ -220,14 +220,14 @@ export default function JobDetail() {
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-6">
                 <Input 
-                  placeholder="नया बिंदु जोड़ें (Add new highlight)..." 
+                  placeholder="Add new highlight..." 
                   value={newHighlightLabel}
                   onChange={e => setNewHighlightLabel(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddHighlight()}
                   className="bg-background"
                 />
                 <Button onClick={handleAddHighlight} disabled={!newHighlightLabel.trim()}>
-                  <PlusCircle className="w-4 h-4 mr-2" /> जोड़ें
+                  <PlusCircle className="w-4 h-4 mr-2" /> Add
                 </Button>
               </div>
 
@@ -236,7 +236,7 @@ export default function JobDetail() {
                   <Skeleton className="h-12 w-full" />
                 ) : highlights?.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                    कोई बिंदु नहीं (No highlights added)
+                    No highlights added
                   </div>
                 ) : (
                   highlights?.map((hl, index) => (
@@ -305,21 +305,21 @@ export default function JobDetail() {
         <div className="space-y-6">
           <Card>
             <CardHeader className="bg-muted/20 border-b pb-3">
-              <CardTitle className="text-lg">सारांश (Summary)</CardTitle>
+              <CardTitle className="text-lg">Summary</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">राशि (Amount)</span>
+                  <span className="text-muted-foreground">Amount</span>
                   <span className="font-bold">₹{job.amount || 0}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">जमा (Paid)</span>
+                  <span className="text-muted-foreground">Paid</span>
                   <span className="font-bold text-emerald-600">₹{job.paidAmount || 0}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-base">
-                  <span className="font-semibold text-foreground">बकाया (Balance)</span>
+                  <span className="font-semibold text-foreground">Balance</span>
                   <span className={`font-bold ${((job.amount||0) - (job.paidAmount||0)) > 0 ? 'text-rose-600' : 'text-foreground'}`}>
                     ₹{Math.max(0, (job.amount||0) - (job.paidAmount||0))}
                   </span>
@@ -330,17 +330,17 @@ export default function JobDetail() {
 
           <Card>
             <CardHeader className="bg-muted/20 border-b pb-3">
-              <CardTitle className="text-lg">त्वरित कार्य (Quick Actions)</CardTitle>
+              <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="p-4 flex flex-col gap-2">
               <Button variant="outline" className="justify-start">
-                <Edit className="w-4 h-4 mr-2" /> जॉब विवरण संपादित करें
+                <Edit className="w-4 h-4 mr-2" /> Edit Job Details
               </Button>
               <Button variant="outline" className="justify-start">
-                <Clock className="w-4 h-4 mr-2" /> रिमाइंडर सेट करें
+                <Clock className="w-4 h-4 mr-2" /> Set Reminder
               </Button>
               <Button variant="outline" className="justify-start text-destructive hover:text-destructive hover:bg-destructive/10">
-                <Trash2 className="w-4 h-4 mr-2" /> कार्य हटाएं
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Job
               </Button>
             </CardContent>
           </Card>

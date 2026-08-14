@@ -89,7 +89,7 @@ export default function BookingDetailScreen() {
         {/* Rating Card */}
         <View style={s.ratingCard}>
           <Text style={s.ratingTitle}>Customer Rating</Text>
-          <Text style={s.ratingDesc}>इस customer को rate करें</Text>
+          <Text style={s.ratingDesc}>Rate this customer</Text>
           <View style={s.ratingRow}>
             <TouchableOpacity
               style={[s.ratingBtn, booking.rating === 'good' && s.ratingBtnGood]}

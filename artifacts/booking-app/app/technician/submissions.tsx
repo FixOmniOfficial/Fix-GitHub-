@@ -116,7 +116,7 @@ export default function SubmissionsScreen() {
       const data = await res.json();
       setSubmissions(Array.isArray(data) ? data : []);
     } catch {
-      Alert.alert('Error', 'Submissions load नहीं हो सका');
+      Alert.alert('Error', 'Could not load submissions');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -139,10 +139,10 @@ export default function SubmissionsScreen() {
   };
 
   const handleComplete = async (id: number) => {
-    Alert.alert('Complete करें?', 'इस request को completed mark करना चाहते हैं?', [
+    Alert.alert('Mark Complete?', 'Mark this request as completed?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'हाँ, Done है', onPress: async () => {
+        text: 'Yes, Done', onPress: async () => {
           try {
             await fetch(`${API_BASE}/api/booking/tech-form-submissions/${id}`, {
               method: 'PATCH',
@@ -151,7 +151,7 @@ export default function SubmissionsScreen() {
             });
             setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: 'completed' } : s));
           } catch {
-            Alert.alert('Error', 'Update नहीं हो सका');
+            Alert.alert('Error', 'Update failed');
           }
         }
       }
@@ -190,7 +190,7 @@ export default function SubmissionsScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.headerTitle}>Customer Requests</Text>
-          <Text style={s.headerSub}>{pendingCount > 0 ? `${pendingCount} pending` : 'सभी complete'}</Text>
+          <Text style={s.headerSub}>{pendingCount > 0 ? `${pendingCount} pending` : 'All complete'}</Text>
         </View>
         {pendingCount > 0 && (
           <View style={s.badgeCircle}>
@@ -204,7 +204,7 @@ export default function SubmissionsScreen() {
         <Feather name="search" size={16} color={colors.mutedForeground} />
         <TextInput
           style={s.searchInput}
-          placeholder="Phone number से search करें..."
+          placeholder="Search by phone number..."
           placeholderTextColor={colors.mutedForeground}
           value={searchPhone}
           onChangeText={setSearchPhone}
@@ -255,7 +255,7 @@ export default function SubmissionsScreen() {
           {searched && (
             <View style={[s.searchResult, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={{ fontSize: 13, color: colors.mutedForeground }}>
-                "{searchPhone}" के लिए {filtered.length} record{filtered.length !== 1 ? 's' : ''} मिले
+                "{searchPhone}" for {filtered.length} record{filtered.length !== 1 ? 's' : ''} found
               </Text>
             </View>
           )}
@@ -264,7 +264,7 @@ export default function SubmissionsScreen() {
             <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Feather name="inbox" size={36} color={colors.mutedForeground} />
               <Text style={{ color: colors.mutedForeground, marginTop: 10, textAlign: 'center' }}>
-                {searched ? 'इस number पर कोई record नहीं' : 'अभी कोई request नहीं'}
+                {searched ? 'No records for this number' : 'No requests yet'}
               </Text>
             </View>
           ) : (

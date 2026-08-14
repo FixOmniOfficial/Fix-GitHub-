@@ -50,12 +50,12 @@ async function setBan(id: string, ban: boolean) {
 }
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  super_admin: { label: 'Super Admin (सुपर व्यवस्थापक)', color: 'bg-violet-500/15 text-violet-400 border-violet-500/30', icon: Shield },
-  admin:       { label: 'Admin (व्यवस्थापक)',            color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',    icon: Crown },
-  staff:       { label: 'Staff (स्टाफ)',                color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',       icon: UserCircle },
-  technician:  { label: 'Technician (तकनीशियन)',        color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',       icon: UserCircle },
-  viewer:      { label: 'Viewer (दर्शक)',                color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',    icon: UserCircle },
-  user:        { label: 'User (उपयोगकर्ता)',              color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',   icon: UserCircle },
+  super_admin: { label: 'Super Admin', color: 'bg-violet-500/15 text-violet-400 border-violet-500/30', icon: Shield },
+  admin:       { label: 'Admin',            color: 'bg-amber-500/15 text-amber-400 border-amber-500/30',    icon: Crown },
+  staff:       { label: 'Staff',                color: 'bg-blue-500/15 text-blue-400 border-blue-500/30',       icon: UserCircle },
+  technician:  { label: 'Technician',        color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',       icon: UserCircle },
+  viewer:      { label: 'Viewer',                color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',    icon: UserCircle },
+  user:        { label: 'User',              color: 'bg-slate-500/15 text-slate-400 border-slate-500/30',   icon: UserCircle },
 };
 
 export default function Users() {
@@ -71,13 +71,13 @@ export default function Users() {
 
   const roleMut = useMutation({
     mutationFn: ({ id, role }: { id: string; role: string }) => setRole(id, role),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Role update हो गया'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Role updated'); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const banMut = useMutation({
     mutationFn: ({ id, ban }: { id: string; ban: boolean }) => setBan(id, ban),
-    onSuccess: (_, { ban }) => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success(ban ? 'User block कर दिया' : 'User unblock कर दिया'); },
+    onSuccess: (_, { ban }) => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success(ban ? 'User blocked' : 'User unblocked'); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -86,7 +86,7 @@ export default function Users() {
       <div className="flex flex-col items-center justify-center py-24 text-center space-y-3">
         <Shield className="w-14 h-14 text-slate-700" />
         <h2 className="text-xl font-bold text-slate-300">Admin Only</h2>
-        <p className="text-slate-500">यह पेज सिर्फ Admin देख सकता है।</p>
+        <p className="text-slate-500">Only the Admin can view this page.</p>
       </div>
     );
   }
@@ -95,9 +95,9 @@ export default function Users() {
     <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-white">
-          यूज़र्स <span className="text-xl font-normal text-slate-500 ml-2">Users</span>
+          Users 
         </h1>
-        <p className="text-slate-400 mt-1">सभी users को manage करें — role बदलें, block/unblock करें</p>
+        <p className="text-slate-400 mt-1">Manage all users — change roles, block/unblock</p>
       </div>
 
       {/* Role legend */}
@@ -111,11 +111,11 @@ export default function Users() {
         {isLoading ? (
           [1,2,3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl bg-slate-800" />)
         ) : error ? (
-          <div className="text-center py-12 text-rose-400">Users load नहीं हुए। Server check करें।</div>
+          <div className="text-center py-12 text-rose-400">Users could not be loaded. Check the server.</div>
         ) : users?.length === 0 ? (
           <div className="text-center py-16 border-2 border-dashed border-slate-800 rounded-xl">
             <UserCircle className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-500">अभी कोई user नहीं है।</p>
+            <p className="text-slate-500">No users yet.</p>
           </div>
         ) : (
           users?.map(user => {
@@ -142,7 +142,7 @@ export default function Users() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-white text-sm truncate">{user.name}</span>
-                        {isMe && <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/30 border">आप (You)</Badge>}
+                        {isMe && <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/30 border">(You)</Badge>}
                         {user.banned && <Badge className="text-[10px] bg-rose-500/20 text-rose-400 border-rose-500/30 border">Blocked</Badge>}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5 truncate">{user.email ?? '—'}</div>
@@ -184,7 +184,7 @@ export default function Users() {
                             ? 'h-8 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10'
                             : 'h-8 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10'
                           }
-                          title={user.banned ? 'Unblock करें' : 'Block करें'}
+                          title={user.banned ? 'Unblock' : 'Block'}
                         >
                           {user.banned ? <CheckCircle2 className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                         </Button>

@@ -116,8 +116,8 @@ export default function ReminderModal({ visible, onClose, onSaved, target, techC
     const wasGranted = (asked as any).granted ?? (asked as any).status === 'granted';
     if (!wasGranted) {
       Alert.alert(
-        '🔔 Permission चाहिए',
-        'Reminder alarm बजाने के लिए notification permission allow करें। Settings → App → Notifications में जाकर enable करें।',
+        '🔔 Permission Required',
+        'Please allow notification permission to ring reminder alarms. Go to Settings → App → Notifications to enable it.',
         [{ text: 'OK' }]
       );
       return false;
@@ -147,7 +147,7 @@ export default function ReminderModal({ visible, onClose, onSaved, target, techC
     const at = resolveDate();
 
     if (at && at <= new Date()) {
-      Alert.alert('', 'Date/Time भविष्य में होनी चाहिए'); return;
+      Alert.alert('', 'Date/Time must be in the future'); return;
     }
 
     setSaving(true);
@@ -175,10 +175,10 @@ export default function ReminderModal({ visible, onClose, onSaved, target, techC
 
       onSaved?.();
       onClose();
-      const timeLabel = at ? ` ${toDateStr(at)} ${toTimeStr(at)} बजे` : '';
-      Alert.alert('✅ Reminder Set!', `"${finalTitle}"${timeLabel} का alarm set हो गया।`);
+      const timeLabel = at ? ` ${toDateStr(at)} ${toTimeStr(at)} hrs` : '';
+      Alert.alert('✅ Reminder Set!', `Alarm set for "${finalTitle}"${timeLabel}.`);
     } catch (e: any) {
-      Alert.alert('Error', e?.message ?? 'Save नहीं हो सका');
+      Alert.alert('Error', e?.message ?? 'Could not save');
     }
     setSaving(false);
   };
@@ -224,7 +224,7 @@ export default function ReminderModal({ visible, onClose, onSaved, target, techC
             <Feather name="x" size={22} color={colors.foreground} />
           </TouchableOpacity>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ fontSize: 10, fontWeight: '700', color: '#f59e0b', letterSpacing: 1 }}>REMINDER SET करें</Text>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#f59e0b', letterSpacing: 1 }}>SET REMINDER</Text>
             <Text style={[s.headerTitle, { color: colors.foreground }]}>🔔 Alarm Schedule</Text>
           </View>
           {/* Save button in header */}
@@ -430,7 +430,7 @@ export default function ReminderModal({ visible, onClose, onSaved, target, techC
               ? <ActivityIndicator color="#000" />
               : <>
                   <Text style={{ fontSize: 20 }}>🔔</Text>
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#000' }}>Reminder Set करें</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#000' }}>Set Reminder</Text>
                 </>
             }
           </TouchableOpacity>

@@ -39,14 +39,14 @@ export default function SuccessScreen() {
       </View>
 
       <Text style={s.title}>Booking Confirmed! 🎉</Text>
-      <Text style={s.subtitle}>आपकी booking successfully हो गई।</Text>
-      <Text style={s.subtitle}>हमारी team जल्द आपसे contact करेगी।</Text>
+      <Text style={s.subtitle}>Your booking was placed successfully.</Text>
+      <Text style={s.subtitle}>Our team will contact you soon.</Text>
 
       {/* Booking ID box */}
       <View style={s.idBox}>
         <Text style={s.idLabel}>Your Booking ID</Text>
         <Text style={s.idText}>{bookingUid}</Text>
-        <Text style={s.idNote}>इस ID को सुरक्षित रखें</Text>
+        <Text style={s.idNote}>Keep this ID safe</Text>
       </View>
 
       {/* Action buttons */}
@@ -61,7 +61,7 @@ export default function SuccessScreen() {
           onPress={() => router.replace('/(tabs)')}
           activeOpacity={0.85}
         >
-          <Text style={s.homeBtnText}>Home पर जाएं</Text>
+          <Text style={s.homeBtnText}>Go to Home</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -34,8 +34,8 @@ export default function AdminProfessionalsScreen() {
     Alert.alert(
       `${action} ${prof.name}?`,
       prof.isActive
-        ? 'इस professional को block करने पर नई bookings नहीं मिलेंगी।'
-        : 'इस professional को unblock करने पर फिर से bookings मिलने लगेंगी।',
+        ? 'Blocking this professional will stop them from receiving new bookings.'
+        : 'Unblocking this professional will allow them to receive bookings again.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -77,7 +77,7 @@ export default function AdminProfessionalsScreen() {
         </TouchableOpacity>
         <View>
           <Text style={s.headerTitle}>Professionals</Text>
-          <Text style={s.headerSub}>Block / Unblock करें</Text>
+          <Text style={s.headerSub}>Block / Unblock</Text>
         </View>
       </View>
 

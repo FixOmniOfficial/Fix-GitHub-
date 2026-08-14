@@ -103,10 +103,10 @@ function KycStatusCard({ techCode, router }: { techCode: string; router: ReturnT
       <View style={{ flex: 1 }}>
         <Text style={{ fontWeight: '700', fontSize: 13, color: cfg.color }}>{cfg.label}</Text>
         <Text style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-          {status === 'verified' ? 'पहचान सत्यापित — आप booking receive कर सकते हैं' :
-           status === 'pending'  ? 'दस्तावेज़ समीक्षाधीन हैं — जल्द update मिलेगा' :
-           status === 'rejected' ? 'दस्तावेज़ अस्वीकृत — कृपया पुनः submit करें' :
-                                   'अपनी पहचान verify करें — tap करें'}
+          {status === 'verified' ? 'Identity verified — you can receive bookings' :
+           status === 'pending'  ? 'Documents under review — update coming soon' :
+           status === 'rejected' ? 'Documents rejected — please resubmit' :
+                                   'Verify your identity — tap here'}
         </Text>
       </View>
       <Text style={{ color: cfg.color, fontSize: 18 }}>›</Text>
@@ -215,7 +215,7 @@ export default function TechnicianHomeScreen() {
       setPendingAvatar(compressed.uri);
       setPendingAvatarUrl(publicUrl);
     } catch (err: any) {
-      Alert.alert('Upload failed', `Photo upload नहीं हुई: ${err?.message ?? 'Please retry.'}`);
+      Alert.alert('Upload failed', `Photo could not be uploaded: ${err?.message ?? 'Please retry.'}`);
     } finally {
       setUploadingAvatar(false);
     }
@@ -505,9 +505,9 @@ export default function TechnicianHomeScreen() {
           style={s.logoutBtn}
           onPress={async () => {
             const ok = Platform.OS === 'web'
-              ? window.confirm('Logout करना चाहते हैं?')
+              ? window.confirm('Are you sure you want to logout?')
               : await new Promise<boolean>(resolve =>
-                  Alert.alert('Logout', 'Logout करना चाहते हैं?', [
+                  Alert.alert('Logout', 'Are you sure you want to logout?', [
                     { text: 'No',  style: 'cancel',      onPress: () => resolve(false) },
                     { text: 'Yes', style: 'destructive', onPress: () => resolve(true)  },
                   ])
@@ -607,7 +607,7 @@ export default function TechnicianHomeScreen() {
           <View style={s.actionGrid}>
             <TouchableOpacity style={[s.actionCard, { borderColor: colors.border }]} onPress={() => goToTab(TAB.CUSTOMERS)}>
               <Text style={{ fontSize: 28 }}>👤</Text>
-              <Text style={s.actionLabel}>Customer जोड़ें</Text>
+              <Text style={s.actionLabel}>Add Customer</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.actionCard, { borderColor: colors.border }]} onPress={() => goToTab(TAB.PAYMENTS)}>
               <Text style={{ fontSize: 28 }}>💳</Text>
@@ -644,7 +644,7 @@ export default function TechnicianHomeScreen() {
               <Text style={{ fontSize: 22 }}>📋</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[s.infoRowTitle, { color: colors.foreground }]}>Market Rates</Text>
-                <Text style={[s.infoRowSub, { color: colors.mutedForeground }]}>सर्विस की current दरें देखें</Text>
+                <Text style={[s.infoRowSub, { color: colors.mutedForeground }]}>View current service rates</Text>
               </View>
               <Text style={{ color: '#3b82f6', fontSize: 18 }}>›</Text>
             </TouchableOpacity>
@@ -656,7 +656,7 @@ export default function TechnicianHomeScreen() {
               <Text style={{ fontSize: 22 }}>⭐</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[s.infoRowTitle, { color: colors.foreground }]}>Rate the App</Text>
-                <Text style={[s.infoRowSub, { color: colors.mutedForeground }]}>ऐप को रेट करें, feedback दें</Text>
+                <Text style={[s.infoRowSub, { color: colors.mutedForeground }]}>Rate the app, share feedback</Text>
               </View>
               <Text style={{ color: '#f59e0b', fontSize: 18 }}>›</Text>
             </TouchableOpacity>
@@ -791,7 +791,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
       });
       setCustomers(prev => prev.map(x => x.id === c.id ? { ...x, status } : x));
       setDetail(prev => prev?.id === c.id ? { ...prev, status } : prev);
-    } catch { Alert.alert('Error', 'Update नहीं हो सका'); }
+    } catch { Alert.alert('Error', 'Update failed'); }
   };
 
   const markRating = async (c: TechCustomer, next: 'good' | 'bad' | null) => {
@@ -806,18 +806,18 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
   };
 
   const deleteCustomer = async (c: TechCustomer) => {
-    const ok = await confirmDelete(`"${c.name}" को permanently delete करना चाहते हैं?`);
+    const ok = await confirmDelete(`Permanently delete "${c.name}"?`);
     if (!ok) return;
     try {
       await api(`/booking/tech-customers/${c.id}`, { method: 'DELETE' });
       setCustomers(prev => prev.filter(x => x.id !== c.id));
       setDetail(null);
-    } catch { Alert.alert('Error', 'Delete नहीं हो सका'); }
+    } catch { Alert.alert('Error', 'Delete failed'); }
   };
 
   // ── Inline Payment save (stays inside modal, no tab switch) ────────────────
   const saveInlinePayment = async () => {
-    if (!inlAmt.trim() || isNaN(parseFloat(inlAmt))) { Alert.alert('', 'Amount जरूरी है'); return; }
+    if (!inlAmt.trim() || isNaN(parseFloat(inlAmt))) { Alert.alert('', 'Amount is required'); return; }
     setInlSaving(true);
     try {
       await api('/booking/tech-payments', {
@@ -833,8 +833,8 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
         }),
       });
       setInlAmt(''); setInlJob(''); setInlineAction(null);
-      Alert.alert('✅', 'Payment record जोड़ा गया!');
-    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
+      Alert.alert('✅', 'Payment record added!');
+    } catch { Alert.alert('Error', 'Save failed'); }
     setInlSaving(false);
   };
 
@@ -844,8 +844,8 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
   };
 
   const save = async () => {
-    if (!name.trim())  { Alert.alert('', 'नाम जरूरी है'); return; }
-    if (!phone.trim()) { Alert.alert('', 'Phone number जरूरी है'); return; }
+    if (!name.trim())  { Alert.alert('', 'Name is required'); return; }
+    if (!phone.trim()) { Alert.alert('', 'Phone number is required'); return; }
     setSaving(true);
     try {
       const res = await api('/booking/tech-customers', {
@@ -857,7 +857,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
       setName(''); setPhone(''); setAddress(''); setJobType(''); setNotes('');
       setShowForm(false);
       setLastSavedCust(saved); // show "Set Reminder?" prompt
-    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Save नहीं हो सका'); }
+    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Save failed'); }
     setSaving(false);
   };
 
@@ -872,8 +872,8 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
 
   const saveEdit = async () => {
     if (!editTarget) return;
-    if (!editName.trim())  { Alert.alert('', 'नाम जरूरी है'); return; }
-    if (!editPhone.trim()) { Alert.alert('', 'Phone number जरूरी है'); return; }
+    if (!editName.trim())  { Alert.alert('', 'Name is required'); return; }
+    if (!editPhone.trim()) { Alert.alert('', 'Phone number is required'); return; }
     setEditSaving(true);
     try {
       const res = await api(`/booking/tech-customers/${editTarget.id}`, {
@@ -888,8 +888,8 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
       setCustomers(prev => prev.map(c => c.id === editTarget.id ? { ...c, ...res } : c));
       setDetail(prev => prev?.id === editTarget.id ? { ...prev, ...res } : prev);
       setEditTarget(null);
-      Alert.alert('✅', 'Details update हो गई!');
-    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Update नहीं हो सका'); }
+      Alert.alert('✅', 'Details updated!');
+    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Update failed'); }
     setEditSaving(false);
   };
 
@@ -1078,7 +1078,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
               {inlineAction === 'payment' && (
                 <View style={[s.detailCard, { backgroundColor: '#22c55e08', borderColor: '#22c55e44' }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <Text style={[s.detailLabel, { color: '#22c55e' }]}>💳 PAYMENT ADD करें</Text>
+                    <Text style={[s.detailLabel, { color: '#22c55e' }]}>💳 ADD PAYMENT</Text>
                     <TouchableOpacity onPress={() => setInlineAction(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Feather name="x" size={18} color={colors.mutedForeground} />
                     </TouchableOpacity>
@@ -1211,7 +1211,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
                     <TouchableOpacity onPress={() => setEditTarget(null)}><Feather name="x" size={18} color={colors.mutedForeground} /></TouchableOpacity>
                   </View>
                   {[
-                    { label: 'नाम *', val: editName, set: setEditName, kb: 'default' as const },
+                    { label: 'Name *', val: editName, set: setEditName, kb: 'default' as const },
                     { label: 'Phone *', val: editPhone, set: setEditPhone, kb: 'phone-pad' as const },
                     { label: 'Address', val: editAddress, set: setEditAddress, kb: 'default' as const },
                     { label: 'Job Type', val: editJobType, set: setEditJobType, kb: 'default' as const },
@@ -1229,7 +1229,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
                   </View>
                   <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: editSaving ? 0.7 : 1 }]}
                     onPress={saveEdit} disabled={editSaving}>
-                    {editSaving ? <ActivityIndicator color="#000" /> : <><Feather name="check" size={16} color="#000" /><Text style={s.saveBtnText}>Update करें</Text></>}
+                    {editSaving ? <ActivityIndicator color="#000" /> : <><Feather name="check" size={16} color="#000" /><Text style={s.saveBtnText}>Update</Text></>}
                   </TouchableOpacity>
                 </View>
               )}
@@ -1253,18 +1253,18 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
           <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary, flex: 1 }]}
             onPress={() => setShowForm(v => !v)} activeOpacity={0.85}>
             <Feather name={showForm ? 'x' : 'user-plus'} size={17} color="#000" />
-            <Text style={s.addBtnText}>{showForm ? 'बंद करें' : 'जोड़ें'}</Text>
+            <Text style={s.addBtnText}>{showForm ? 'Close' : 'Add'}</Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Add Form ── */}
         {showForm && (
           <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={s.formTitle}>नया Customer जोड़ें</Text>
+            <Text style={s.formTitle}>Add New Customer</Text>
             {[
-              { label: 'नाम *', val: name, set: setName, placeholder: 'Customer का नाम', kb: 'default' as const },
+              { label: 'Name *', val: name, set: setName, placeholder: 'Customer name', kb: 'default' as const },
               { label: 'Contact Number *', val: phone, set: setPhone, placeholder: '10-digit mobile number', kb: 'phone-pad' as const },
-              { label: 'पता / Address', val: address, set: setAddress, placeholder: 'House, Street, Area', kb: 'default' as const },
+              { label: 'Address', val: address, set: setAddress, placeholder: 'House, Street, Area', kb: 'default' as const },
               { label: 'Job Type', val: jobType, set: setJobType, placeholder: 'AC Service / Repair / Install…', kb: 'default' as const },
             ].map(f => (
               <View key={f.label} style={{ gap: 4 }}>
@@ -1279,7 +1279,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
                 placeholderTextColor={colors.mutedForeground} value={notes} onChangeText={setNotes} multiline />
             </View>
             <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#000" /> : <><Feather name="user-plus" size={16} color="#000" /><Text style={s.saveBtnText}>Save करें</Text></>}
+              {saving ? <ActivityIndicator color="#000" /> : <><Feather name="user-plus" size={16} color="#000" /><Text style={s.saveBtnText}>Save</Text></>}
             </TouchableOpacity>
           </View>
         )}
@@ -1289,14 +1289,14 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
           <View style={[s.formCard, { backgroundColor: '#f59e0b10', borderColor: '#f59e0b55', flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }]}>
             <Text style={{ fontSize: 22 }}>🔔</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.foreground }}>{lastSavedCust.name} के लिए reminder?</Text>
-              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>Follow-up या service alarm set करें</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.foreground }}>Reminder for {lastSavedCust.name}?</Text>
+              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>Set a follow-up or service alarm</Text>
             </View>
             <TouchableOpacity
               onPress={() => { openReminder(lastSavedCust); setLastSavedCust(null); }}
               style={{ backgroundColor: '#f59e0b', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 }}
             >
-              <Text style={{ color: '#000', fontWeight: '800', fontSize: 12 }}>Set करें</Text>
+              <Text style={{ color: '#000', fontWeight: '800', fontSize: 12 }}>Set</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setLastSavedCust(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Feather name="x" size={16} color={colors.mutedForeground} />
@@ -1307,7 +1307,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
         {/* ── Search ── */}
         <View style={[s.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="search" size={15} color={colors.mutedForeground} />
-          <TextInput style={s.searchInput} placeholder="नाम या phone से ढूंढें…" placeholderTextColor={colors.mutedForeground}
+          <TextInput style={s.searchInput} placeholder="Search by name or phone…" placeholderTextColor={colors.mutedForeground}
             value={search} onChangeText={setSearch} />
           {search ? <TouchableOpacity onPress={() => setSearch('')}><Feather name="x" size={15} color={colors.mutedForeground} /></TouchableOpacity> : null}
         </View>
@@ -1340,9 +1340,9 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
         {filtered.length === 0 && (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="users" size={32} color={colors.mutedForeground} />
-            <Text style={s.emptyText}>कोई customer नहीं मिला</Text>
+            <Text style={s.emptyText}>No customer found</Text>
             <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: 'center', marginTop: 4 }}>
-              "Form Send" से customers form भरेंगे तो यहाँ दिखेंगे
+              Customers who fill the form via "Form Send" will appear here
             </Text>
           </View>
         )}
@@ -1429,8 +1429,8 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
 
   // ── Create new payment record ──────────────────────────────────────────────
   const saveNewRecord = async () => {
-    if (!custName.trim()) { Alert.alert('', 'Customer नाम जरूरी है'); return; }
-    if (!billed.trim() || isNaN(parseFloat(billed))) { Alert.alert('', 'Amount जरूरी है'); return; }
+    if (!custName.trim()) { Alert.alert('', 'Customer name is required'); return; }
+    if (!billed.trim() || isNaN(parseFloat(billed))) { Alert.alert('', 'Amount is required'); return; }
     setSavingNew(true);
     try {
       const res = await api('/booking/tech-payments', {
@@ -1448,7 +1448,7 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
       setPayments(prev => [{ ...res, entries: [] }, ...prev]);
       setCustName(''); setCustPhone(''); setJobDesc(''); setBilled('');
       setShowNewForm(false);
-    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
+    } catch { Alert.alert('Error', 'Save failed'); }
     setSavingNew(false);
   };
 
@@ -1468,8 +1468,8 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
   };
 
   const saveEntry = async () => {
-    if (!entryAmount.trim() || isNaN(parseFloat(entryAmount))) { Alert.alert('', 'Amount जरूरी है'); return; }
-    if (!entryDate.trim()) { Alert.alert('', 'Date जरूरी है'); return; }
+    if (!entryAmount.trim() || isNaN(parseFloat(entryAmount))) { Alert.alert('', 'Amount is required'); return; }
+    if (!entryDate.trim()) { Alert.alert('', 'Date is required'); return; }
     setSavingEntry(true);
     const paidAtValue = entryTime.trim()
       ? `${entryDate}T${entryTime}`
@@ -1501,22 +1501,22 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
       if (newStatus === 'paid') {
         Alert.alert(
           '🎉 Payment Complete!',
-          'पूरा payment मिल गया। यह record अब "Paid History" में move हो जाएगा।',
-          [{ text: 'ठीक है', style: 'default' }]
+          'Full payment received. This record will move to "Paid History".',
+          [{ text: 'OK', style: 'default' }]
         );
       }
-    } catch { Alert.alert('Error', 'Entry save नहीं हो सकी'); }
+    } catch { Alert.alert('Error', 'Entry could not be saved'); }
     setSavingEntry(false);
   };
 
   // ── Delete entire payment record ───────────────────────────────────────────
   const deleteRecord = async (p: TechPayment) => {
-    const ok = await confirmDelete(`${p.customerName} का पूरा payment record permanently delete करना चाहते हैं?`);
+    const ok = await confirmDelete(`Permanently delete payment record for ${p.customerName}?`);
     if (!ok) return;
     try {
       await api(`/booking/tech-payments/${p.id}`, { method: 'DELETE' });
       setPayments(prev => prev.filter(x => x.id !== p.id));
-    } catch { Alert.alert('Error', 'Record delete नहीं हो सका'); }
+    } catch { Alert.alert('Error', 'Record delete failed'); }
   };
 
   // ── Toggle expand ─────────────────────────────────────────────────────────
@@ -1633,14 +1633,14 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
 
             {p.entries.length === 0 && !addingHere && (
               <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: 'center', paddingVertical: 12 }}>
-                कोई payment entry नहीं
+                No payment entries
               </Text>
             )}
 
             {/* Add Entry Form */}
             {addingHere && (
               <View style={{ padding: 12, gap: 10, borderTopWidth: p.entries.length > 0 ? 1 : 0, borderTopColor: colors.border }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>💳 Partial Payment Add करें</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>💳 Add Partial Payment</Text>
 
                 {/* Amount row */}
                 <View style={{ gap: 4 }}>
@@ -1806,13 +1806,13 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
         <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]}
           onPress={() => { setShowNewForm(v => !v); setAddEntryId(null); }}>
           <Feather name={showNewForm ? 'x' : 'plus-circle'} size={17} color="#000" />
-          <Text style={s.addBtnText}>{showNewForm ? 'Form बंद करें' : 'नया Payment Record बनाएं'}</Text>
+          <Text style={s.addBtnText}>{showNewForm ? 'Close Form' : 'Create New Payment Record'}</Text>
         </TouchableOpacity>
 
         {/* ── New record form ──────────────────────────────────────────────── */}
         {showNewForm && (
           <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.primary + '44', gap: 12 }]}>
-            <Text style={[s.formTitle, { color: colors.primary }]}>📋 नया Payment Record</Text>
+            <Text style={[s.formTitle, { color: colors.primary }]}>📋 New Payment Record</Text>
 
             {/* Customer quick-chips */}
             {customers.length > 0 && (
@@ -1834,8 +1834,8 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
             )}
 
             <View style={{ gap: 4 }}>
-              <Text style={s.fieldLabel}>Customer नाम *</Text>
-              <TextInput style={s.input} placeholder="नाम लिखें" placeholderTextColor={colors.mutedForeground} value={custName} onChangeText={setCustName} />
+              <Text style={s.fieldLabel}>Customer Name *</Text>
+              <TextInput style={s.input} placeholder="Enter name" placeholderTextColor={colors.mutedForeground} value={custName} onChangeText={setCustName} />
             </View>
             <View style={{ gap: 4 }}>
               <Text style={s.fieldLabel}>Phone</Text>
@@ -1852,7 +1852,7 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
 
             <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: savingNew ? 0.7 : 1 }]}
               onPress={saveNewRecord} disabled={savingNew}>
-              {savingNew ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Record बनाएं →</Text>}
+              {savingNew ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Create Record →</Text>}
             </TouchableOpacity>
           </View>
         )}
@@ -1866,9 +1866,9 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
         {active.length === 0 && history.length === 0 && (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="credit-card" size={32} color={colors.mutedForeground} />
-            <Text style={s.emptyText}>कोई payment record नहीं</Text>
+            <Text style={s.emptyText}>No payment records yet</Text>
             <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: 'center', marginTop: 4 }}>
-              "नया Payment Record बनाएं" tap करें
+              Tap "New Payment Record" to create one
             </Text>
           </View>
         )}
@@ -2006,7 +2006,7 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
 
   const save = async () => {
     const finalTitle = title.trim() || (selCust ? `Payment — ${selCust.name}` : '');
-    if (!finalTitle) { Alert.alert('', 'Purpose / title जरूरी है'); return; }
+    if (!finalTitle) { Alert.alert('', 'Purpose / title is required'); return; }
     setSaving(true);
     const reminderAt = date && time ? `${date} ${time}` : (date || time || undefined);
     const body: Record<string, any> = {
@@ -2023,7 +2023,7 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
         setReminders(prev => [res, ...prev]);
       }
       resetForm();
-    } catch { Alert.alert('Error', 'Save नहीं हो सका'); }
+    } catch { Alert.alert('Error', 'Save failed'); }
     setSaving(false);
   };
 
@@ -2042,12 +2042,12 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
   };
 
   const deleteReminder = async (id: number) => {
-    const ok = await confirmDelete('यह reminder permanently delete करना चाहते हैं?');
+    const ok = await confirmDelete('Permanently delete this reminder?');
     if (!ok) return;
     try {
       await api(`/booking/tech-reminders/${id}`, { method: 'DELETE' });
       setReminders(prev => prev.filter(r => r.id !== id));
-    } catch { Alert.alert('Error', 'Reminder delete नहीं हो सका'); }
+    } catch { Alert.alert('Error', 'Could not delete reminder'); }
   };
 
   // ── Reminder card ──────────────────────────────────────────────────────────
@@ -2142,20 +2142,20 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
         <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]}
           onPress={() => showForm ? resetForm() : setShowForm(true)}>
           <Feather name={showForm ? 'x' : 'bell-plus' as any} size={17} color="#000" />
-          <Text style={s.addBtnText}>{showForm ? 'Form बंद करें' : 'नया Reminder जोड़ें'}</Text>
+          <Text style={s.addBtnText}>{showForm ? 'Close Form' : 'Add New Reminder'}</Text>
         </TouchableOpacity>
 
         {/* ── Form ───────────────────────────────────────────────────────── */}
         {showForm && (
           <View style={[s.formCard, { backgroundColor: colors.card, borderColor: colors.primary + '55', gap: 14 }]}>
             <Text style={[s.formTitle, { color: colors.primary, fontSize: 16 }]}>
-              {editId ? '✏️ Reminder Edit करें' : '🔔 नया Reminder'}
+              {editId ? '✏️ Edit Reminder' : '🔔 New Reminder'}
             </Text>
 
             {/* Customer search */}
             <View style={{ gap: 6 }}>
               <Text style={s.fieldLabel}>👤 Customer (optional)</Text>
-              <TextInput style={s.input} placeholder="नाम या phone से ढूंढें…"
+              <TextInput style={s.input} placeholder="Search by name or phone…"
                 placeholderTextColor={colors.mutedForeground}
                 value={custSearch}
                 onChangeText={t => { setCustSearch(t); if (!t) setSelCust(null); }} />
@@ -2185,7 +2185,7 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
             {/* Purpose / Title */}
             <View style={{ gap: 4 }}>
               <Text style={s.fieldLabel}>📌 Purpose / Title</Text>
-              <TextInput style={s.input} placeholder="e.g. Payment लेना, AC service check…"
+              <TextInput style={s.input} placeholder="e.g. Payment due, AC service check…"
                 placeholderTextColor={colors.mutedForeground} value={title} onChangeText={setTitle} />
             </View>
 
@@ -2238,7 +2238,7 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
 
             <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]}
               onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>{editId ? '✅ Update करें' : '💾 Save करें'}</Text>}
+              {saving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>{editId ? '✅ Update' : '💾 Save'}</Text>}
             </TouchableOpacity>
           </View>
         )}
@@ -2260,9 +2260,9 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
         {reminders.length === 0 && (
           <View style={[s.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="bell-off" size={32} color={colors.mutedForeground} />
-            <Text style={s.emptyText}>कोई reminder नहीं</Text>
+            <Text style={s.emptyText}>No reminders yet</Text>
             <Text style={{ fontSize: 12, color: colors.mutedForeground, textAlign: 'center', marginTop: 4 }}>
-              "नया Reminder जोड़ें" tap करें
+              Tap "Add New Reminder" to get started
             </Text>
           </View>
         )}

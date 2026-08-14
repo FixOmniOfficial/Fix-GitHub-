@@ -164,7 +164,7 @@ function RatingWidget({ colors }: { colors: ReturnType<typeof useColors> }) {
         <View style={{ flex: 1 }}>
           <Text style={[s.ratingWidgetTitle, { color: colors.foreground }]}>⭐ Rate the App</Text>
           <Text style={[s.ratingWidgetSub, { color: colors.mutedForeground }]}>
-            Stars tap करें — instant rating!
+            Tap stars for an instant rating!
           </Text>
         </View>
         {avg > 0 && (
@@ -297,7 +297,7 @@ export default function HomeScreen() {
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 140 }}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 80 : insets.bottom + 220 }}
       >
         {/* ── Header Bar ── */}
         <LogoZoomModal visible={logoModalVisible} onClose={() => setLogoModalVisible(false)} />
@@ -525,7 +525,7 @@ export default function HomeScreen() {
           ) : recent.length === 0 ? (
             <View style={s.emptyCard}>
               <Feather name="calendar" size={32} color={colors.mutedForeground} />
-              <Text style={s.emptyText}>अभी कोई booking नहीं</Text>
+              <Text style={s.emptyText}>No bookings yet</Text>
             </View>
           ) : (
             recent.map((b) => (

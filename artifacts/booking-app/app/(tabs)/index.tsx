@@ -4,6 +4,7 @@ import {
   Platform, ActivityIndicator, Linking, Alert, Image,
   Modal, Animated, Pressable, Dimensions, TextInput,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 
 const LOGO = require('@/assets/fixomni-logo.jpg');
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -379,7 +380,12 @@ export default function HomeScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
               <View style={[s.profileAvatar, { borderColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
                 {user.avatar
-                  ? <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
+                  ? <ExpoImage
+                      source={{ uri: user.avatar }}
+                      style={s.profileAvatarImg}
+                      cachePolicy="memory-disk"
+                      contentFit="cover"
+                    />
                   : <AvatarInitial
                       name={user.name ?? '?'}
                       size={56} fontSize={22}

@@ -87,6 +87,31 @@ router.post(
   }
 );
 
+// ── GET /api/public/avatar/:objectId ─────────────────────────────────────────
+// Public (no-auth) serving for profile/avatar images.
+// objectId is the UUID portion of the GCS object path.
+router.get("/public/avatar/:objectId", async (req: Request, res: Response): Promise<void> => {
+  // Sanitise: only allow hex/UUID chars + hyphens to prevent path traversal
+  const id = req.params["objectId"];
+  if (!id || !/^[\w\-]+$/.test(id)) { res.status(400).end(); return; }
+  const objectPath = `/objects/${id}`;
+  try {
+    const file = await storage.getObjectEntityFile(objectPath);
+    const response = await storage.downloadObject(file, 86400);
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    const buf = Buffer.from(await response.arrayBuffer());
+    res.send(buf);
+  } catch (err: any) {
+    if (err?.constructor?.name === "ObjectNotFoundError" || err?.message?.includes("not found")) {
+      res.status(404).end();
+    } else {
+      res.status(500).end();
+    }
+  }
+});
+
 // ── GET /api/storage/objects/** ───────────────────────────────────────────────
 // Serve stored objects (KYC docs etc.) — auth required.
 // Uses router.use() to avoid path-to-regexp v8 wildcard restrictions;

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -34,9 +35,16 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const colors = useColors();
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   const isDark = colorScheme === 'dark';
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
+  const isAndroid = Platform.OS === 'android';
+
+  // Tab bar height: icon area (49px) + bottom safe-area so background
+  // fills flush to the physical bottom edge with no black strip.
+  const tabBarHeight = isWeb ? 60 : 49 + insets.bottom;
+  const tabBarPaddingBottom = isWeb ? 8 : insets.bottom;
 
   return (
     <Tabs
@@ -50,18 +58,17 @@ function ClassicTabLayout() {
           borderTopColor: colors.border,
           borderTopWidth: 1,
           elevation: 0,
-          ...(isWeb ? { height: 84, paddingBottom: 34 } : {}),
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView
-              intensity={80}
-              tint="dark"
-              style={StyleSheet.absoluteFill}
-            />
-          ) : isWeb ? (
+            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : (
+            // Android + web: solid card background that fills ALL the way to the
+            // physical bottom edge, eliminating the black strip under the icons.
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
-          ) : null,
+          ),
       }}
     >
       <Tabs.Screen

@@ -5,7 +5,9 @@ import {
   Dimensions, NativeScrollEvent, NativeSyntheticEvent,
   KeyboardAvoidingView, Linking, Share, Modal, Image, Pressable,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -132,6 +134,7 @@ export default function TechnicianHomeScreen() {
   const [pendingName, setPendingName] = useState('');
   const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [pendingNameError, setPendingNameError] = useState('');
   const [kycStatus, setKycStatus] = useState<string | null>(null);
 
@@ -168,11 +171,46 @@ export default function TechnicianHomeScreen() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert('Permission required', 'Photo library access is needed to change your picture.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
+      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1,
     });
     if (result.canceled || !result.assets[0]) return;
-    // Only update local pending state — nothing is saved until Save is tapped
-    setPendingAvatar(result.assets[0].uri);
+
+    setUploadingAvatar(true);
+    try {
+      // 1. Compress to ~150KB: resize to 400×400 and apply JPEG quality 0.65
+      const compressed = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 400, height: 400 } }],
+        { compress: 0.65, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      // 2. Upload via server-side multipart endpoint (accepts X-Tech-Code auth)
+      const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
+      const formData = new FormData();
+      formData.append('file', {
+        uri: compressed.uri,
+        name: 'avatar.jpg',
+        type: 'image/jpeg',
+      } as any);
+      const uploadRes = await fetch(`${apiBase}/api/storage/uploads/multipart`, {
+        method: 'POST',
+        headers: { 'X-Tech-Code': user?.uniqueCode ?? '' },
+        body: formData,
+      });
+      if (!uploadRes.ok) throw new Error('Upload failed');
+      const { objectPath } = await uploadRes.json();
+
+      // 3. Build the public (no-auth) serving URL for avatar images
+      //    objectPath = "/objects/<uuid>" → serve via /api/public/avatar/<uuid>
+      const objectId = String(objectPath).replace(/^\/objects\//, '');
+      const publicUrl = `${apiBase}/api/public/avatar/${objectId}`;
+
+      setPendingAvatar(publicUrl);
+    } catch {
+      Alert.alert('Upload failed', 'Profile photo upload नहीं हुई। Please retry.');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const saveEditProfile = async () => {
@@ -356,10 +394,17 @@ export default function TechnicianHomeScreen() {
             <Text style={{ fontSize: 16, fontWeight: '800', color: colors.foreground }}>Edit Profile</Text>
 
             {/* Avatar picker */}
-            <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8} style={{ alignSelf: 'center' }}>
+            <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8} style={{ alignSelf: 'center' }} disabled={uploadingAvatar}>
               <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: colors.primary, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card }}>
-                {(pendingAvatar ?? user?.avatar) ? (
-                  <Image source={{ uri: pendingAvatar ?? user?.avatar ?? undefined }} style={{ width: 80, height: 80 }} />
+                {uploadingAvatar ? (
+                  <ActivityIndicator color={colors.primary} size="large" />
+                ) : (pendingAvatar ?? user?.avatar) ? (
+                  <ExpoImage
+                    source={{ uri: pendingAvatar ?? user?.avatar ?? undefined }}
+                    style={{ width: 80, height: 80 }}
+                    cachePolicy="memory-disk"
+                    contentFit="cover"
+                  />
                 ) : (
                   <View style={{ width: 80, height: 80, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={{ fontSize: 28, fontWeight: '800', color: '#000' }}>
@@ -368,12 +413,17 @@ export default function TechnicianHomeScreen() {
                   </View>
                 )}
               </View>
-              <View style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="camera" size={13} color="#000" />
-              </View>
+              {!uploadingAvatar && (
+                <View style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+                  <Feather name="camera" size={13} color="#000" />
+                </View>
+              )}
             </TouchableOpacity>
-            {pendingAvatar && (
-              <Text style={{ textAlign: 'center', fontSize: 12, color: colors.primary, marginTop: -8 }}>Photo selected — tap Save to apply</Text>
+            {uploadingAvatar && (
+              <Text style={{ textAlign: 'center', fontSize: 12, color: colors.primary, marginTop: -8 }}>Uploading photo…</Text>
+            )}
+            {pendingAvatar && !uploadingAvatar && (
+              <Text style={{ textAlign: 'center', fontSize: 12, color: '#22c55e', marginTop: -8 }}>✓ Photo uploaded — tap Save to apply</Text>
             )}
 
             {/* Name input */}
@@ -389,10 +439,10 @@ export default function TechnicianHomeScreen() {
 
             {/* Actions */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 13, alignItems: 'center' }} onPress={() => setEditModalVisible(false)} disabled={savingProfile}>
+              <TouchableOpacity style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 13, alignItems: 'center' }} onPress={() => setEditModalVisible(false)} disabled={savingProfile || uploadingAvatar}>
                 <Text style={{ color: colors.mutedForeground, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, borderRadius: 12, backgroundColor: colors.primary, paddingVertical: 13, alignItems: 'center', opacity: savingProfile ? 0.7 : 1 }} onPress={saveEditProfile} disabled={savingProfile}>
+              <TouchableOpacity style={{ flex: 1, borderRadius: 12, backgroundColor: colors.primary, paddingVertical: 13, alignItems: 'center', opacity: (savingProfile || uploadingAvatar) ? 0.7 : 1 }} onPress={saveEditProfile} disabled={savingProfile || uploadingAvatar}>
                 {savingProfile
                   ? <ActivityIndicator size="small" color="#000" />
                   : <Text style={{ color: '#000', fontWeight: '800' }}>Save</Text>}
@@ -407,7 +457,12 @@ export default function TechnicianHomeScreen() {
         {/* Avatar — shows photo or name initial */}
         <View style={[s.profileAvatar, { borderColor: colors.primary }]}>
           {user.avatar
-            ? <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
+            ? <ExpoImage
+                source={{ uri: user.avatar }}
+                style={s.profileAvatarImg}
+                cachePolicy="memory-disk"
+                contentFit="cover"
+              />
             : <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 22, fontWeight: '800', color: '#000' }}>
                   {(user.name || '?').trim()[0]?.toUpperCase() ?? '?'}

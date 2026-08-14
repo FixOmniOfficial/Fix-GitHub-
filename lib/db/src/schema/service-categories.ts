@@ -4,6 +4,7 @@ export const serviceCategoriesTable = pgTable("service_categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   icon: text("icon").notNull().default("settings"),
+  imageUrl: text("image_url"),
   accent: text("accent").notNull().default("#6b7280"),
   professionType: text("profession_type").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),

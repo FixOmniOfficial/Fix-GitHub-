@@ -441,8 +441,8 @@ router.get('/admin/service-categories', requireAuth, requireAdmin, async (_req, 
 
 /** POST /api/admin/service-categories */
 router.post('/admin/service-categories', requireAuth, requireAdmin, async (req, res) => {
-  const { name, icon, accent, professionType, sortOrder } = req.body as {
-    name?: string; icon?: string; accent?: string; professionType?: string; sortOrder?: number;
+  const { name, icon, imageUrl, accent, professionType, sortOrder } = req.body as {
+    name?: string; icon?: string; imageUrl?: string; accent?: string; professionType?: string; sortOrder?: number;
   };
   if (!name || !professionType) {
     res.status(400).json({ error: 'name and professionType are required' });
@@ -453,7 +453,8 @@ router.post('/admin/service-categories', requireAuth, requireAdmin, async (req, 
       .insert(serviceCategoriesTable)
       .values({
         name: name.trim(),
-        icon: icon?.trim() || '🔧',
+        icon: icon?.trim() || 'settings',
+        imageUrl: imageUrl?.trim() || null,
         accent: accent?.trim() || '#6b7280',
         professionType: professionType.trim(),
         sortOrder: sortOrder ?? 0,
@@ -470,13 +471,14 @@ router.post('/admin/service-categories', requireAuth, requireAdmin, async (req, 
 router.patch('/admin/service-categories/:id', requireAuth, requireAdmin, async (req, res) => {
   const id = parseInt(String(req.params['id']), 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
-  const { name, icon, accent, professionType, sortOrder, isActive } = req.body as {
-    name?: string; icon?: string; accent?: string; professionType?: string;
+  const { name, icon, imageUrl, accent, professionType, sortOrder, isActive } = req.body as {
+    name?: string; icon?: string; imageUrl?: string | null; accent?: string; professionType?: string;
     sortOrder?: number; isActive?: boolean;
   };
   const updateData: Record<string, any> = { updatedAt: new Date() };
   if (name !== undefined) updateData.name = name.trim();
   if (icon !== undefined) updateData.icon = icon.trim();
+  if (imageUrl !== undefined) updateData.imageUrl = imageUrl?.trim() || null;
   if (accent !== undefined) updateData.accent = accent.trim();
   if (professionType !== undefined) updateData.professionType = professionType.trim();
   if (sortOrder !== undefined) updateData.sortOrder = sortOrder;

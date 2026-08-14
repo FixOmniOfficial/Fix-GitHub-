@@ -235,7 +235,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = insets.top;
   const { user, logout, updateUser } = useAppAuth();
   const { isTestMode } = useTestMode();
   const [logoModalVisible, setLogoModalVisible] = useState(false);
@@ -296,7 +296,7 @@ export default function HomeScreen() {
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 80 }}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 140 }}
       >
         {/* ── Header Bar ── */}
         <LogoZoomModal visible={logoModalVisible} onClose={() => setLogoModalVisible(false)} />
@@ -494,7 +494,15 @@ export default function HomeScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={[s.gridIcon, { backgroundColor: (cat.accent ?? '#6b7280') + '22' }]}>
-                    <Feather name={(cat.icon ?? 'settings') as any} size={26} color={cat.accent ?? '#6b7280'} />
+                    {(cat as any).imageUrl ? (
+                      <Image
+                        source={{ uri: (cat as any).imageUrl }}
+                        style={{ width: 32, height: 32, borderRadius: 8 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Feather name={(cat.icon ?? 'settings') as any} size={26} color={cat.accent ?? '#6b7280'} />
+                    )}
                   </View>
                   <Text style={s.gridLabel}>{cat.name}</Text>
                 </TouchableOpacity>

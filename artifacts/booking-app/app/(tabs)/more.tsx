@@ -23,7 +23,7 @@ export default function MoreScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = insets.top;
   const { lang, toggle, t } = useLanguage();
 
   const { data: summary } = useGetAppRatingsSummary({});
@@ -44,7 +44,7 @@ export default function MoreScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 80 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 140 }}
       >
         {/* ── App Rating Card ── */}
         <View style={s.ratingCard}>

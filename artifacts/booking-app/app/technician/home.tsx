@@ -237,7 +237,7 @@ export default function TechnicianHomeScreen() {
       setEditModalVisible(false);
     }
   };
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = insets.top;
 
   const [activeTab, setActiveTab] = useState(0);
   const [prefillCustomer, setPrefillCustomer] = useState<{ name: string; phone: string } | null>(null);
@@ -497,7 +497,7 @@ export default function TechnicianHomeScreen() {
 
         {/* ══ TAB 0: Dashboard ══════════════════════════════════════════════════ */}
         <ScrollView style={s.page} showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}>
+          contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 140 }}>
 
           {/* Balance Overview */}
           <View style={[s.balanceCard, { borderColor: colors.primary + '55' }]}>
@@ -945,7 +945,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
               <View style={{ width: 42 }} />
             </View>
 
-            <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 80 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 140 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
               {/* ── Action Icons Row — VERY TOP ────────────────────────────────
                   Icons come first. Payment/Reminder toggle inline forms below.
@@ -1175,7 +1175,7 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
       </Modal>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}>
+        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 140 }}>
 
         {/* ── Top row: Form Send + Add ── */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -1711,7 +1711,7 @@ function PaymentsTab({ colors, techCode, payments, setPayments, customers, inset
   return (
     <KeyboardAvoidingView style={{ width: SCREEN_WIDTH, flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}>
+        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 140 }}>
 
         {/* ── Global summary card ─────────────────────────────────────────── */}
         <View style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.primary + '44', padding: 16, gap: 10 }}>
@@ -2070,7 +2070,7 @@ function RemindersTab({ colors, techCode, reminders, setReminders, customers, in
   return (
     <KeyboardAvoidingView style={{ width: SCREEN_WIDTH, flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}>
+        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 140 }}>
 
         {/* ── Add / Cancel button ─────────────────────────────────────────── */}
         <TouchableOpacity style={[s.addBtn, { backgroundColor: colors.primary }]}

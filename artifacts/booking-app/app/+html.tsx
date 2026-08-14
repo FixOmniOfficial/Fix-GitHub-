@@ -22,6 +22,8 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
+        {/* Dark theme-color: tints Android Chrome nav bar + status bar to match the app */}
+        <meta name="theme-color" content="#121212" />
         {/* Reset ScrollView margins (Expo recommendation) */}
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{

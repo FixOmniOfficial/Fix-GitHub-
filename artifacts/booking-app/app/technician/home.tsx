@@ -132,7 +132,8 @@ export default function TechnicianHomeScreen() {
   const { user, logout, updateUser, loading: authLoading } = useAppAuth();
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [pendingName, setPendingName] = useState('');
-  const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
+  const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);     // local URI — for preview
+  const [pendingAvatarUrl, setPendingAvatarUrl] = useState<string | null>(null); // server URL — for saving
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [pendingNameError, setPendingNameError] = useState('');
@@ -163,6 +164,7 @@ export default function TechnicianHomeScreen() {
   const openEditProfile = () => {
     setPendingName(user?.name ?? '');
     setPendingAvatar(null);
+    setPendingAvatarUrl(null);
     setPendingNameError('');
     setEditModalVisible(true);
   };
@@ -203,9 +205,15 @@ export default function TechnicianHomeScreen() {
       // 3. Build the public (no-auth) serving URL for avatar images
       //    objectPath = "/objects/<uuid>" → serve via /api/public/avatar/<uuid>
       const objectId = String(objectPath).replace(/^\/objects\//, '');
-      const publicUrl = `${apiBase}/api/public/avatar/${objectId}`;
+      // Build absolute URL: EXPO_PUBLIC_API_URL (if set) or fall back to EXPO_PUBLIC_DOMAIN
+      const domain = process.env.EXPO_PUBLIC_DOMAIN ?? '';
+      const base = apiBase || (domain ? `https://${domain}` : '');
+      const publicUrl = `${base}/api/public/avatar/${objectId}`;
 
-      setPendingAvatar(publicUrl);
+      // pendingAvatar = local file URI so ExpoImage can preview it instantly.
+      // pendingAvatarUrl = absolute server URL that gets saved to the DB.
+      setPendingAvatar(compressed.uri);
+      setPendingAvatarUrl(publicUrl);
     } catch (err: any) {
       Alert.alert('Upload failed', `Photo upload नहीं हुई: ${err?.message ?? 'Please retry.'}`);
     } finally {
@@ -240,14 +248,17 @@ export default function TechnicianHomeScreen() {
     try {
       const updates: { name?: string; avatar?: string } = {};
       if (nameChanged) updates.name = trimmedName;
-      if (pendingAvatar) updates.avatar = pendingAvatar;
+      // Use the absolute server URL for both local context and DB, not the local file URI
+      if (pendingAvatarUrl) updates.avatar = pendingAvatarUrl;
+      else if (pendingAvatar && !pendingAvatarUrl) updates.avatar = pendingAvatar; // fallback
       // Apply locally
       if (Object.keys(updates).length > 0) updateUser(updates);
       // Persist to server
       const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
       const body: Record<string, string> = { uniqueCode: user?.uniqueCode ?? '' };
       if (updates.name) body.name = updates.name;
-      if (updates.avatar) body.avatarUrl = updates.avatar;
+      if (pendingAvatarUrl) body.avatarUrl = pendingAvatarUrl;
+      else if (updates.avatar) body.avatarUrl = updates.avatar;
       if (Object.keys(body).length > 1) {
         const res = await fetch(`${apiBase}/api/booking/technician/profile`, {
           method: 'PATCH',

@@ -86,7 +86,7 @@ export default function RootLayout() {
           <AppAuthProvider>
             {/* TestModeProvider must be inside AppAuthProvider (it calls login/logout) */}
             <TestModeProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
+              <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#121212' }}>
                 <KeyboardProvider>
                   <RootLayoutNav />
                 </KeyboardProvider>

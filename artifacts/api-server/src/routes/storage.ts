@@ -132,14 +132,19 @@ router.post(
   }
 );
 
-// ── GET /api/public/avatar/:objectId ─────────────────────────────────────────
+// ── GET /api/public/avatar/** ─────────────────────────────────────────────────
 // Public (no-auth) serving for profile/avatar images.
-// objectId is the UUID portion of the GCS object path.
-router.get("/public/avatar/:objectId", async (req: Request, res: Response): Promise<void> => {
-  // Sanitise: only allow hex/UUID chars + hyphens to prevent path traversal
-  const id = req.params["objectId"];
-  if (!id || !/^[\w\-]+$/.test(id)) { res.status(400).end(); return; }
-  const objectPath = `/objects/${id}`;
+// Uses router.use() (like objectsRouter) so req.path captures the full
+// sub-path including any "uploads/UUID" segments — avoids the /:id limitation
+// that only matches a single path segment.
+// Security: blocks ".." segments to prevent path traversal.
+const publicAvatarRouter: IRouter = Router();
+publicAvatarRouter.use(async (req: Request, res: Response): Promise<void> => {
+  // req.path = e.g. "/uploads/de25e075-..." after the mount point
+  const subPath = req.path;
+  // Block path-traversal attempts
+  if (!subPath || subPath.includes("..")) { res.status(400).end(); return; }
+  const objectPath = `/objects${subPath}`;
   try {
     const file = await storage.getObjectEntityFile(objectPath);
     const response = await storage.downloadObject(file, 86400);
@@ -156,6 +161,7 @@ router.get("/public/avatar/:objectId", async (req: Request, res: Response): Prom
     }
   }
 });
+router.use("/public/avatar", publicAvatarRouter);
 
 // ── GET /api/storage/objects/** ───────────────────────────────────────────────
 // Serve stored objects (KYC docs etc.) — auth required.

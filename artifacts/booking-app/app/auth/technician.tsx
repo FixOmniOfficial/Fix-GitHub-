@@ -8,7 +8,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, Alert, ActivityIndicator, Clipboard,
+  TextInput, Platform, Alert, ActivityIndicator, Clipboard, Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -64,6 +64,24 @@ export default function TechnicianAuthScreen() {
   const [loginPass, setLoginPass] = useState('');
   const [showLoginPass, setShowLoginPass] = useState(false);
 
+  // ── Field-specific login errors + shake animation ─────────────────
+  const [loginInputErr,  setLoginInputErr]  = useState('');
+  const [loginTechIdErr, setLoginTechIdErr] = useState('');
+  const [loginPassErr,   setLoginPassErr]   = useState('');
+  const shakeInput  = useRef(new Animated.Value(0)).current;
+  const shakeTechId = useRef(new Animated.Value(0)).current;
+  const shakePass   = useRef(new Animated.Value(0)).current;
+
+  const triggerShake = (anim: Animated.Value) => {
+    Animated.sequence([
+      Animated.timing(anim, { toValue: 10,  duration: 50, useNativeDriver: true }),
+      Animated.timing(anim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(anim, { toValue: 8,   duration: 50, useNativeDriver: true }),
+      Animated.timing(anim, { toValue: -8,  duration: 50, useNativeDriver: true }),
+      Animated.timing(anim, { toValue: 0,   duration: 50, useNativeDriver: true }),
+    ]).start();
+  };
+
   // ── Register fields ───────────────────────────────────────────────
   const [regName, setRegName]     = useState('');
   const [regPhone, setRegPhone]   = useState('');
@@ -106,24 +124,49 @@ export default function TechnicianAuthScreen() {
     }, 1000);
   }
 
-  // ── Login (3-field) ───────────────────────────────────────────────
+  // ── Login (3-field) with field-specific error feedback ───────────
   const handleLogin = async () => {
-    if (!loginInput.trim())  { Alert.alert('', t.mobileOrEmail + ' जरूरी है।'); return; }
-    if (!loginTechId.trim()) { Alert.alert('', t.techId + ' जरूरी है।'); return; }
-    if (!loginPass)          { Alert.alert('', t.password + ' जरूरी है।'); return; }
+    // Clear previous errors
+    setLoginInputErr(''); setLoginTechIdErr(''); setLoginPassErr('');
+    // Client-side required checks
+    if (!loginInput.trim()) {
+      setLoginInputErr(t.mobileOrEmail + ' जरूरी है।');
+      triggerShake(shakeInput); return;
+    }
+    if (!loginTechId.trim()) {
+      setLoginTechIdErr(t.techId + ' जरूरी है।');
+      triggerShake(shakeTechId); return;
+    }
+    if (!loginPass) {
+      setLoginPassErr(t.password + ' जरूरी है।');
+      triggerShake(shakePass); return;
+    }
     setLoading(true);
     try {
-      const data = await api('/booking/technician/login-v2', {
-        mobileOrEmail: loginInput.trim(),
-        techId: loginTechId.trim().toUpperCase(),
-        password: loginPass,
+      const BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
+      const r = await fetch(`${BASE}/api/booking/technician/login-v2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobileOrEmail: loginInput.trim(), techId: loginTechId.trim().toUpperCase(), password: loginPass }),
       });
+      const data = await r.json();
+      if (!r.ok) {
+        // Route error to the exact field the server flagged
+        const field: string = data.field ?? '';
+        const msg: string = data.error ?? 'Login failed';
+        if (field === 'mobileOrEmail') { setLoginInputErr(msg);  triggerShake(shakeInput);  }
+        else if (field === 'techId')   { setLoginTechIdErr(msg); triggerShake(shakeTechId); }
+        else if (field === 'password') { setLoginPassErr(msg);   triggerShake(shakePass);   }
+        else                           { Alert.alert(t.error, msg); }
+        return;
+      }
       await login({
         userType: 'technician',
         uniqueCode: data.uniqueCode,
         name: data.name,
         phone: data.phone ?? undefined,
         email: data.email ?? undefined,
+        avatar: data.avatarUrl ?? undefined,
         professionalId: data.id,
         professionType: data.professionType,
         loginMethod: 'password',
@@ -555,29 +598,46 @@ export default function TechnicianAuthScreen() {
 
             {/* Field 1: Mobile or Email */}
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.mobileOrEmail} *</Text>
-            <TextInput
-              style={[s.input, { color: colors.foreground, borderColor: colors.primary, backgroundColor: colors.card }]}
-              value={loginInput} onChangeText={setLoginInput}
-              placeholder="9876543210 या example@gmail.com"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="default" autoCapitalize="none" autoCorrect={false}
-            />
+            <Animated.View style={{ transform: [{ translateX: shakeInput }] }}>
+              <TextInput
+                style={[s.input, { color: colors.foreground, backgroundColor: colors.card,
+                  borderColor: loginInputErr ? '#ef4444' : colors.primary }]}
+                value={loginInput}
+                onChangeText={v => { setLoginInput(v); if (loginInputErr) setLoginInputErr(''); }}
+                placeholder="9876543210 या example@gmail.com"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="default" autoCapitalize="none" autoCorrect={false}
+              />
+            </Animated.View>
+            {!!loginInputErr && (
+              <Text style={{ color: '#ef4444', fontSize: 12, marginTop: -8 }}>{loginInputErr}</Text>
+            )}
 
             {/* Field 2: Technician ID */}
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.techId} *</Text>
-            <TextInput
-              style={[s.input, { color: colors.primary, borderColor: colors.primary, backgroundColor: colors.card, fontSize: 18, fontWeight: '800', letterSpacing: 2, textAlign: 'center' }]}
-              value={loginTechId} onChangeText={(v) => setLoginTechId(v.toUpperCase())}
-              placeholder="TECH-XXXXXX" placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="characters" autoCorrect={false}
-            />
+            <Animated.View style={{ transform: [{ translateX: shakeTechId }] }}>
+              <TextInput
+                style={[s.input, { color: loginTechIdErr ? '#ef4444' : colors.primary, backgroundColor: colors.card,
+                  borderColor: loginTechIdErr ? '#ef4444' : colors.primary,
+                  fontSize: 18, fontWeight: '800', letterSpacing: 2, textAlign: 'center' }]}
+                value={loginTechId}
+                onChangeText={v => { setLoginTechId(v.toUpperCase()); if (loginTechIdErr) setLoginTechIdErr(''); }}
+                placeholder="TECH-XXXXXX" placeholderTextColor={colors.mutedForeground}
+                autoCapitalize="characters" autoCorrect={false}
+              />
+            </Animated.View>
+            {!!loginTechIdErr && (
+              <Text style={{ color: '#ef4444', fontSize: 12, marginTop: -8 }}>{loginTechIdErr}</Text>
+            )}
 
             {/* Field 3: Password with eye toggle */}
             <Text style={[s.label, { color: colors.mutedForeground }]}>{t.password} *</Text>
-            <View style={{ position: 'relative' }}>
+            <Animated.View style={[{ position: 'relative' }, { transform: [{ translateX: shakePass }] }]}>
               <TextInput
-                style={[s.input, { color: colors.foreground, borderColor: colors.primary, backgroundColor: colors.card, paddingRight: 48 }]}
-                value={loginPass} onChangeText={setLoginPass}
+                style={[s.input, { color: colors.foreground, backgroundColor: colors.card, paddingRight: 48,
+                  borderColor: loginPassErr ? '#ef4444' : colors.primary }]}
+                value={loginPass}
+                onChangeText={v => { setLoginPass(v); if (loginPassErr) setLoginPassErr(''); }}
                 placeholder={t.password} placeholderTextColor={colors.mutedForeground}
                 secureTextEntry={!showLoginPass}
               />
@@ -585,7 +645,10 @@ export default function TechnicianAuthScreen() {
                 style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
                 <Feather name={showLoginPass ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
-            </View>
+            </Animated.View>
+            {!!loginPassErr && (
+              <Text style={{ color: '#ef4444', fontSize: 12, marginTop: -8 }}>{loginPassErr}</Text>
+            )}
 
             <TouchableOpacity onPress={() => setScreen('forgot_email')} style={{ alignSelf: 'flex-end', marginTop: -6 }}>
               <Text style={{ color: '#6366f1', fontSize: 13, fontWeight: '600' }}>{t.forgotPassword}</Text>

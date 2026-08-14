@@ -44,6 +44,9 @@ const AppAuthContext = createContext<AppAuthCtx>({
 export function AppAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  // Ref so login() can always read the current user without stale closure
+  const userRef = React.useRef<AppUser | null>(null);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((val) => {
@@ -55,8 +58,14 @@ export function AppAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (u: AppUser) => {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    setUser(u);
+    // Preserve locally-edited avatar/name if the API response doesn't include them
+    const prev = userRef.current;
+    const sameUser = prev?.uniqueCode === u.uniqueCode && prev?.userType === u.userType;
+    const merged: AppUser = sameUser
+      ? { ...u, avatar: u.avatar ?? prev?.avatar, name: u.name || prev?.name || u.name }
+      : u;
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    setUser(merged);
   }, []);
 
   const logout = useCallback(async () => {

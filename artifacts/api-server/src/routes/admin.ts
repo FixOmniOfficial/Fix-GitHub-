@@ -701,6 +701,31 @@ router.get('/admin/technicians/:id/tech-id', requireAuth, requireAdmin, async (r
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// OTP MODE TOGGLE — admin can switch between EMAIL and SMS delivery
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** GET /api/admin/otp-mode — return current otpMode setting */
+router.get('/admin/otp-mode', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const [s] = await db.select({ otpMode: appSettingsTable.otpMode })
+      .from(appSettingsTable).where(sql`id = 1`);
+    res.json({ otpMode: s?.otpMode ?? 'EMAIL' });
+  } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+/** PATCH /api/admin/otp-mode — set otpMode to "EMAIL" or "SMS" */
+router.patch('/admin/otp-mode', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { mode } = req.body;
+    if (mode !== 'EMAIL' && mode !== 'SMS') {
+      res.status(400).json({ error: 'mode must be "EMAIL" or "SMS"' }); return;
+    }
+    await db.update(appSettingsTable).set({ otpMode: mode }).where(sql`id = 1`);
+    res.json({ success: true, otpMode: mode });
+  } catch { res.status(500).json({ error: 'Failed to update OTP mode' }); }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ANALYTICS DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
 

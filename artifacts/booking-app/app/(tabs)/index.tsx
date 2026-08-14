@@ -362,24 +362,16 @@ export default function HomeScreen() {
           }]}>
             {/* Profile picture + name (both editable) */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-              <View style={{ alignItems: 'center', gap: 4 }}>
-                <View style={[s.profileAvatar, { borderColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
-                  {user.avatar ? (
-                    <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
-                  ) : (
-                    <Text style={{ fontSize: 28 }}>{user.userType === 'technician' ? '🔧' : '👤'}</Text>
-                  )}
-                </View>
-                <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}>
-                  <Feather name="camera" size={14} color={colors.mutedForeground} />
-                </TouchableOpacity>
+              <View style={[s.profileAvatar, { borderColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
+                {user.avatar ? (
+                  <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
+                ) : (
+                  <Text style={{ fontSize: 28 }}>{user.userType === 'technician' ? '🔧' : '👤'}</Text>
+                )}
               </View>
               <View style={{ flex: 1, gap: 3 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={[s.welcomeName, { color: colors.foreground }]}>{user.name}</Text>
-                  <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Feather name="edit-2" size={13} color={colors.mutedForeground} />
-                  </TouchableOpacity>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <View style={[s.roleBadge, { backgroundColor: user.userType === 'technician' ? colors.primary + '22' : '#3b82f622' }]}>

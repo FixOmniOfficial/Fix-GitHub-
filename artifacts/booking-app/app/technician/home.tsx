@@ -139,26 +139,23 @@ export default function TechnicianHomeScreen() {
     });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    // Optimistically update local state immediately so the UI feels instant
+    // 1. Optimistic local update — UI feels instant
     updateUser({ avatar: asset.uri });
-    // Auto-save: upload to server in background
+    // 2. Auto-save to server so avatar persists across sessions/devices
     try {
       const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
-      const storedUser = user;
-      const form = new FormData();
-      form.append('avatar', { uri: asset.uri, name: 'avatar.jpg', type: asset.mimeType ?? 'image/jpeg' } as any);
-      const token = storedUser?.token ?? '';
-      const res = await fetch(`${apiBase}/booking/technician/profile`, {
+      const res = await fetch(`${apiBase}/api/booking/technician/profile`, {
         method: 'PATCH',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: form,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uniqueCode: user?.uniqueCode, avatarUrl: asset.uri }),
       });
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
+        // If server returns a CDN/storage URL, prefer it over the local URI
         if (data.avatarUrl) updateUser({ avatar: data.avatarUrl });
       }
     } catch {
-      // Network error — local preview already set, server sync will happen on next save
+      // Network failure — local preview is kept via AsyncStorage
     }
   };
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, asc, inArray } from "drizzle-orm";
-import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable, techPaymentEntriesTable } from "@workspace/db";
+import { eq, desc, and, asc, inArray, sql } from "drizzle-orm";
+import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable, techPaymentEntriesTable, appSettingsTable } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { sendOtpEmail } from "../lib/email";
 
@@ -710,51 +710,100 @@ router.post("/booking/technician/register", async (req, res): Promise<void> => {
 });
 
 // POST /booking/technician/login-v2 — mobileOrEmail + techId + password (all 3 mandatory)
+// Returns field-specific error codes so the frontend can highlight the exact wrong field.
 router.post("/booking/technician/login-v2", async (req, res): Promise<void> => {
   try {
     const { mobileOrEmail, techId, password } = req.body;
-    if (!mobileOrEmail?.trim() || !techId?.trim() || !password) {
-      res.status(400).json({ error: "Mobile/Email, Technician ID और Password — तीनों जरूरी हैं" }); return;
+    if (!mobileOrEmail?.trim()) {
+      res.status(400).json({ error: "Mobile/Email जरूरी है", field: "mobileOrEmail" }); return;
+    }
+    if (!techId?.trim()) {
+      res.status(400).json({ error: "Technician ID जरूरी है", field: "techId" }); return;
+    }
+    if (!password) {
+      res.status(400).json({ error: "Password जरूरी है", field: "password" }); return;
     }
 
     const normCode = techId.trim().toUpperCase();
-    // Fetch by uniqueCode first (mandatory field)
     const [row] = await db.select().from(professionalsTable)
       .where(eq(professionalsTable.uniqueCode, normCode)).limit(1);
 
-    const MISMATCH = "Login failed — Mobile/Email, Technician ID या Password गलत है।";
-    if (!row) { res.status(401).json({ error: MISMATCH }); return; }
+    // Tech ID not found
+    if (!row) {
+      res.status(401).json({ error: "Wrong Technician ID / टेक्नीशियन आईडी गलत है", field: "techId" }); return;
+    }
 
-    // Verify mobileOrEmail matches
+    // Verify mobileOrEmail
     const input = mobileOrEmail.trim();
     if (input.includes('@')) {
       if (!row.email || row.email !== input.toLowerCase()) {
-        res.status(401).json({ error: MISMATCH }); return;
+        res.status(401).json({ error: "Wrong Email / ईमेल गलत है", field: "mobileOrEmail" }); return;
       }
     } else {
       const clean = input.replace(/\D/g, '').slice(-10);
       const rowPhone = (row.phone ?? '').replace(/\D/g, '').slice(-10);
-      if (clean !== rowPhone) { res.status(401).json({ error: MISMATCH }); return; }
+      if (clean !== rowPhone) {
+        res.status(401).json({ error: "Wrong Registered Mobile / मोबाइल नंबर गलत है", field: "mobileOrEmail" }); return;
+      }
     }
 
     // Verify password
-    if (!row.passwordHash) { res.status(401).json({ error: "Password set नहीं है। Admin से contact करें।" }); return; }
+    if (!row.passwordHash) {
+      res.status(401).json({ error: "Password set नहीं है। Admin से contact करें।", field: "password" }); return;
+    }
     const match = await bcrypt.compare(password, row.passwordHash);
-    if (!match) { res.status(401).json({ error: MISMATCH }); return; }
+    if (!match) {
+      res.status(401).json({ error: "Wrong Password / पासवर्ड गलत है", field: "password" }); return;
+    }
 
     res.json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString() });
   } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
-// POST /booking/technician/forgot-password — email → OTP (techId included in email)
+// PATCH /booking/technician/profile — update name and/or avatarUrl for a technician
+router.patch("/booking/technician/profile", async (req, res): Promise<void> => {
+  try {
+    const { uniqueCode, name, avatarUrl } = req.body;
+    if (!uniqueCode?.trim()) { res.status(400).json({ error: "uniqueCode required" }); return; }
+
+    const updates: Record<string, unknown> = {};
+    if (name?.trim()) updates.name = name.trim();
+    if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl ?? null;
+    if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Nothing to update" }); return; }
+
+    const [updated] = await db.update(professionalsTable)
+      .set(updates)
+      .where(eq(professionalsTable.uniqueCode, uniqueCode.trim().toUpperCase()))
+      .returning({ id: professionalsTable.id, name: professionalsTable.name, avatarUrl: professionalsTable.avatarUrl });
+
+    if (!updated) { res.status(404).json({ error: "Technician not found" }); return; }
+    res.json({ success: true, name: updated.name, avatarUrl: updated.avatarUrl });
+  } catch { res.status(500).json({ error: "Profile update failed" }); }
+});
+
+// POST /booking/technician/forgot-password — mobile → look up email → OTP via otpMode setting
 router.post("/booking/technician/forgot-password", async (req, res): Promise<void> => {
   try {
-    const { email } = req.body;
-    if (!email?.trim()) { res.status(400).json({ error: "Email जरूरी है" }); return; }
-    const norm = email.trim().toLowerCase();
-    const [row] = await db.select().from(professionalsTable)
-      .where(eq(professionalsTable.email, norm)).limit(1);
-    if (!row) { res.status(404).json({ error: "यह email registered नहीं है" }); return; }
+    const { email, mobile } = req.body;
+    const identifier = (mobile ?? email ?? '').trim();
+    if (!identifier) { res.status(400).json({ error: "Registered Mobile या Email जरूरी है" }); return; }
+
+    // Look up technician by mobile or email
+    let row: typeof professionalsTable.$inferSelect | undefined;
+    if (identifier.includes('@')) {
+      [row] = await db.select().from(professionalsTable)
+        .where(eq(professionalsTable.email, identifier.toLowerCase())).limit(1) as any;
+    } else {
+      const clean = identifier.replace(/\D/g, '').slice(-10);
+      const all = await db.select().from(professionalsTable);
+      row = all.find(r => (r.phone ?? '').replace(/\D/g, '').slice(-10) === clean);
+    }
+    if (!row) {
+      res.status(404).json({ error: "Wrong Registered Mobile / मोबाइल नंबर सिस्टम में नहीं है" }); return;
+    }
+    if (!row.email) {
+      res.status(400).json({ error: "कोई Email registered नहीं है। Admin से contact करें।" }); return;
+    }
 
     const otp = genOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -762,16 +811,26 @@ router.post("/booking/technician/forgot-password", async (req, res): Promise<voi
       .set({ otpCode: otp, otpExpiresAt: expiresAt, otpAttempts: 0 } as any)
       .where(eq(professionalsTable.id, row.id));
 
-    const { sent, demoOtp } = await sendOtpEmail({
-      to: norm,
-      recipientName: row.name,
-      otp,
-      extraLines: [
-        `🔑 Your Technician ID: <strong style="color:#a5b4fc;">${row.uniqueCode}</strong>`,
-      ],
-    });
+    // Fetch OTP delivery mode from settings
+    const [settings] = await db.select({ otpMode: appSettingsTable.otpMode })
+      .from(appSettingsTable).where(sql`id = 1`);
+    const otpMode = (settings?.otpMode ?? 'EMAIL').toUpperCase();
 
-    res.json({ success: true, sent, ...(demoOtp ? { demoOtp } : {}) });
+    let sent = false; let demoOtp: string | undefined;
+    if (otpMode === 'SMS') {
+      // SMS provider not yet integrated — fall back to email with a note
+      // TODO: integrate SMS provider (Twilio / MSG91) here
+      const r = await sendOtpEmail({ to: row.email, recipientName: row.name, otp,
+        extraLines: [`🔑 Technician ID: <strong style="color:#a5b4fc;">${row.uniqueCode}</strong>`,
+          `<em style="color:#f59e0b;">(SMS mode selected but not configured — OTP sent to email)</em>`] });
+      sent = r.sent; demoOtp = r.demoOtp;
+    } else {
+      const r = await sendOtpEmail({ to: row.email, recipientName: row.name, otp,
+        extraLines: [`🔑 Your Technician ID: <strong style="color:#a5b4fc;">${row.uniqueCode}</strong>`] });
+      sent = r.sent; demoOtp = r.demoOtp;
+    }
+
+    res.json({ success: true, sent, email: row.email, otpMode, ...(demoOtp ? { demoOtp } : {}) });
   } catch { res.status(500).json({ error: "OTP request failed" }); }
 });
 

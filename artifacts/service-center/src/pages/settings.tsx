@@ -64,6 +64,34 @@ export default function Settings() {
       .catch(() => setPanelEnabled(true));
   }, [isSuperAdmin]);
 
+  // ── OTP Mode Toggle state ─────────────────────────────────────────────────
+  const [otpMode,    setOtpMode]    = React.useState<'EMAIL' | 'SMS' | null>(null);
+  const [otpToggling, setOtpToggling] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch(`${BASE}/api/admin/otp-mode`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setOtpMode(d.otpMode ?? 'EMAIL'))
+      .catch(() => setOtpMode('EMAIL'));
+  }, []);
+
+  const handleOtpModeToggle = async (mode: 'EMAIL' | 'SMS') => {
+    setOtpToggling(true);
+    try {
+      const r = await fetch(`${BASE}/api/admin/otp-mode`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error ?? 'Failed');
+      setOtpMode(mode);
+      toast.success(mode === 'SMS' ? '📱 OTP via SMS enabled' : '📧 OTP via Email enabled');
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally { setOtpToggling(false); }
+  };
+
   const handlePanelToggle = async (enable: boolean) => {
     setPanelToggling(true);
     try {
@@ -384,6 +412,40 @@ export default function Settings() {
       </form>
 
       {/* ── Master Panel Toggle — Super Admin Only ─────────────────────────── */}
+      {/* ── OTP Delivery Mode Toggle — admin + super_admin ──────────────────── */}
+      {otpMode !== null && (
+        <Card className="border-2 mt-6 border-blue-500/30 bg-blue-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span className="text-blue-400">📨</span>
+              <span className="text-blue-300">OTP Delivery Mode</span>
+            </CardTitle>
+            <p className="text-sm text-slate-400 mt-1">
+              Choose how OTP codes are sent to technicians for Forgot Password.
+              <br />
+              <span className="text-amber-400 text-xs">SMS mode requires an SMS provider (e.g. MSG91/Twilio) to be configured.</span>
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3 rounded-xl p-4 border border-slate-700 bg-slate-800/50">
+              <Button size="sm" variant="outline" disabled={otpToggling || otpMode === 'EMAIL'}
+                onClick={() => handleOtpModeToggle('EMAIL')}
+                className={`${otpMode === 'EMAIL' ? 'border-blue-500 text-blue-300 bg-blue-500/10' : 'border-slate-600 text-slate-400'}`}>
+                📧 Email {otpMode === 'EMAIL' && '✅'}
+              </Button>
+              <Button size="sm" variant="outline" disabled={otpToggling || otpMode === 'SMS'}
+                onClick={() => handleOtpModeToggle('SMS')}
+                className={`${otpMode === 'SMS' ? 'border-green-500 text-green-300 bg-green-500/10' : 'border-slate-600 text-slate-400'}`}>
+                📱 SMS {otpMode === 'SMS' && '✅'}
+              </Button>
+              <span className="ml-auto text-xs text-slate-500">
+                Current: <strong className={otpMode === 'SMS' ? 'text-green-300' : 'text-blue-300'}>{otpMode}</strong>
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {isSuperAdmin && panelEnabled !== null && (
         <Card className={`border-2 mt-6 ${panelEnabled ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/40 bg-rose-500/10'}`}>
           <CardHeader className="pb-3">

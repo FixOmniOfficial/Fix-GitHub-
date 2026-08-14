@@ -29,6 +29,7 @@ export const professionalsTable = pgTable("professionals", {
   email:                text("email").unique(),
   passwordHash:         text("password_hash"),
   avatarEmoji:          text("avatar_emoji").default("👤"),
+  avatarUrl:            text("avatar_url"),
   visitingCharge:       numeric("visiting_charge", { precision: 10, scale: 2 }),
   rating:               numeric("rating", { precision: 3, scale: 1 }).default("4.5"),
   shopName:             text("shop_name"),

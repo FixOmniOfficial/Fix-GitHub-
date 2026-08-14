@@ -35,6 +35,8 @@ export const appSettingsTable = pgTable("app_settings", {
   firstAdminClaimedBy: text("first_admin_claimed_by"),
   // ── Master panel toggle (super_admin can disable all admin access) ─────────
   panelEnabled: boolean("panel_enabled").notNull().default(true),
+  // ── OTP delivery mode: "EMAIL" (via Nodemailer) or "SMS" (via SMS provider) ─
+  otpMode: text("otp_mode").notNull().default("EMAIL"),
   // ── Timestamps ────────────────────────────────────────────────────────────
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

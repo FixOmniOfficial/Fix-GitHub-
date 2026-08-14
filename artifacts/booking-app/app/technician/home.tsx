@@ -137,7 +137,29 @@ export default function TechnicianHomeScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]) updateUser({ avatar: result.assets[0].uri });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    // Optimistically update local state immediately so the UI feels instant
+    updateUser({ avatar: asset.uri });
+    // Auto-save: upload to server in background
+    try {
+      const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
+      const storedUser = user;
+      const form = new FormData();
+      form.append('avatar', { uri: asset.uri, name: 'avatar.jpg', type: asset.mimeType ?? 'image/jpeg' } as any);
+      const token = storedUser?.token ?? '';
+      const res = await fetch(`${apiBase}/booking/technician/profile`, {
+        method: 'PATCH',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.avatarUrl) updateUser({ avatar: data.avatarUrl });
+      }
+    } catch {
+      // Network error — local preview already set, server sync will happen on next save
+    }
   };
 
   const openNameEdit = () => { setNameInput(user?.name ?? ''); setNameModalVisible(true); };
@@ -288,18 +310,22 @@ export default function TechnicianHomeScreen() {
               <Text style={{ fontSize: 24 }}>🔧</Text>
             )}
           </View>
-          <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}>
-            <Feather name="camera" size={14} color={colors.mutedForeground} />
-          </TouchableOpacity>
+          {activeTab === 0 && (
+            <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7} hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}>
+              <Feather name="camera" size={14} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Name + sub-info (name tappable → edit modal) */}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={s.greeting}>{user.name}</Text>
-            <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Feather name="edit-2" size={13} color={colors.mutedForeground} />
-            </TouchableOpacity>
+            {activeTab === 0 && (
+              <TouchableOpacity onPress={openNameEdit} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Feather name="edit-2" size={13} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
           </View>
           <Text style={s.subGreeting}>{PROF_LABELS[user.professionType ?? ''] ?? 'Technician'} · {user.uniqueCode}</Text>
         </View>

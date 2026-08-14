@@ -3,6 +3,7 @@ import { useRoute } from 'wouter';
 import { Loader2, WifiOff, CheckCircle2, Phone, MapPin, Navigation, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -388,14 +389,9 @@ export default function CustomerFormPage() {
               <span>{ic('iconMobileNo', '📞')}</span>
               Mobile No. <span className="text-destructive">*</span>
             </label>
-            <Input
-              placeholder="10-digit mobile number"
+            <PhoneInput
               value={phone}
-              onChange={e => setPhone(e.target.value)}
-              type="tel"
-              inputMode="numeric"
-              maxLength={13}
-              required
+              onChange={setPhone}
             />
           </div>
 

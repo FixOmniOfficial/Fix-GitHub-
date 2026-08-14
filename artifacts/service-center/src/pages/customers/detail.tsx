@@ -42,6 +42,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useQueryClient } from '@tanstack/react-query';
@@ -145,8 +146,8 @@ export default function CustomerDetail() {
     if (isEditOpen && customer) {
       form.reset({
         name: customer.name,
-        phone: customer.phone,
-        whatsappPhone: customer.whatsappPhone || '',
+        phone: (customer.phone || '').replace(/\D/g, '').slice(-10),
+        whatsappPhone: (customer.whatsappPhone || '').replace(/\D/g, '').slice(-10),
         houseNumber: (customer as any).houseNumber || '',
         floorNumber: (customer as any).floorNumber || '',
         address: customer.address || '',
@@ -554,7 +555,12 @@ export default function CustomerDetail() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>मोबाइल नंबर *</FormLabel>
-                    <FormControl><Input placeholder="9876543210" {...field} /></FormControl>
+                    <FormControl>
+                      <PhoneInput
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -566,7 +572,13 @@ export default function CustomerDetail() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>WhatsApp नंबर</FormLabel>
-                  <FormControl><Input placeholder="Same as mobile if blank" {...field} /></FormControl>
+                  <FormControl>
+                    <PhoneInput
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      placeholder="Same as mobile if blank"
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

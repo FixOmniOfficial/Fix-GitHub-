@@ -220,4 +220,32 @@ router.patch("/admin/kyc/:id/review", requireAuth, requireKycReview, async (req:
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// TECHNICIAN — POST /api/kyc/revoke
+// Called when a verified technician changes their profile name.
+// Resets their KYC status to "not_submitted" so they must re-verify.
+// Body: { uniqueCode }
+// ═══════════════════════════════════════════════════════════════════════════════
+router.post("/kyc/revoke", async (req: Request, res: Response): Promise<void> => {
+  const { uniqueCode } = req.body as { uniqueCode?: string };
+  if (!uniqueCode) { res.status(400).json({ error: "uniqueCode required" }); return; }
+
+  const [prof] = await db
+    .select({ id: professionalsTable.id })
+    .from(professionalsTable)
+    .where(eq(professionalsTable.uniqueCode, uniqueCode.trim().toUpperCase()));
+
+  if (!prof) { res.status(404).json({ error: "Technician not found" }); return; }
+
+  try {
+    await db
+      .update(kycDocumentsTable)
+      .set({ status: "not_submitted", reviewNotes: "Auto-revoked: name changed by technician", reviewedAt: new Date() })
+      .where(eq(kycDocumentsTable.professionalId, prof.id));
+    res.json({ success: true, status: "not_submitted" });
+  } catch {
+    res.status(500).json({ error: "Failed to revoke KYC status" });
+  }
+});
+
 export default router;

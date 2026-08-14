@@ -132,10 +132,35 @@ export default function TechnicianHomeScreen() {
   const [pendingName, setPendingName] = useState('');
   const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [pendingNameError, setPendingNameError] = useState('');
+  const [kycStatus, setKycStatus] = useState<string | null>(null);
+
+  // Fetch KYC status for verified badge
+  useEffect(() => {
+    if (!user?.uniqueCode) return;
+    fetch(`${process.env.EXPO_PUBLIC_API_URL ?? ''}/api/kyc/status`, {
+      headers: { 'X-Tech-Code': user.uniqueCode },
+    })
+      .then(r => r.json())
+      .then(d => setKycStatus(d.status ?? 'not_submitted'))
+      .catch(() => setKycStatus('not_submitted'));
+  }, [user?.uniqueCode]);
+
+  const ALPHA_ONLY = /^[a-zA-Z\s]*$/;
+
+  const handlePendingNameChange = (text: string) => {
+    setPendingName(text);
+    if (text && !ALPHA_ONLY.test(text)) {
+      setPendingNameError('Numbers and special characters are not allowed in the Name field.');
+    } else {
+      setPendingNameError('');
+    }
+  };
 
   const openEditProfile = () => {
     setPendingName(user?.name ?? '');
     setPendingAvatar(null);
+    setPendingNameError('');
     setEditModalVisible(true);
   };
 
@@ -153,10 +178,30 @@ export default function TechnicianHomeScreen() {
   const saveEditProfile = async () => {
     const trimmedName = pendingName.trim();
     if (!trimmedName) return;
+    if (pendingNameError) return;
+    if (!ALPHA_ONLY.test(trimmedName)) {
+      setPendingNameError('Numbers and special characters are not allowed in the Name field.');
+      return;
+    }
+    const nameChanged = trimmedName !== user?.name;
+    // Auto-revoke verified badge if name changes
+    if (nameChanged && kycStatus === 'verified') {
+      const proceed = await new Promise<boolean>(resolve =>
+        Alert.alert(
+          '⚠️ Verified Badge Will Be Revoked',
+          'Changing your name will remove your Verified badge. You will need to re-submit your identity documents to get verified again under the new name.\n\nContinue?',
+          [
+            { text: 'Keep Old Name', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Change Name', style: 'destructive', onPress: () => resolve(true) },
+          ]
+        )
+      );
+      if (!proceed) return;
+    }
     setSavingProfile(true);
     try {
       const updates: { name?: string; avatar?: string } = {};
-      if (trimmedName !== user?.name) updates.name = trimmedName;
+      if (nameChanged) updates.name = trimmedName;
       if (pendingAvatar) updates.avatar = pendingAvatar;
       // Apply locally
       if (Object.keys(updates).length > 0) updateUser(updates);
@@ -175,6 +220,15 @@ export default function TechnicianHomeScreen() {
           const data = await res.json().catch(() => ({}));
           if (data.avatarUrl) updateUser({ avatar: data.avatarUrl });
         }
+      }
+      // Auto-revoke KYC on name change
+      if (nameChanged && kycStatus === 'verified') {
+        await fetch(`${apiBase}/api/kyc/revoke`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uniqueCode: user?.uniqueCode }),
+        }).catch(() => {});
+        setKycStatus('not_submitted');
       }
     } catch {
       // Network failure — local changes are kept via AsyncStorage
@@ -307,7 +361,11 @@ export default function TechnicianHomeScreen() {
                 {(pendingAvatar ?? user?.avatar) ? (
                   <Image source={{ uri: pendingAvatar ?? user?.avatar ?? undefined }} style={{ width: 80, height: 80 }} />
                 ) : (
-                  <Text style={{ fontSize: 28 }}>🔧</Text>
+                  <View style={{ width: 80, height: 80, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 28, fontWeight: '800', color: '#000' }}>
+                      {(user?.name || '?').trim()[0]?.toUpperCase() ?? '?'}
+                    </Text>
+                  </View>
                 )}
               </View>
               <View style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
@@ -319,12 +377,15 @@ export default function TechnicianHomeScreen() {
             )}
 
             {/* Name input */}
-            <TextInput
-              style={{ backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, padding: 14, fontSize: 16, color: colors.foreground }}
-              value={pendingName} onChangeText={setPendingName}
-              placeholder="Your name" placeholderTextColor={colors.mutedForeground}
-              returnKeyType="done"
-            />
+            <View style={{ gap: 4 }}>
+              <TextInput
+                style={{ backgroundColor: colors.card, borderWidth: 1.5, borderColor: pendingNameError ? '#ef4444' : colors.primary, borderRadius: 12, padding: 14, fontSize: 16, color: colors.foreground }}
+                value={pendingName} onChangeText={handlePendingNameChange}
+                placeholder="Your name (letters only)" placeholderTextColor={colors.mutedForeground}
+                returnKeyType="done"
+              />
+              {pendingNameError ? <Text style={{ color: '#ef4444', fontSize: 12, paddingHorizontal: 4 }}>{pendingNameError}</Text> : null}
+            </View>
 
             {/* Actions */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -343,19 +404,27 @@ export default function TechnicianHomeScreen() {
 
       {/* ── Fixed Header ── */}
       <View style={[s.header, { paddingTop: topPad + 8 }]}>
-        {/* Avatar (no camera icon — photo is changed via the pencil edit flow) */}
+        {/* Avatar — shows photo or name initial */}
         <View style={[s.profileAvatar, { borderColor: colors.primary }]}>
-          {user.avatar ? (
-            <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
-          ) : (
-            <Text style={{ fontSize: 24 }}>🔧</Text>
-          )}
+          {user.avatar
+            ? <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
+            : <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: '#000' }}>
+                  {(user.name || '?').trim()[0]?.toUpperCase() ?? '?'}
+                </Text>
+              </View>
+          }
         </View>
 
-        {/* Name + sub-info */}
+        {/* Name + verified badge + sub-info */}
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={s.greeting}>{user.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={s.greeting} numberOfLines={1}>{user.name}</Text>
+            {kycStatus === 'verified' && (
+              <View style={{ backgroundColor: '#1d4ed8', borderRadius: 10, width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="check" size={11} color="#fff" />
+              </View>
+            )}
             {activeTab === 0 && (
               <TouchableOpacity onPress={openEditProfile} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Feather name="edit-2" size={13} color={colors.mutedForeground} />

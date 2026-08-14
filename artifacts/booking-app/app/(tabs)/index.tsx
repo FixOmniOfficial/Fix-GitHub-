@@ -4,7 +4,6 @@ import {
   Platform, ActivityIndicator, Linking, Alert, Image,
   Modal, Animated, Pressable, Dimensions, TextInput,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 
 const LOGO = require('@/assets/fixomni-logo.jpg');
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -217,6 +216,20 @@ function RatingWidget({ colors }: { colors: ReturnType<typeof useColors> }) {
   );
 }
 
+// ── Avatar Initial Fallback ────────────────────────────────────────────────────
+function AvatarInitial({ name, size, fontSize, textColor, bgColor }: {
+  name: string; size: number; fontSize: number; textColor: string; bgColor: string;
+}) {
+  const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize, fontWeight: '800', color: textColor }}>{initial}</Text>
+    </View>
+  );
+}
+
+const ALPHA_ONLY = /^[a-zA-Z\s]*$/;
+
 // ── Home Screen ───────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const colors = useColors();
@@ -228,27 +241,32 @@ export default function HomeScreen() {
   const [logoModalVisible, setLogoModalVisible] = useState(false);
   const [nameModalVisible, setNameModalVisible] = useState(false);
   const [nameInput, setNameInput] = useState('');
-
-  const pickAvatar = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission required', 'Photo library access is needed to change your picture.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true, aspect: [1, 1], quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      updateUser({ avatar: result.assets[0].uri });
-    }
-  };
+  const [nameError, setNameError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const openNameEdit = () => {
     setNameInput(user?.name ?? '');
+    setNameError('');
     setNameModalVisible(true);
+  };
+
+  const handleNameChange = (text: string) => {
+    setNameInput(text);
+    if (text && !ALPHA_ONLY.test(text)) {
+      setNameError('Numbers and special characters are not allowed in the Name field.');
+    } else {
+      setNameError('');
+    }
   };
 
   const saveNameEdit = () => {
     const trimmed = nameInput.trim();
-    if (trimmed) updateUser({ name: trimmed });
+    if (!trimmed) return;
+    if (!ALPHA_ONLY.test(trimmed)) {
+      setNameError('Numbers and special characters are not allowed in the Name field.');
+      return;
+    }
+    updateUser({ name: trimmed });
     setNameModalVisible(false);
   };
 
@@ -257,7 +275,9 @@ export default function HomeScreen() {
   const { data: homeConfig } = useGetHomeConfig({});
 
   const recent = (recentBookings ?? []).slice(0, 3);
-  const activeCategories = (categories ?? []).filter(c => c.isActive);
+  const activeCategories = (categories ?? [])
+    .filter(c => c.isActive)
+    .filter(c => !searchQuery.trim() || c.name.toLowerCase().includes(searchQuery.trim().toLowerCase()));
 
   const s = styles(colors);
 
@@ -305,15 +325,15 @@ export default function HomeScreen() {
                 <Feather name="phone-call" size={17} color="#22c55e" />
               </TouchableOpacity>
             )}
-            {user ? (
-              <TouchableOpacity style={s.userAvatarBtn} onPress={handleLogout} activeOpacity={0.8}>
-                {user.avatar ? (
-                  <Image source={{ uri: user.avatar }} style={s.userAvatarImg} />
-                ) : (
-                  <Text style={{ fontSize: 18 }}>{user.userType === 'technician' ? '🔧' : '👤'}</Text>
-                )}
-              </TouchableOpacity>
-            ) : (
+            {/* Notification Bell — replaces the empty avatar circle */}
+            <TouchableOpacity
+              style={s.bellBtn}
+              onPress={() => router.push('/(tabs)/notifications' as any)}
+              activeOpacity={0.8}
+            >
+              <Feather name="bell" size={18} color={colors.primary} />
+            </TouchableOpacity>
+            {!user && (
               <TouchableOpacity
                 style={[s.loginHeaderBtn, { borderColor: colors.primary }]}
                 onPress={() => router.push('/auth' as any)}
@@ -326,22 +346,18 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── ⭐ Rate the App — top for all users ── */}
-        <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
-          <RatingWidget colors={colors} />
-        </View>
-
         {/* ── Name Edit Modal ── */}
         <Modal visible={nameModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setNameModalVisible(false)}>
           <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 32 }} onPress={() => setNameModalVisible(false)}>
             <Pressable onPress={() => {}} style={{ backgroundColor: colors.background, borderRadius: 20, padding: 24, width: '100%', gap: 14, borderWidth: 1, borderColor: colors.border }}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: colors.foreground }}>Edit Name</Text>
               <TextInput
-                style={{ backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, padding: 14, fontSize: 16, color: colors.foreground }}
-                value={nameInput} onChangeText={setNameInput}
-                placeholder="Your name" placeholderTextColor={colors.mutedForeground}
+                style={{ backgroundColor: colors.card, borderWidth: 1.5, borderColor: nameError ? '#ef4444' : colors.primary, borderRadius: 12, padding: 14, fontSize: 16, color: colors.foreground }}
+                value={nameInput} onChangeText={handleNameChange}
+                placeholder="Your name (letters only)" placeholderTextColor={colors.mutedForeground}
                 autoFocus returnKeyType="done" onSubmitEditing={saveNameEdit}
               />
+              {nameError ? <Text style={{ color: '#ef4444', fontSize: 12, marginTop: -8 }}>{nameError}</Text> : null}
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <TouchableOpacity style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 13, alignItems: 'center' }} onPress={() => setNameModalVisible(false)}>
                   <Text style={{ color: colors.mutedForeground, fontWeight: '600' }}>Cancel</Text>
@@ -354,39 +370,34 @@ export default function HomeScreen() {
           </Pressable>
         </Modal>
 
-        {/* ── User Welcome Banner (logged in) ── */}
+        {/* ── 1. User Welcome Banner — always at top ── */}
         {user && (
           <View style={[s.welcomeBanner, {
             borderColor: user.userType === 'technician' ? colors.primary + '55' : '#3b82f655',
             backgroundColor: user.userType === 'technician' ? colors.primary + '12' : '#3b82f612',
           }]}>
-            {/* Profile picture + name (both editable) */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
               <View style={[s.profileAvatar, { borderColor: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
-                {user.avatar ? (
-                  <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
-                ) : (
-                  <Text style={{ fontSize: 28 }}>{user.userType === 'technician' ? '🔧' : '👤'}</Text>
-                )}
+                {user.avatar
+                  ? <Image source={{ uri: user.avatar }} style={s.profileAvatarImg} />
+                  : <AvatarInitial
+                      name={user.name ?? '?'}
+                      size={56} fontSize={22}
+                      textColor={user.userType === 'technician' ? '#000' : '#fff'}
+                      bgColor={user.userType === 'technician' ? colors.primary : '#3b82f6'}
+                    />
+                }
               </View>
               <View style={{ flex: 1, gap: 3 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={[s.welcomeName, { color: colors.foreground }]}>{user.name}</Text>
+                <Text style={[s.welcomeName, { color: colors.foreground }]}>{user.name}</Text>
+                <View style={[s.roleBadge, { backgroundColor: user.userType === 'technician' ? colors.primary + '22' : '#3b82f622' }]}>
+                  <Text style={[s.roleBadgeText, { color: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
+                    {user.userType === 'technician' ? '🔧 TECHNICIAN' : '👤 CUSTOMER'}
+                  </Text>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={[s.roleBadge, { backgroundColor: user.userType === 'technician' ? colors.primary + '22' : '#3b82f622' }]}>
-                    <Text style={[s.roleBadgeText, { color: user.userType === 'technician' ? colors.primary : '#3b82f6' }]}>
-                      {user.userType === 'technician' ? '🔧 TECHNICIAN' : '👤 CUSTOMER'}
-                    </Text>
-                  </View>
-                </View>
-                {user.email && (
-                  <Text style={[s.welcomeEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
-                )}
+                {user.email && <Text style={[s.welcomeEmail, { color: colors.mutedForeground }]}>{user.email}</Text>}
               </View>
             </View>
-
-            {/* Action buttons */}
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {user.userType === 'technician' ? (
                 <TouchableOpacity style={[s.bannerActionBtn, { backgroundColor: colors.primary, flex: 1 }]} onPress={() => router.push('/technician/home' as any)}>
@@ -418,56 +429,61 @@ export default function HomeScreen() {
               <Feather name="user" size={22} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[s.loginCtaTitle, { color: colors.foreground }]}>
-                Login / Register करें
-              </Text>
-              <Text style={[s.loginCtaSub, { color: colors.mutedForeground }]}>
-                Bookings track करें, history देखें, account बनाएं
-              </Text>
+              <Text style={[s.loginCtaTitle, { color: colors.foreground }]}>Login / Register करें</Text>
+              <Text style={[s.loginCtaSub, { color: colors.mutedForeground }]}>Bookings track करें, history देखें, account बनाएं</Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.primary} />
           </TouchableOpacity>
         )}
 
-        {/* ── Dev Mode entry point (visible only when not in test mode) ── */}
+        {/* ── Dev Mode entry point ── */}
         {!user && !isTestMode && (
-          <TouchableOpacity
-            style={[s.devModeLink, { borderColor: '#a855f733' }]}
-            onPress={() => router.push('/test-mode' as any)}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={[s.devModeLink, { borderColor: '#a855f733' }]} onPress={() => router.push('/test-mode' as any)} activeOpacity={0.7}>
             <Text style={s.devModeLinkText}>🧪 Developer / Test Mode</Text>
             <Feather name="chevron-right" size={13} color="#a855f7" />
           </TouchableOpacity>
         )}
 
-        {/* ── Quick stats ── */}
+        {/* ── 2. Quick Stats — always visible ── */}
         <View style={[s.statRow, { paddingHorizontal: 16, marginTop: 14 }]}>
           <View style={s.statCard}>
-            <Text style={[s.statNum, { color: colors.primary }]}>
-              {recentBookings?.length ?? '—'}
-            </Text>
+            <Text style={[s.statNum, { color: colors.primary }]}>{recentBookings?.length ?? '—'}</Text>
             <Text style={s.statLabel}>Total Bookings</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={[s.statNum, { color: '#22c55e' }]}>
-              {recentBookings?.filter(b => b.rating === 'good').length ?? '—'}
-            </Text>
+            <Text style={[s.statNum, { color: '#22c55e' }]}>{recentBookings?.filter(b => b.rating === 'good').length ?? '—'}</Text>
             <Text style={s.statLabel}>Good Ratings</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={[s.statNum, { color: colors.primary }]}>
-              {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-            </Text>
+            <Text style={[s.statNum, { color: colors.primary }]}>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</Text>
             <Text style={s.statLabel}>Today</Text>
           </View>
         </View>
 
-        {/* ── Service Categories ── */}
+        {/* ── 3. Service Categories (with search bar) ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Service चुनें</Text>
+          {/* Search bar */}
+          <View style={[s.searchBar, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <Feather name="search" size={15} color={colors.mutedForeground} />
+            <TextInput
+              style={{ flex: 1, fontSize: 14, color: colors.foreground, paddingVertical: 0 }}
+              placeholder="Search services..."
+              placeholderTextColor={colors.mutedForeground}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Feather name="x" size={14} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
+          </View>
           {catsLoading ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+          ) : activeCategories.length === 0 ? (
+            <Text style={{ color: colors.mutedForeground, textAlign: 'center', marginTop: 20, fontSize: 13 }}>No services found for "{searchQuery}"</Text>
           ) : (
             <View style={s.grid}>
               {activeCategories.map((cat) => (
@@ -481,16 +497,13 @@ export default function HomeScreen() {
                     <Feather name={(cat.icon ?? 'settings') as any} size={26} color={cat.accent ?? '#6b7280'} />
                   </View>
                   <Text style={s.gridLabel}>{cat.name}</Text>
-                  <View style={s.openBtn}>
-                    <Text style={s.openText}>OPEN</Text>
-                  </View>
                 </TouchableOpacity>
               ))}
             </View>
           )}
         </View>
 
-        {/* ── Recent Bookings ── */}
+        {/* ── 4. Recent Bookings ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Recent Bookings</Text>
           {isLoading ? (
@@ -502,25 +515,22 @@ export default function HomeScreen() {
             </View>
           ) : (
             recent.map((b) => (
-              <TouchableOpacity
-                key={b.id}
-                style={s.bookingCard}
-                onPress={() => router.push(`/booking/${b.id}`)}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity key={b.id} style={s.bookingCard} onPress={() => router.push(`/booking/${b.id}`)} activeOpacity={0.8}>
                 <View style={s.bookingLeft}>
                   <Text style={s.bookingName}>{b.customerName}</Text>
-                  <Text style={s.bookingMeta}>
-                    {PROFESSION_LABELS_FALLBACK[b.professionType] ?? b.professionType} · {b.phone}
-                  </Text>
+                  <Text style={s.bookingMeta}>{PROFESSION_LABELS_FALLBACK[b.professionType] ?? b.professionType} · {b.phone}</Text>
                 </View>
-                <View style={[s.ratingDot, {
-                  backgroundColor: b.rating === 'good' ? '#22c55e' : b.rating === 'bad' ? '#ef4444' : colors.border,
-                }]} />
+                <View style={[s.ratingDot, { backgroundColor: b.rating === 'good' ? '#22c55e' : b.rating === 'bad' ? '#ef4444' : colors.border }]} />
               </TouchableOpacity>
             ))
           )}
         </View>
+
+        {/* ── 5. ⭐ Rate the App — moved to bottom ── */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+          <RatingWidget colors={colors} />
+        </View>
+
       </ScrollView>
     </View>
   );
@@ -551,14 +561,12 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     borderWidth: 1, borderColor: '#166534',
     alignItems: 'center', justifyContent: 'center',
   },
-  userAvatarBtn: {
+  bellBtn: {
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: c.card,
     borderWidth: 1.5, borderColor: c.primary,
     alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden',
   },
-  userAvatarImg: { width: 38, height: 38, borderRadius: 19 },
   loginHeaderBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1.5, borderRadius: 20,
@@ -662,12 +670,14 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   gridIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   gridLabel: { fontSize: 14, fontWeight: '600', color: c.foreground },
-  openBtn: {
-    backgroundColor: c.secondary, borderRadius: 6,
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderWidth: 1, borderColor: c.border,
+
+  // Search bar
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 10,
+    marginBottom: 14,
   },
-  openText: { fontSize: 10, fontWeight: '700', color: c.mutedForeground, letterSpacing: 0.8 },
 
   // Recent bookings
   emptyCard: {

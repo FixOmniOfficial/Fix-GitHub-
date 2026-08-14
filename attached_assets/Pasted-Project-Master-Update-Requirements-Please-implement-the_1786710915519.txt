@@ -1,0 +1,23 @@
+Project Master Update Requirements: Please implement the following UI, Layout, Logic, and Security fixes across the entire application.
+
+1. UI & Header Improvements:
+- Header Action Update (Option A): In the top right header, remove the empty yellow circle icon. Replace it with a functional Notification Bell (Alerts) Icon so users/technicians can easily view their notifications and system alerts.
+- Reposition 'Rate the App' Section: Move the "Rate the App" (star rating) card lower down the screen. The user/technician's profile info, status, and stats (Total Bookings, Today) must sit prominently at the top of the dashboard.
+- Profile Avatar Fallback: If a user or technician has not uploaded a profile picture, display a clean placeholder avatar containing the first letter of their name (e.g., 'M' for Md Shamshad) instead of an empty ring/circle. Apply this logic to both the main profile card and the header icon.
+- Remove 'OPEN' Badge: Completely remove the "OPEN" status badge/tag from all service grid cards to give the UI a clean, minimal, and professional look.
+- Fix Scroll & Bottom Padding: Wrap the screen content in a proper ScrollView and add bottom padding (e.g., paddingBottom: 100dp). The "Recent Bookings" section and all bottom content must scroll completely above the navigation bar without getting cut off.
+- Add Search Bar: Add a search input bar right above the Services section to allow users to quickly search for specific services.
+
+2. Multi-Language System (Admin Control + User Override):
+- Global Admin Control: Provide a default language setting in the Admin Panel (e.g., set default to English). All new users and technicians will see the app in this default language.
+- User Profile Language Selection: Add a 'Language Preference' option (Hindi / English) in the Settings/Profile section for both Customers and Technicians.
+- Local Override: Changing the language in user settings should strictly affect only that individual user's device/account without overriding the global setting for others.
+
+3. Name Field Validation Rules:
+- Alphabetic Restriction Only: Restrict the Profile Name input field across all profile edit and registration screens to alphabetic characters and spaces only (RegEx: ^[a-zA-Z\s]+$).
+- Block Numbers & Symbols: Prevent users from adding numeric digits (0-9) or special characters into the Name field (e.g., block names like Vinod123). Display a clear validation error message if invalid characters are pasted: "Numbers and special characters are not allowed in the Name field."
+
+4. Self-Service Identity & Verified Badge Logic (Technicians):
+- Self-Service Name Edit: Technicians can edit/update their profile names directly without waiting for manual admin approval (applying standard alphabetic validation).
+- Auto Verified Badge via Verification: Display a "Verified Blue Tick Badge" on a technician's profile once they successfully complete their official government identity verification.
+- Auto-Revoke Verification on Name Change: If a verified technician edits or changes their profile name AFTER receiving the Verified badge, the system must automatically remove/revoke the Verified badge. To regain the badge, they must re-submit their identity documents for verification under the new name.

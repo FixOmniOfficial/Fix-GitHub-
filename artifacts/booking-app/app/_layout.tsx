@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AppAuthProvider } from '@/contexts/AppAuthContext';
 import { TestModeProvider } from '@/contexts/TestModeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { ScreenVisibilityProvider } from '@/contexts/ScreenVisibilityContext';
 import TestModeBanner from '@/components/TestModeBanner';
 import {
   Inter_400Regular,
@@ -82,6 +83,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
+          <ScreenVisibilityProvider>
           <LanguageProvider>
           <AppAuthProvider>
             {/* TestModeProvider must be inside AppAuthProvider (it calls login/logout) */}
@@ -94,6 +96,7 @@ export default function RootLayout() {
             </TestModeProvider>
           </AppAuthProvider>
           </LanguageProvider>
+          </ScreenVisibilityProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

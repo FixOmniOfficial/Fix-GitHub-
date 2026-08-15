@@ -15,6 +15,7 @@ import dashboardRouter from "./dashboard";
 import kycRouter from "./kyc";
 import storageRouter from "./storage";
 import sandboxRouter from "./sandbox";
+import superAdminRouter from "./super-admin";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(dashboardRouter);
 router.use(kycRouter);
 router.use(storageRouter);
 router.use(sandboxRouter);
+router.use(superAdminRouter);
 
 export default router;

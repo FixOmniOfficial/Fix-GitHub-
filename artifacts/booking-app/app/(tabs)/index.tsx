@@ -77,6 +77,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
+import { useScreenVisibility } from '@/contexts/ScreenVisibilityContext';
+import ScreenDisabled from '@/components/ScreenDisabled';
 import {
   useListBookings, useListServiceCategories, useGetHomeConfig,
   useCreateAppRating, useGetAppRatingsSummary,
@@ -233,11 +235,13 @@ const ALPHA_ONLY = /^[a-zA-Z\s]*$/;
 
 // ── Home Screen ───────────────────────────────────────────────────────────────
 export default function HomeScreen() {
+  const { isScreenEnabled } = useScreenVisibility();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const topPad = insets.top;
   const { user, logout, updateUser } = useAppAuth();
+  if (!isScreenEnabled('customer_home')) return <ScreenDisabled label="Home" />;
   const { isTestMode } = useTestMode();
   const [logoModalVisible, setLogoModalVisible] = useState(false);
   const [nameModalVisible, setNameModalVisible] = useState(false);

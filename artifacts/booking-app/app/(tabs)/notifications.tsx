@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { useScreenVisibility } from '@/contexts/ScreenVisibilityContext';
+import ScreenDisabled from '@/components/ScreenDisabled';
 import { useListBookings } from '@workspace/api-client-react';
 
 const PROFESSION_LABELS: Record<string, string> = {
@@ -26,6 +28,7 @@ function timeAgo(dateStr: string) {
 }
 
 export default function NotificationsScreen() {
+  const { isScreenEnabled } = useScreenVisibility();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -34,6 +37,8 @@ export default function NotificationsScreen() {
   const { data: bookings, isLoading, refetch } = useListBookings({});
 
   const s = styles(colors);
+
+  if (!isScreenEnabled('customer_notifications')) return <ScreenDisabled label="Notifications" />;
   const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
   return (

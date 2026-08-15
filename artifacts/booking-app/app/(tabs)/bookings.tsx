@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { useScreenVisibility } from '@/contexts/ScreenVisibilityContext';
+import ScreenDisabled from '@/components/ScreenDisabled';
 import { useListBookings } from '@workspace/api-client-react';
 
 const FILTERS = [
@@ -26,6 +28,7 @@ const PROFESSION_LABELS: Record<string, string> = {
 };
 
 export default function BookingsScreen() {
+  const { isScreenEnabled } = useScreenVisibility();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -37,6 +40,8 @@ export default function BookingsScreen() {
   );
 
   const s = styles(colors);
+
+  if (!isScreenEnabled('customer_bookings')) return <ScreenDisabled label="Bookings" />;
 
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>

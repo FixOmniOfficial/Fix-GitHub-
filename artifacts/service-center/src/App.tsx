@@ -22,6 +22,7 @@ import ServiceCategoriesPage from '@/pages/service-categories';
 import KycReviewPage from '@/pages/kyc-review';
 import SandboxPage from '@/pages/sandbox';
 import TechniciansPage from '@/pages/technicians';
+import SuperAdminPage from '@/pages/super-admin';
 import SignInPage from '@/pages/sign-in';
 import SignUpPage from '@/pages/sign-up';
 import CustomerFormPage from '@/pages/customer-form';
@@ -177,6 +178,7 @@ function ProtectedLayout() {
         <Route path="/kyc-review" component={KycReviewPage} />
         <Route path="/sandbox" component={SandboxPage} />
         <Route path="/technicians" component={TechniciansPage} />
+        <Route path="/super-admin" component={SuperAdminPage} />
         <Route component={NotFound} />
       </Switch>
     </AppShell>

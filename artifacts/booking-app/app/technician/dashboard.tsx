@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { useScreenVisibility } from '@/contexts/ScreenVisibilityContext';
+import ScreenDisabled from '@/components/ScreenDisabled';
 import { useAppAuth } from '@/contexts/AppAuthContext';
 import { useListBookings } from '@workspace/api-client-react';
 
@@ -19,6 +21,7 @@ const PROF_LABELS: Record<string, string> = {
 };
 
 export default function TechnicianDashboardScreen() {
+  const { isScreenEnabled } = useScreenVisibility();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -54,6 +57,8 @@ export default function TechnicianDashboardScreen() {
   }).length;
 
   const s = styles(colors);
+
+  if (!isScreenEnabled('technician_dashboard')) return <ScreenDisabled label="Dashboard" />;
 
   if (!user || user.userType !== 'technician') {
     return (

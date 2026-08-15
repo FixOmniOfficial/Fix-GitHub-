@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { useColors } from '@/hooks/useColors';
+import { useScreenVisibility } from '@/contexts/ScreenVisibilityContext';
+import ScreenDisabled from '@/components/ScreenDisabled';
 import { useAppAuth } from '@/contexts/AppAuthContext';
 import ReminderModal, { ReminderTarget } from '@/components/ReminderModal';
 import CallerIdBanner from '@/components/CallerIdBanner';
@@ -126,6 +128,7 @@ const TAB = {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function TechnicianHomeScreen() {
+  const { isScreenEnabled } = useScreenVisibility();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -149,6 +152,8 @@ export default function TechnicianHomeScreen() {
       .then(d => setKycStatus(d.status ?? 'not_submitted'))
       .catch(() => setKycStatus('not_submitted'));
   }, [user?.uniqueCode]);
+
+  if (!isScreenEnabled('technician_home')) return <ScreenDisabled label="Technician Home" />;
 
   const ALPHA_ONLY = /^[a-zA-Z\s]*$/;
 

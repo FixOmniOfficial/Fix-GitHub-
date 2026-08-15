@@ -5,7 +5,7 @@ import {
   Home, Users, Wrench, Bell,
   Calculator as CalculatorIcon,
   BarChart3, Settings, UserCircle, Menu, LogOut,
-  UserCog, Layers, Fingerprint, FlaskConical, Hammer,
+  UserCog, Layers, Fingerprint, FlaskConical, Hammer, ShieldCheck,
 } from 'lucide-react';
 import { useGetSettings, useListReminders } from '@workspace/api-client-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,7 +37,8 @@ const KYC_ITEMS = [
 
 // Super-admin only
 const SUPER_ADMIN_ITEMS = [
-  { label: 'Sandbox', subtitle: 'Testing Sandbox', icon: FlaskConical, href: '/sandbox' },
+  { label: 'Super Admin', subtitle: 'Master Control Panel', icon: ShieldCheck, href: '/super-admin' },
+  { label: 'Sandbox',     subtitle: 'Testing Sandbox',      icon: FlaskConical, href: '/sandbox' },
 ];
 
 const BOTTOM_ITEMS = [

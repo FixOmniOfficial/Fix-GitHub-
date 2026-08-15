@@ -6,6 +6,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { useScreenVisibility } from '@/contexts/ScreenVisibilityContext';
+import ScreenDisabled from '@/components/ScreenDisabled';
 import { useGetAppRatingsSummary } from '@workspace/api-client-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -20,6 +22,7 @@ function StarRow({ rating }: { rating: number }) {
 }
 
 export default function MoreScreen() {
+  const { isScreenEnabled } = useScreenVisibility();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -29,6 +32,8 @@ export default function MoreScreen() {
   const { data: summary } = useGetAppRatingsSummary({});
 
   const s = styles(colors);
+
+  if (!isScreenEnabled('customer_more')) return <ScreenDisabled label="More" />;
 
   const ACTIONS = [
     { icon: 'phone' as const,  label: t.helpline,    sub: 'Message the Admin',        path: '/helpline', color: '#22c55e' },

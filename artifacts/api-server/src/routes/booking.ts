@@ -1322,11 +1322,15 @@ router.post("/booking/tech-form-config", async (req, res): Promise<void> => {
 // ── Tech Form Submissions ──────────────────────────────────────────────
 
 router.post("/booking/tech-form-submit/:techCode", async (req, res): Promise<void> => {
+  // ISOLATION RULE: writes ONLY to technician-scoped tables (techFormSubmissionsTable +
+  // techCustomersTable). Never touches bookingsTable or any global/dashboard table.
   try {
     const tech = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, req.params.techCode)).limit(1);
     if (!tech[0]) { res.status(404).json({ error: "Technician not found" }); return; }
     const { customerName, phone, fullAddress, sector, floorNumber, houseNumber, location, visitingCharge, notes } = req.body;
     if (!customerName || !phone) { res.status(400).json({ error: "customerName and phone required" }); return; }
+
+    // ── 1. Save full submission record under this technician ───────────────────
     const [row] = await db.insert(techFormSubmissionsTable).values({
       professionalId: tech[0].id,
       techCode: req.params.techCode,
@@ -1341,7 +1345,37 @@ router.post("/booking/tech-form-submit/:techCode", async (req, res): Promise<voi
       notes: notes ?? null,
       status: "pending",
     }).returning();
-    res.status(201).json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+
+    // ── 2. Mirror into technician's customer list (techCustomersTable) ─────────
+    //    Build a combined address note so nothing is lost
+    const addressParts = [
+      houseNumber ? `House: ${houseNumber}` : null,
+      floorNumber ? `Floor: ${floorNumber}` : null,
+      sector      ? `Sector: ${sector}`      : null,
+      location    ? `Location: ${location}`  : null,
+    ].filter(Boolean).join(" | ") || null;
+
+    const fullNotes = [
+      addressParts,
+      notes,
+      `Form submission – ${new Date().toISOString().slice(0, 10)}`,
+    ].filter(Boolean).join("\n");
+
+    await db.insert(techCustomersTable).values({
+      techCode:    req.params.techCode,
+      name:        customerName,
+      phone,
+      address:     fullAddress ?? null,
+      jobType:     null,          // service type not collected in this form
+      notes:       fullNotes,
+    }).onConflictDoNothing();    // skip if same phone already exists for this tech
+
+    res.status(201).json({
+      ...row,
+      visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null,
+      createdAt:  row.createdAt.toISOString(),
+      updatedAt:  row.updatedAt.toISOString(),
+    });
   } catch {
     res.status(500).json({ error: "Failed to submit form" });
   }

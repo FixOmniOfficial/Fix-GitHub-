@@ -768,11 +768,12 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
 
   const shareForm = (customer?: TechCustomer) => {
     const msg =
-      `🔧 *${appName}*\n` +
-      `👤 ${techName} (${techCategory} | ID: ${techCode})\n\n` +
+      `🔧 *Fix Omni App*\n\n` +
+      `👤 ${techName}\n` +
+      `🛠️ ${techCategory} | ID: ${techCode}\n\n` +
       `👉 *Service Booking Form Link:*\n` +
       `${formUrl}\n\n` +
-      `📝 *Please fill out this quick form with your address and location so our technician can reach you on time!*`;
+      `📝 कृपया अपनी सर्विस बुक करने के लिए ऊपर दिए गए लिंक पर क्लिक करें और अपना एड्रेस और लोकेशन भरें।`;
     if (customer) {
       const clean = customer.phone.replace(/\D/g, '');
       Linking.openURL(

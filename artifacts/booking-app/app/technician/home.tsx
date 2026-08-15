@@ -774,14 +774,14 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
       `👉 Service Booking Form Link:\n` +
       `${formUrl}\n\n` +
       `📝 कृपया अपनी सर्विस बुक करने के लिए ऊपर दिए गए लिंक पर क्लिक करें और अपना एड्रेस और लोकेशन भरें।`;
+    const encoded = encodeURIComponent(msg);
     if (customer) {
       const clean = customer.phone.replace(/\D/g, '');
-      Linking.openURL(
-        `https://wa.me/${clean.length === 10 ? '91' + clean : clean}?text=${encodeURIComponent(msg)}`
-      ).catch(() => Share.share({ message: msg }));
+      const waNum = clean.length === 10 ? `91${clean}` : clean;
+      Linking.openURL(`https://wa.me/${waNum}?text=${encoded}`).catch(() => {});
     } else {
-      // Do NOT pass url separately — it would append the link a second time
-      Share.share({ message: msg }).catch(() => {});
+      // Open WhatsApp directly (no phone) — user picks the contact themselves
+      Linking.openURL(`https://wa.me/?text=${encoded}`).catch(() => {});
     }
   };
 

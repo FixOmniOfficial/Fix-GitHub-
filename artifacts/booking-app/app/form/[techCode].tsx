@@ -114,7 +114,7 @@ export default function TechFormScreen() {
         </View>
         <Text style={{ fontSize: 22, fontWeight: '800', color: colors.foreground, textAlign: 'center' }}>Thank you! 🙏</Text>
         <Text style={{ fontSize: 15, color: colors.mutedForeground, marginTop: 10, textAlign: 'center', lineHeight: 22 }}>
-          Your request {techInfo.name} has been sent to{'\n'}We will contact you shortly.
+          Your request has been sent to {techInfo.name}.{'\n'}We will contact you shortly.
         </Text>
         <View style={[s.thankCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={{ fontSize: 13, color: colors.mutedForeground }}>Technician</Text>

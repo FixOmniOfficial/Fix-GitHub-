@@ -175,7 +175,7 @@ export default function CustomerFormPage() {
           (address   ? `🗺️ Address: ${address.trim()}\n` : '') +
           (location  ? `📍 Location: ${location}\n`     : '') +
           `🛠️ Service: ${serviceType}\n\n` +
-          `Booking ID: ${json.bookingUid}\n` +
+          `Submission ID: ${json.submissionId}\n` +
           `Submitted via *${appName}*`
         );
         const waNum = techPhone.length === 10 ? `91${techPhone}` : techPhone;

@@ -1,8 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, professionalsTable, techCustomersTable, bookingsTable, appSettingsTable, serviceCategoriesTable } from "@workspace/db";
+import { db, professionalsTable, techCustomersTable, techFormSubmissionsTable, appSettingsTable, serviceCategoriesTable } from "@workspace/db";
 import { PROFESSION_LABELS } from "@workspace/db";
-import crypto from "crypto";
 
 const router: IRouter = Router();
 
@@ -92,7 +91,8 @@ router.get("/public/service-categories", async (_req, res): Promise<void> => {
 
 // ── POST /public/book/:techCode  (primary) ────────────────────────────────────
 // ── POST /public/customer-form/:techCode  (legacy alias) ──────────────────────
-//    Customer submits booking → inserts into bookings table + tech_customers
+//    ISOLATION RULE: writes ONLY to technician-scoped tables.
+//    Never touches bookingsTable or any global/dashboard table.
 async function submitBooking(req: any, res: any): Promise<void> {
   const techCode = req.params.techCode || req.params.token;
   if (!techCode) { res.status(400).json({ error: "Technician code is required." }); return; }
@@ -113,32 +113,34 @@ async function submitBooking(req: any, res: any): Promise<void> {
   if (!phone?.trim()) { res.status(400).json({ error: "Mobile number is required." }); return; }
   if (!serviceType?.trim()) { res.status(400).json({ error: "Service type is required." }); return; }
 
-  const bookingUid = `BK-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-
-  // ── Insert into bookings table ─────────────────────────────────────────────
-  const [booking] = await db.insert(bookingsTable).values({
-    bookingUid,
-    customerName:   name.trim(),
-    phone:          phone.trim(),
-    whatsappPhone:  whatsappPhone?.trim() || null,
-    houseNumber:    houseNumber?.trim() || null,
-    floorNumber:    floorNumber?.trim() || null,
-    address:        address?.trim() || null,
-    location:       location?.trim() || null,
-    serviceType:    serviceType.trim(),
-    professionalId: tech.id,
-    professionType: tech.professionType,
-    visitingCharge: tech.visitingCharge ?? null,
-    status:         "pending",
-  }).returning();
-
-  // ── Also mirror into tech_customers (appears in technician's customer tab) ──
-  const notes = [
+  // ── 1. Save full submission record under this technician ───────────────────
+  const addressParts = [
     houseNumber ? `House: ${houseNumber}` : null,
     floorNumber ? `Floor: ${floorNumber}` : null,
     location    ? `Location: ${location}` : null,
     whatsappPhone && whatsappPhone !== phone ? `WhatsApp: ${whatsappPhone}` : null,
   ].filter(Boolean).join(" | ") || null;
+
+  const [submission] = await db.insert(techFormSubmissionsTable).values({
+    professionalId: tech.id,
+    techCode:       tech.uniqueCode!,
+    customerName:   name.trim(),
+    phone:          phone.trim(),
+    fullAddress:    address?.trim() || null,
+    houseNumber:    houseNumber?.trim() || null,
+    floorNumber:    floorNumber?.trim() || null,
+    location:       location?.trim() || null,
+    notes:          addressParts,
+    visitingCharge: tech.visitingCharge ? String(tech.visitingCharge) : null,
+    status:         "pending",
+  }).returning();
+
+  // ── 2. Mirror into technician's customer list (techCustomersTable) ─────────
+  const fullNotes = [
+    addressParts,
+    `Service: ${serviceType.trim()}`,
+    `Form submission – ${new Date().toISOString().slice(0, 10)}`,
+  ].filter(Boolean).join("\n");
 
   await db.insert(techCustomersTable).values({
     techCode: tech.uniqueCode!,
@@ -146,14 +148,14 @@ async function submitBooking(req: any, res: any): Promise<void> {
     phone:    phone.trim(),
     address:  address?.trim() || null,
     jobType:  serviceType.trim(),
-    notes,
+    notes:    fullNotes,
   }).onConflictDoNothing();
 
   res.status(201).json({
-    success:    true,
-    bookingUid: booking.bookingUid,
-    techPhone:  tech.phone,   // returned so client can open WhatsApp to notify tech
-    message:    "✅ Thank You! Your booking has been submitted successfully. The technician will contact you shortly.",
+    success:       true,
+    submissionId:  submission.id,
+    techPhone:     tech.phone,   // returned so client can open WhatsApp to notify tech
+    message:       "✅ Thank You! Your booking has been submitted successfully. The technician will contact you shortly.",
   });
 }
 router.post("/public/book/:techCode",       submitBooking);

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, TextInput, Alert, ActivityIndicator, Linking,
-  Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -76,11 +76,12 @@ export default function FormManagerScreen() {
       ? (CATEGORY_LABELS[user.professionType] ?? user.professionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
       : 'Technician';
     const msg = encodeURIComponent(
-      `🔧 *${appName}*\n` +
-      `👤 ${techName} (${techCategory} | ID: ${techCode})\n\n` +
-      `👉 *Service Booking Form Link:*\n` +
+      `Fix Omni App\n\n` +
+      `👤 ${techName}\n` +
+      `🛠️ ${techCategory} | ID: ${techCode}\n\n` +
+      `👉 Service Booking Form Link:\n` +
       `${formUrl}\n\n` +
-      `📝 *Please fill out this quick form with your address and location so our technician can reach you on time!*`
+      `📝 कृपया अपनी सर्विस बुक करने के लिए ऊपर दिए गए लिंक पर क्लिक करें और अपना एड्रेस और लोकेशन भरें।`
     );
     Linking.openURL(`https://wa.me/?text=${msg}`).catch(() =>
       Alert.alert('WhatsApp', 'Could not open WhatsApp')
@@ -90,16 +91,11 @@ export default function FormManagerScreen() {
   const [copied, setCopied] = useState(false);
   const copyLink = async () => {
     try {
-      if (Platform.OS === 'web' && navigator?.clipboard) {
-        await navigator.clipboard.writeText(formUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } else {
-        await Share.share({ message: formUrl, url: formUrl });
-      }
+      await Clipboard.setStringAsync(formUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback: show share sheet anyway
-      try { await Share.share({ message: formUrl }); } catch {}
+      Alert.alert('Copy failed', 'Could not copy link. Please copy it manually.');
     }
   };
 

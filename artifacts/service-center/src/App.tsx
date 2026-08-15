@@ -204,10 +204,8 @@ function ClerkProviderWithRoutes() {
             {/* Auth pages — public */}
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
-            {/* Public customer booking form — primary branded route */}
+            {/* Public customer booking form */}
             <Route path="/book/:techCode" component={CustomerFormPage} />
-            {/* Legacy alias — keep working for old links */}
-            <Route path="/customer-form/:token" component={CustomerFormPage} />
             {/* Everything else — protected */}
             <Route component={ProtectedLayout} />
           </Switch>

@@ -126,7 +126,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
               </div>
               <div>
                 <h1 className="text-white font-bold text-base leading-tight">Fix Omni</h1>
-                <p className="text-slate-500 text-xs">Services Booking</p>
+                <p className="text-slate-500 text-xs">Service Management</p>
               </div>
             </div>
           </div>

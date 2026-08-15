@@ -71,10 +71,8 @@ function StarRating({ rating }: { rating: number }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function CustomerFormPage() {
-  // Handle both /book/:techCode (new) and /customer-form/:token (legacy)
-  const [, bookParams]   = useRoute('/book/:techCode');
-  const [, formParams]   = useRoute('/customer-form/:token');
-  const code = bookParams?.techCode || formParams?.token || '';
+  const [, bookParams] = useRoute('/book/:techCode');
+  const code = bookParams?.techCode || '';
 
   const [pageState,      setPageState]      = useState<PageState>('loading');
   const [tech,           setTech]           = useState<TechProfile | null>(null);

@@ -3,7 +3,6 @@ import { useRoute, useLocation, Link } from 'wouter';
 import {
   useGetCustomer,
   useGetCustomerHistory,
-  useGetCustomerWhatsappForm,
   useUpdateCustomer,
   useDeleteCustomer,
   useCreateJob,
@@ -18,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft, Edit, Trash2, MessageCircle, Phone, MapPin, Calendar,
   Wrench, FileText, Plus, Home, Layers, Navigation, IndianRupee, X, Check,
-  ShieldAlert, Share2, Copy, ExternalLink,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   Dialog,
@@ -110,12 +109,6 @@ export default function CustomerDetail() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isNewJobOpen, setIsNewJobOpen] = useState(false);
-  const [isShareOpen, setIsShareOpen] = useState(false);
-  const [shareUrl, setShareUrl] = useState('');
-  const [shareLoading, setShareLoading] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
-  const [shareVisitingAmount, setShareVisitingAmount] = useState('');
-  const [shareStep, setShareStep] = useState<'input' | 'url'>('input');
 
   const { data: customer, isLoading: isCustomerLoading } = useGetCustomer(id, {
     query: { enabled: !!id, queryKey: getGetCustomerQueryKey(id) },
@@ -123,10 +116,6 @@ export default function CustomerDetail() {
   const { data: history, isLoading: isHistoryLoading } = useGetCustomerHistory(id, {
     query: { enabled: !!id, queryKey: getGetCustomerHistoryQueryKey(id) },
   });
-  const { data: waForm } = useGetCustomerWhatsappForm(id, {
-    query: { enabled: !!id, queryKey: ['whatsapp-form', id] },
-  });
-
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
   const createJob = useCreateJob();
@@ -212,70 +201,7 @@ export default function CustomerDetail() {
     });
   };
 
-  const handleWhatsApp = () => {
-    if (!waForm?.whatsappLink) {
-      toast.error('WhatsApp link not available');
-      return;
-    }
-    window.open(waForm.whatsappLink, '_blank');
-  };
-
   const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
-
-  const handleShare = () => {
-    // Pre-fill visiting amount from existing customer data
-    setShareVisitingAmount(c?.visitingAmount != null ? String(c.visitingAmount) : '');
-    setShareStep('input');
-    setShareUrl('');
-    setShareCopied(false);
-    setIsShareOpen(true);
-  };
-
-  const handleGenerateLink = async () => {
-    setShareLoading(true);
-    try {
-      // If visiting amount entered, update customer first
-      if (shareVisitingAmount.trim()) {
-        const amount = parseFloat(shareVisitingAmount);
-        if (!isNaN(amount)) {
-          await fetch(`${BASE}/api/customers/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ visitingAmount: amount }),
-          });
-          queryClient.invalidateQueries({ queryKey: getGetCustomerQueryKey(id) });
-        }
-      }
-      // Generate / fetch share token
-      const r = await fetch(`${BASE}/api/customers/${id}/generate-share-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const json = await r.json();
-      if (!r.ok) { toast.error('Link could not be created'); return; }
-      const url = `${window.location.origin}${BASE}/customer-form/${json.token}`;
-      setShareUrl(url);
-      setShareStep('url');
-    } catch {
-      toast.error('Connection error');
-    } finally {
-      setShareLoading(false);
-    }
-  };
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    });
-  };
-
-  const shareOnWhatsApp = () => {
-    const phone = customer ? (customer.whatsappPhone ?? customer.phone) : '';
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const msg = `Hello! Please fill in your details at the link below:\n${shareUrl}`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-  };
 
   /* ── Loading / not found ── */
   if (isCustomerLoading || isHistoryLoading) {
@@ -320,24 +246,6 @@ export default function CustomerDetail() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            onClick={handleShare}
-            disabled={shareLoading}
-          >
-            {shareLoading
-              ? <><span className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />Loading…</>
-              : <><Share2 className="w-4 h-4 mr-2" />Send Form</>
-            }
-          </Button>
-          <Button
-            className="bg-[#25D366] hover:bg-[#128C7E] text-white"
-            onClick={handleWhatsApp}
-          >
-            <MessageCircle className="w-4 h-4 mr-2" />
-            WhatsApp
-          </Button>
-
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="icon"><Trash2 className="w-4 h-4" /></Button>
@@ -660,97 +568,6 @@ export default function CustomerDetail() {
             </div>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
-
-    {/* ── SHARE FORM LINK DIALOG ─────────────────────────────────────────── */}
-    <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Share2 className="w-4 h-4" /> Share Form Link
-          </DialogTitle>
-        </DialogHeader>
-
-        {shareStep === 'input' ? (
-          /* ── Step 1: Visiting charge input ── */
-          <div className="space-y-4 pt-1">
-            <p className="text-sm text-muted-foreground">
-              Generate a form link for <span className="font-semibold text-foreground">{customer?.name}</span>.
-            </p>
-
-            {/* Visiting charge */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium flex items-center gap-1.5">
-                <IndianRupee className="w-3.5 h-3.5 text-amber-500" />
-                Visiting Charge
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">₹</span>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={shareVisitingAmount}
-                  onChange={(e) => setShareVisitingAmount(e.target.value)}
-                  className="pl-7"
-                  min="0"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                This amount will be shown in the customer form. Leave blank to hide it.
-              </p>
-            </div>
-
-            <Button
-              className="w-full"
-              onClick={handleGenerateLink}
-              disabled={shareLoading}
-            >
-              {shareLoading
-                ? <><span className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />Generating link…</>
-                : <><Share2 className="w-4 h-4 mr-2" />Generate Link</>
-              }
-            </Button>
-          </div>
-        ) : (
-          /* ── Step 2: Show URL + share options ── */
-          <div className="space-y-4 pt-1">
-            <p className="text-sm text-muted-foreground">
-              Send the link below to <span className="font-semibold text-foreground">{customer?.name}</span> so they can fill in their details.
-              They can fill this form to share their details.
-            </p>
-
-            {/* Link preview */}
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border text-xs font-mono break-all">
-              <ExternalLink className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-              <span className="text-muted-foreground flex-1 truncate">{shareUrl}</span>
-            </div>
-
-            {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" onClick={copyLink} className="gap-2">
-                {shareCopied
-                  ? <><Check className="w-4 h-4 text-emerald-500" />Copied!</>
-                  : <><Copy className="w-4 h-4" />Copy Link</>
-                }
-              </Button>
-              <Button
-                className="bg-[#25D366] hover:bg-[#128C7E] text-white gap-2"
-                onClick={shareOnWhatsApp}
-              >
-                <MessageCircle className="w-4 h-4" />
-                Send via WhatsApp
-              </Button>
-            </div>
-
-            <button
-              onClick={() => setShareStep('input')}
-              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 w-full text-center"
-            >
-              ← Back / Change Charge
-            </button>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
 

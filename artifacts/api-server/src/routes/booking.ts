@@ -1327,8 +1327,16 @@ router.post("/booking/tech-form-submit/:techCode", async (req, res): Promise<voi
   try {
     const tech = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, req.params.techCode)).limit(1);
     if (!tech[0]) { res.status(404).json({ error: "Technician not found" }); return; }
-    const { customerName, phone, fullAddress, sector, floorNumber, houseNumber, location, visitingCharge, notes } = req.body;
+    const { customerName, phone, fullAddress, sector, floorNumber, houseNumber, location, visitingCharge, notes, serviceTypes } = req.body;
     if (!customerName || !phone) { res.status(400).json({ error: "customerName and phone required" }); return; }
+
+    // Normalise serviceTypes — accept array or comma-string, store as JSON
+    const serviceTypesJson = (() => {
+      if (!serviceTypes) return null;
+      const arr = Array.isArray(serviceTypes) ? serviceTypes : [serviceTypes];
+      const clean = arr.map(String).filter(Boolean);
+      return clean.length ? JSON.stringify(clean) : null;
+    })();
 
     // ── 1. Save full submission record under this technician ───────────────────
     const [row] = await db.insert(techFormSubmissionsTable).values({
@@ -1343,6 +1351,7 @@ router.post("/booking/tech-form-submit/:techCode", async (req, res): Promise<voi
       location: location ?? null,
       visitingCharge: visitingCharge ? String(visitingCharge) : null,
       notes: notes ?? null,
+      serviceTypes: serviceTypesJson,
       status: "pending",
     }).returning();
 
@@ -1366,7 +1375,7 @@ router.post("/booking/tech-form-submit/:techCode", async (req, res): Promise<voi
       name:        customerName,
       phone,
       address:     fullAddress ?? null,
-      jobType:     null,          // service type not collected in this form
+      jobType:     serviceTypesJson ? JSON.parse(serviceTypesJson).join(", ") : null,
       notes:       fullNotes,
     }).onConflictDoNothing();    // skip if same phone already exists for this tech
 

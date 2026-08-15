@@ -144,6 +144,16 @@ router.patch("/admin/feature-modules/:key", requireAuth, requireSuperAdmin, asyn
   res.json(updated);
 });
 
+// ── PUBLIC: form options (mobile booking form reads on load) ──────────────────
+router.get("/public/form-options", async (_req, res): Promise<void> => {
+  await ensureDefaults();
+  const rows = await db
+    .select()
+    .from(formOptionsTable)
+    .orderBy(formOptionsTable.sortOrder, formOptionsTable.id);
+  res.json(rows.filter(r => r.isActive));
+});
+
 // ── ADMIN: list form options ──────────────────────────────────────────────────
 router.get("/admin/form-options", requireAuth, requireAdmin, async (_req, res): Promise<void> => {
   await ensureDefaults();

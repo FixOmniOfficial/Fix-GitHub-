@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 interface TechInfo {
@@ -21,12 +22,28 @@ interface FormConfig {
   defaultVisitingCharge: number;
   customMessage: string | null;
 }
+interface FormOptionRow {
+  id: number;
+  label: string;
+  value: string;
+  icon: string | null;
+  optionType: string;
+  sortOrder: number;
+  isActive: boolean;
+}
 
 const PROF_LABELS: Record<string, string> = {
   ac_technician: 'AC Technician', electrician: 'Electrician',
   carpenter: 'Carpenter', plumber: 'Plumber',
   painter: 'Painter', repair: 'Repair',
 };
+
+const DEFAULT_OPTIONS: FormOptionRow[] = [
+  { id: 0, label: 'Service',      value: 'Service',      icon: '🛠️', optionType: 'service_type', sortOrder: 0, isActive: true },
+  { id: 1, label: 'Repair',       value: 'Repair',       icon: '🔧', optionType: 'service_type', sortOrder: 1, isActive: true },
+  { id: 2, label: 'Installation', value: 'Installation', icon: '📦', optionType: 'service_type', sortOrder: 2, isActive: true },
+  { id: 3, label: 'Maintenance',  value: 'Maintenance',  icon: '⚙️', optionType: 'service_type', sortOrder: 3, isActive: true },
+];
 
 export default function TechFormScreen() {
   const { techCode } = useLocalSearchParams<{ techCode: string }>();
@@ -35,48 +52,71 @@ export default function TechFormScreen() {
   const router = useRouter();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
-  const [techInfo, setTechInfo] = useState<TechInfo | null>(null);
+  const [techInfo, setTechInfo]   = useState<TechInfo | null>(null);
   const [formConfig, setFormConfig] = useState<FormConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [formOptions, setFormOptions] = useState<FormOptionRow[]>([]);
+  const [loading, setLoading]     = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]         = useState<string | null>(null);
 
   // Form fields
-  const [customerName, setCustomerName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [houseNumber, setHouseNumber] = useState('');
-  const [floorNumber, setFloorNumber] = useState('');
-  const [sector, setSector] = useState('');
-  const [fullAddress, setFullAddress] = useState('');
-  const [location, setLocation] = useState('');
+  const [customerName, setCustomerName]   = useState('');
+  const [phone, setPhone]                 = useState('');
+  const [houseNumber, setHouseNumber]     = useState('');
+  const [floorNumber, setFloorNumber]     = useState('');
+  const [sector, setSector]               = useState('');
+  const [fullAddress, setFullAddress]     = useState('');
+  const [location, setLocation]           = useState('');
   const [visitingCharge, setVisitingCharge] = useState('');
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes]                 = useState('');
+  // Multi-select service types
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
   useEffect(() => {
     if (!techCode) return;
-    fetch(`${API_BASE}/api/booking/tech-form-config/${techCode}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) { setError('Technician not found'); return; }
-        setTechInfo(data.technician);
-        setFormConfig(data.config);
-        setVisitingCharge(String(data.config?.defaultVisitingCharge ?? ''));
-      })
-      .catch(() => setError('Network error'))
+    Promise.all([
+      fetch(`${API_BASE}/api/booking/tech-form-config/${techCode}`).then(r => r.json()),
+      fetch(`${API_BASE}/api/public/form-options`).then(r => r.json()).catch(() => null),
+    ]).then(([data, opts]) => {
+      if (data.error) { setError('Technician not found'); return; }
+      setTechInfo(data.technician);
+      setFormConfig(data.config);
+      setVisitingCharge(String(data.config?.defaultVisitingCharge ?? ''));
+      // Use admin-managed options if available, else defaults
+      if (opts && Array.isArray(opts) && opts.length > 0) {
+        setFormOptions(opts.filter((o: FormOptionRow) => o.isActive));
+      } else {
+        setFormOptions(DEFAULT_OPTIONS);
+      }
+    }).catch(() => setError('Network error'))
       .finally(() => setLoading(false));
   }, [techCode]);
+
+  const toggleService = (value: string) => {
+    setSelectedServices(prev =>
+      prev.includes(value) ? prev.filter(s => s !== value) : [...prev, value]
+    );
+  };
 
   const handleSubmit = async () => {
     if (!customerName.trim()) { Alert.alert('', 'Please enter your name'); return; }
     if (!phone.trim() || phone.length < 10) { Alert.alert('', 'Please enter a valid phone number'); return; }
+    if (selectedServices.length === 0) { Alert.alert('', 'Please select at least one service type'); return; }
     if (!fullAddress.trim()) { Alert.alert('', 'Please enter your address'); return; }
+
     setSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/api/booking/tech-form-submit/${techCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerName, phone, fullAddress, sector, floorNumber, houseNumber, location, visitingCharge: parseFloat(visitingCharge) || 0, notes }),
+        body: JSON.stringify({
+          customerName, phone, fullAddress, sector,
+          floorNumber, houseNumber, location,
+          visitingCharge: parseFloat(visitingCharge) || 0,
+          notes,
+          serviceTypes: selectedServices,
+        }),
       });
       if (!res.ok) throw new Error('Submit failed');
       setSubmitted(true);
@@ -123,10 +163,22 @@ export default function TechFormScreen() {
           {visitingCharge ? (
             <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '700', marginTop: 6 }}>Visiting Charge: ₹{visitingCharge}</Text>
           ) : null}
+          {selectedServices.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 10, justifyContent: 'center' }}>
+              {selectedServices.map(svc => (
+                <View key={svc} style={s.successChip}>
+                  <Text style={s.successChipText}>{svc}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </View>
     );
   }
+
+  // Determine chip columns: ≤3 → 3-col, ≤6 → 3-col, more → 2-col
+  const chipCols = formOptions.length <= 6 ? 3 : 2;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -203,6 +255,79 @@ export default function TechFormScreen() {
             <TextInput style={s.input} placeholder="e.g. Noida, Sector 62" placeholderTextColor={colors.mutedForeground} value={location} onChangeText={setLocation} />
           </View>
 
+          {/* ── Service Type Multi-Select ─────────────────────────────────── */}
+          <Text style={[s.sectionLabel, { marginTop: 4 }]}>Service Type *</Text>
+
+          <View style={[s.serviceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={s.serviceHeader}>
+              <Text style={[s.serviceHint, { color: colors.mutedForeground }]}>
+                Select one or more services
+              </Text>
+              {selectedServices.length > 0 && (
+                <View style={[s.countBadge, { backgroundColor: colors.primary + '22' }]}>
+                  <Text style={[s.countText, { color: colors.primary }]}>
+                    {selectedServices.length} selected
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Chip grid */}
+            <View style={[s.chipGrid, { columnGap: 8, rowGap: 8 }]}>
+              {(formOptions.length > 0 ? formOptions : DEFAULT_OPTIONS).map((opt) => {
+                const active = selectedServices.includes(opt.value);
+                return (
+                  <TouchableOpacity
+                    key={opt.id}
+                    onPress={() => toggleService(opt.value)}
+                    activeOpacity={0.75}
+                    style={[
+                      s.chip,
+                      { width: `${Math.floor(100 / chipCols) - 2}%` as any },
+                      active
+                        ? { backgroundColor: colors.primary + '22', borderColor: colors.primary }
+                        : { backgroundColor: colors.background, borderColor: colors.border },
+                    ]}
+                  >
+                    {active && (
+                      <View style={[s.checkDot, { backgroundColor: colors.primary }]}>
+                        <Feather name="check" size={8} color="#000" />
+                      </View>
+                    )}
+                    <Text style={{ fontSize: 24 }}>{opt.icon ?? '🛠️'}</Text>
+                    <Text
+                      style={[
+                        s.chipLabel,
+                        { color: active ? colors.primary : colors.foreground },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Selected pill strip */}
+            {selectedServices.length > 0 && (
+              <View style={s.pillRow}>
+                {selectedServices.map(svc => (
+                  <TouchableOpacity
+                    key={svc}
+                    onPress={() => toggleService(svc)}
+                    style={[s.pill, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '55' }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[s.pillText, { color: colors.primary }]}>{svc}</Text>
+                    <Feather name="x" size={11} color={colors.primary} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* ── Service Details ───────────────────────────────────────────── */}
           <Text style={[s.sectionLabel, { marginTop: 4 }]}>Service Details</Text>
 
           <View style={s.field}>
@@ -257,8 +382,7 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   idText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   msgBanner: {
     margin: 16, marginBottom: 0,
-    borderRadius: 10, padding: 12,
-    borderWidth: 1,
+    borderRadius: 10, padding: 12, borderWidth: 1,
   },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: c.mutedForeground, letterSpacing: 0.8, textTransform: 'uppercase' },
   field: { gap: 6 },
@@ -270,6 +394,37 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
     fontSize: 14, color: c.foreground,
   },
+
+  // ── Service multi-select ──────────────────────────────────────────────────
+  serviceCard: {
+    borderRadius: 14, borderWidth: 1, padding: 14, gap: 12,
+  },
+  serviceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  serviceHint: { fontSize: 12, fontWeight: '500' },
+  countBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
+  countText: { fontSize: 11, fontWeight: '800' },
+  chipGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  chip: {
+    borderWidth: 2, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 12, paddingHorizontal: 6, gap: 6,
+    position: 'relative',
+  },
+  checkDot: {
+    position: 'absolute', top: 6, right: 6,
+    width: 16, height: 16, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  chipLabel: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: c.border + '66' },
+  pill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: 20, borderWidth: 1,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  pillText: { fontSize: 12, fontWeight: '700' },
+
+  // ── Submit ────────────────────────────────────────────────────────────────
   submitBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 14, paddingVertical: 15, gap: 8, marginTop: 8,
@@ -279,4 +434,9 @@ const styles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     borderRadius: 14, padding: 16, marginTop: 24,
     borderWidth: 1, width: '100%', alignItems: 'center',
   },
+  successChip: {
+    backgroundColor: '#14532d', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  successChipText: { fontSize: 11, fontWeight: '700', color: '#22c55e' },
 });

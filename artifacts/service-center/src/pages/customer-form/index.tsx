@@ -85,13 +85,20 @@ export default function CustomerFormPage() {
   const [gpsError,       setGpsError]       = useState('');
 
   // Form state
-  const [serviceType, setServiceType] = useState('');
+  // Multi-select service types
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [name,        setName]        = useState('');
   const [phone,       setPhone]       = useState('');
   const [houseNo,     setHouseNo]     = useState('');
   const [floor,       setFloor]       = useState('');
   const [address,     setAddress]     = useState('');
   const [location,    setLocation]    = useState('');
+
+  const toggleService = (name: string) => {
+    setSelectedServices(prev =>
+      prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
+    );
+  };
 
   // ── Load tech profile + app settings in parallel ────────────────────────────
   useEffect(() => {
@@ -100,7 +107,12 @@ export default function CustomerFormPage() {
     Promise.all([
       fetch(`${BASE}/api/public/book/${encodeURIComponent(code)}`).then(r => r.json()),
       fetch(`${BASE}/api/public/app-settings`).then(r => r.json()),
-      fetch(`${BASE}/api/public/service-categories`).then(r => r.json()).catch(() => []),
+      // Try form-options first (super-admin managed), fall back to service-categories
+      fetch(`${BASE}/api/public/form-options`).then(r => r.json()).catch(() => null)
+        .then(opts => opts && Array.isArray(opts) && opts.length > 0
+          ? opts
+          : fetch(`${BASE}/api/public/service-categories`).then(r => r.json()).catch(() => [])
+        ),
     ]).then(([techData, settingsData, catsData]) => {
       if (techData.error) {
         setErrorMsg(techData.error);
@@ -140,7 +152,7 @@ export default function CustomerFormPage() {
     e.preventDefault();
     setSubmitError('');
 
-    if (!serviceType) { setSubmitError('Please select a service type.'); return; }
+    if (selectedServices.length === 0) { setSubmitError('Please select at least one service type.'); return; }
     if (!name.trim()) { setSubmitError('Full name is required.'); return; }
     const phoneDigits = phone.trim().replace(/\D/g, '');
     if (phoneDigits.length !== 10 || !/^[6-9]/.test(phoneDigits)) {
@@ -153,7 +165,12 @@ export default function CustomerFormPage() {
       const r = await fetch(`${BASE}/api/public/book/${encodeURIComponent(code)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), phone: phone.trim(), houseNumber: houseNo.trim(), floorNumber: floor, address: address.trim(), location, serviceType }),
+        body: JSON.stringify({
+          name: name.trim(), phone: phone.trim(),
+          houseNumber: houseNo.trim(), floorNumber: floor,
+          address: address.trim(), location,
+          serviceTypes: selectedServices,
+        }),
       });
       const json = await r.json();
       if (!r.ok) { setSubmitError(json.error || 'Something went wrong. Please try again.'); return; }
@@ -163,7 +180,8 @@ export default function CustomerFormPage() {
       // ── Notify technician via WhatsApp deeplink ───────────────────────────
       const techPhone = json.techPhone?.replace(/\D/g, '');
       if (techPhone) {
-        const appName  = settings?.appName ?? 'Booking App';
+        const appName     = settings?.appName ?? 'Booking App';
+        const serviceLabel = selectedServices.join(', ');
         const waMsg = encodeURIComponent(
           `📬 *New Booking Alert!*\n\n` +
           `👤 Customer: ${name.trim()}\n` +
@@ -172,7 +190,7 @@ export default function CustomerFormPage() {
           (floor     ? `🏢 Floor: ${floor}\n`           : '') +
           (address   ? `🗺️ Address: ${address.trim()}\n` : '') +
           (location  ? `📍 Location: ${location}\n`     : '') +
-          `🛠️ Service: ${serviceType}\n\n` +
+          `🛠️ Service: ${serviceLabel}\n\n` +
           `Submission ID: ${json.submissionId}\n` +
           `Submitted via *${appName}*`
         );
@@ -321,32 +339,40 @@ export default function CustomerFormPage() {
           </div>
         )}
 
-        {/* ── SERVICE TYPE SELECTION (Required) ─────────────────────────────── */}
+        {/* ── SERVICE TYPE SELECTION — Multi-Select (Required) ──────────────── */}
         <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
-          <p className="text-sm font-bold text-gray-800">
-            {ic('iconServiceType', '🛠️')} Service Type
-            <span className="text-destructive ml-1">*</span>
-          </p>
-          {/* Dynamic chips from DB — falls back to 3 defaults if no categories loaded */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-gray-800">
+              {ic('iconServiceType', '🛠️')} Service Type
+              <span className="text-destructive ml-1">*</span>
+            </p>
+            {selectedServices.length > 0 && (
+              <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                {selectedServices.length} selected
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground -mt-1">You can select multiple services</p>
+          {/* Dynamic chips from DB — falls back to defaults if none loaded */}
           <div className={`grid gap-2 ${(categories.length || 3) <= 3 ? 'grid-cols-3' : categories.length <= 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
             {(categories.length > 0
               ? categories
               : [
-                  { id: 0, name: 'Service',      icon: '🛠️', accent: '#f59e0b', professionType: '', sortOrder: 0 },
-                  { id: 1, name: 'Repair',        icon: '🔧', accent: '#f59e0b', professionType: '', sortOrder: 1 },
-                  { id: 2, name: 'Installation',  icon: '📦', accent: '#f59e0b', professionType: '', sortOrder: 2 },
+                  { id: 0, name: 'Service',      icon: '🛠️', sortOrder: 0 },
+                  { id: 1, name: 'Repair',        icon: '🔧', sortOrder: 1 },
+                  { id: 2, name: 'Installation',  icon: '📦', sortOrder: 2 },
                 ]
             ).map((cat) => {
-              const selected = serviceType === cat.name;
+              const selected = selectedServices.includes(cat.name);
               return (
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => setServiceType(cat.name)}
+                  onClick={() => toggleService(cat.name)}
                   className={[
                     'relative flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-all select-none',
                     selected
-                      ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm'
+                      ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm ring-1 ring-amber-300'
                       : 'border-border bg-gray-50 text-foreground hover:border-amber-300 hover:bg-amber-50/50',
                   ].join(' ')}
                 >
@@ -361,6 +387,16 @@ export default function CustomerFormPage() {
               );
             })}
           </div>
+          {selectedServices.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/40">
+              {selectedServices.map(s => (
+                <span key={s} className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-0.5">
+                  {s}
+                  <button type="button" onClick={() => toggleService(s)} className="text-amber-600 hover:text-amber-800 ml-0.5">×</button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── CUSTOMER DETAILS FORM ─────────────────────────────────────────── */}

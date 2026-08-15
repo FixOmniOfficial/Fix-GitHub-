@@ -13,6 +13,7 @@ export const techFormSubmissionsTable = pgTable("tech_form_submissions", {
   location: text("location"),
   visitingCharge: numeric("visiting_charge", { precision: 10, scale: 2 }),
   notes: text("notes"),
+  serviceTypes: text("service_types"),                  // JSON array e.g. '["Service","Repair"]'
   status: text("status").notNull().default("pending"), // pending | completed
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

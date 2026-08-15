@@ -106,12 +106,27 @@ async function submitBooking(req: any, res: any): Promise<void> {
   const {
     name, phone, whatsappPhone,
     houseNumber, floorNumber, address, location,
-    serviceType,
-  } = req.body as Record<string, string | undefined>;
+    serviceType,   // legacy single string
+    serviceTypes,  // new multi-select array
+  } = req.body as Record<string, unknown>;
 
-  if (!name?.trim()) { res.status(400).json({ error: "Full name is required." }); return; }
-  if (!phone?.trim()) { res.status(400).json({ error: "Mobile number is required." }); return; }
-  if (!serviceType?.trim()) { res.status(400).json({ error: "Service type is required." }); return; }
+  if (!String(name ?? '').trim()) { res.status(400).json({ error: "Full name is required." }); return; }
+  if (!String(phone ?? '').trim()) { res.status(400).json({ error: "Mobile number is required." }); return; }
+
+  // Normalise serviceTypes: accept array or single string (backward-compat with old clients)
+  const rawTypes = serviceTypes ?? (serviceType ? [serviceType] : []);
+  const typesArr: string[] = (Array.isArray(rawTypes) ? rawTypes : [rawTypes])
+    .map(String)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (typesArr.length === 0) {
+    res.status(400).json({ error: "Please select at least one service type." });
+    return;
+  }
+
+  const serviceTypesJson = JSON.stringify(typesArr);
+  const serviceLabel     = typesArr.join(", ");
 
   // ── 1. Save full submission record under this technician ───────────────────
   const addressParts = [
@@ -124,13 +139,14 @@ async function submitBooking(req: any, res: any): Promise<void> {
   const [submission] = await db.insert(techFormSubmissionsTable).values({
     professionalId: tech.id,
     techCode:       tech.uniqueCode!,
-    customerName:   name.trim(),
-    phone:          phone.trim(),
-    fullAddress:    address?.trim() || null,
-    houseNumber:    houseNumber?.trim() || null,
-    floorNumber:    floorNumber?.trim() || null,
-    location:       location?.trim() || null,
+    customerName:   String(name).trim(),
+    phone:          String(phone).trim(),
+    fullAddress:    address ? String(address).trim() || null : null,
+    houseNumber:    houseNumber ? String(houseNumber).trim() || null : null,
+    floorNumber:    floorNumber ? String(floorNumber).trim() || null : null,
+    location:       location ? String(location).trim() || null : null,
     notes:          addressParts,
+    serviceTypes:   serviceTypesJson,
     visitingCharge: tech.visitingCharge ? String(tech.visitingCharge) : null,
     status:         "pending",
   }).returning();
@@ -138,16 +154,16 @@ async function submitBooking(req: any, res: any): Promise<void> {
   // ── 2. Mirror into technician's customer list (techCustomersTable) ─────────
   const fullNotes = [
     addressParts,
-    `Service: ${serviceType.trim()}`,
+    `Service: ${serviceLabel}`,
     `Form submission – ${new Date().toISOString().slice(0, 10)}`,
   ].filter(Boolean).join("\n");
 
   await db.insert(techCustomersTable).values({
     techCode: tech.uniqueCode!,
-    name:     name.trim(),
-    phone:    phone.trim(),
-    address:  address?.trim() || null,
-    jobType:  serviceType.trim(),
+    name:     String(name).trim(),
+    phone:    String(phone).trim(),
+    address:  address ? String(address).trim() || null : null,
+    jobType:  serviceLabel,
     notes:    fullNotes,
   }).onConflictDoNothing();
 

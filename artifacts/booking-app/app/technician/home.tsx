@@ -768,10 +768,10 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
 
   const shareForm = (customer?: TechCustomer) => {
     const msg =
-      `🔧 *Fix Omni App*\n\n` +
+      `Fix Omni App\n\n` +
       `👤 ${techName}\n` +
       `🛠️ ${techCategory} | ID: ${techCode}\n\n` +
-      `👉 *Service Booking Form Link:*\n` +
+      `👉 Service Booking Form Link:\n` +
       `${formUrl}\n\n` +
       `📝 कृपया अपनी सर्विस बुक करने के लिए ऊपर दिए गए लिंक पर क्लिक करें और अपना एड्रेस और लोकेशन भरें।`;
     if (customer) {
@@ -780,7 +780,8 @@ function CustomerTab({ colors, techCode, techName, techCategory, appName, custom
         `https://wa.me/${clean.length === 10 ? '91' + clean : clean}?text=${encodeURIComponent(msg)}`
       ).catch(() => Share.share({ message: msg }));
     } else {
-      Share.share({ message: msg, url: formUrl }).catch(() => {});
+      // Do NOT pass url separately — it would append the link a second time
+      Share.share({ message: msg }).catch(() => {});
     }
   };
 

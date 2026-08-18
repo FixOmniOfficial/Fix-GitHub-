@@ -1,52 +1,56 @@
 /**
- * Email service — wraps nodemailer.
- * Reads SMTP credentials from environment secrets.
+ * Email service — Gmail OAuth2 via nodemailer.
  *
- * Config secrets needed (set in Replit Secrets):
- *   SMTP_HOST     e.g. smtp.gmail.com
- *   SMTP_PORT     e.g. 587
- *   SMTP_USER     your Gmail / SMTP user
- *   SMTP_PASS     app-password or SMTP password
- *   SMTP_FROM     display name + address, e.g. "Fix Omni <no-reply@fixomni.com>"
+ * Secrets required (set in Replit Secrets):
+ *   GMAIL_CLIENT_ID      — OAuth2 client ID from Google Cloud Console
+ *   GMAIL_CLIENT_SECRET  — OAuth2 client secret
+ *   GMAIL_REFRESH_TOKEN  — Long-lived refresh token for officialfixomnihelp@gmail.com
  *
- * If SMTP is not configured, the OTP is logged to console and returned in the
- * API response as `demoOtp` (same as the phone-OTP demo mode). This keeps
- * development/testing smooth without requiring live email setup.
+ * If credentials are missing the OTP is logged to console and returned in the
+ * API response as `demoOtp` so development keeps working without live email.
  */
 
 import nodemailer from "nodemailer";
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? "587", 10);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM ?? `Fix Omni <${SMTP_USER}>`;
+const SENDER  = "officialfixomnihelp@gmail.com";
+const FROM    = `Fix Omni <${SENDER}>`;
 
-export const isEmailConfigured = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+const CLIENT_ID     = process.env.GMAIL_CLIENT_ID;
+const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
+const REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN;
 
+export const isEmailConfigured = !!(CLIENT_ID && CLIENT_SECRET && REFRESH_TOKEN);
+
+/** Create a fresh transporter each call so token refresh always works. */
 function createTransport() {
   if (!isEmailConfigured) return null;
   return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  });
+    service: "gmail",
+    auth: {
+      type:         "OAuth2",
+      user:         SENDER,
+      clientId:     CLIENT_ID,
+      clientSecret: CLIENT_SECRET,
+      refreshToken: REFRESH_TOKEN,
+    },
+  } as Parameters<typeof nodemailer.createTransport>[0]);
 }
 
 interface SendOtpOptions {
   to: string;
   recipientName: string;
   otp: string;
-  /** Optional extra context lines added below the OTP (e.g. "Your Tech ID: TECH-XXXX") */
+  /** Optional extra context lines added below the OTP */
   extraLines?: string[];
 }
 
 /**
  * Send a 6-digit OTP to the given email.
- * Returns `{ sent: true }` if email was dispatched, `{ sent: false, demoOtp }` if SMTP is not configured.
+ * Returns `{ sent: true }` if dispatched, `{ sent: false, demoOtp }` if not configured.
  */
-export async function sendOtpEmail(opts: SendOtpOptions): Promise<{ sent: boolean; demoOtp?: string }> {
+export async function sendOtpEmail(
+  opts: SendOtpOptions
+): Promise<{ sent: boolean; demoOtp?: string }> {
   const { to, recipientName, otp, extraLines = [] } = opts;
 
   if (!isEmailConfigured) {
@@ -94,7 +98,7 @@ export async function sendOtpEmail(opts: SendOtpOptions): Promise<{ sent: boolea
 </html>`;
 
   await transport.sendMail({
-    from: SMTP_FROM,
+    from:    FROM,
     to,
     subject: `${otp} — Fix Omni Verification Code`,
     html,

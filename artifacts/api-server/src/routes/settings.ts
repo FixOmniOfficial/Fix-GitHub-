@@ -59,7 +59,8 @@ router.patch("/settings", requireAuth, requireAdmin, async (req, res): Promise<v
 
   const [updated] = await db
     .update(appSettingsTable)
-    .set(updateData as Parameters<typeof db.update>[0] extends infer T ? T : never)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .set(updateData as any)
     .where(eq(appSettingsTable.id, settings.id))
     .returning();
 

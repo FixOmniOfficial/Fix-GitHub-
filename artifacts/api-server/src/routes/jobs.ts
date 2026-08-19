@@ -121,9 +121,16 @@ router.post("/jobs", async (req, res): Promise<void> => {
   }
 
   const jobNumber = await getNextJobNumber();
+  const { amount: _a, paidAmount: _pa, ...jobRest } = parsed.data;
+  const insertData = {
+    ...jobRest,
+    jobNumber,
+    ...(parsed.data.amount     !== undefined ? { amount:     String(parsed.data.amount)     } : {}),
+    ...(parsed.data.paidAmount !== undefined ? { paidAmount: String(parsed.data.paidAmount) } : {}),
+  };
   const [job] = await db
     .insert(jobsTable)
-    .values({ ...parsed.data, jobNumber })
+    .values(insertData)
     .returning();
 
   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, job.customerId));
@@ -162,9 +169,15 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const { amount: _ua, paidAmount: _upa, ...updateRest } = parsed.data;
+  const updateData = {
+    ...updateRest,
+    ...(parsed.data.amount     !== undefined ? { amount:     String(parsed.data.amount)     } : {}),
+    ...(parsed.data.paidAmount !== undefined ? { paidAmount: String(parsed.data.paidAmount) } : {}),
+  };
   const [job] = await db
     .update(jobsTable)
-    .set(parsed.data)
+    .set(updateData)
     .where(eq(jobsTable.id, params.data.id))
     .returning();
 
@@ -211,9 +224,14 @@ router.patch("/jobs/:id/payment", async (req, res): Promise<void> => {
     return;
   }
 
+  const { paidAmount: _ppa, ...paymentRest } = parsed.data;
+  const paymentData = {
+    ...paymentRest,
+    ...(parsed.data.paidAmount !== undefined ? { paidAmount: String(parsed.data.paidAmount) } : {}),
+  };
   const [job] = await db
     .update(jobsTable)
-    .set(parsed.data)
+    .set(paymentData)
     .where(eq(jobsTable.id, params.data.id))
     .returning();
 

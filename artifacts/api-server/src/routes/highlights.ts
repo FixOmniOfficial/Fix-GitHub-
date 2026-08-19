@@ -49,7 +49,13 @@ router.post("/highlights", async (req, res): Promise<void> => {
     return;
   }
 
-  const [highlight] = await db.insert(highlightsTable).values(parsed.data).returning();
+  const { captionSize: _cs, zoomLevel: _zl, ...rest } = parsed.data;
+  const insertData = {
+    ...rest,
+    ...(parsed.data.captionSize !== undefined ? { captionSize: String(parsed.data.captionSize) } : {}),
+    ...(parsed.data.zoomLevel   !== undefined ? { zoomLevel:   String(parsed.data.zoomLevel)   } : {}),
+  };
+  const [highlight] = await db.insert(highlightsTable).values(insertData).returning();
   res.status(201).json(CreateHighlightResponse.parse(serializeHighlight(highlight)));
 });
 
@@ -66,9 +72,15 @@ router.patch("/highlights/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const { captionSize: _ucs, zoomLevel: _uzl, ...updateRest } = parsed.data;
+  const updateData = {
+    ...updateRest,
+    ...(parsed.data.captionSize !== undefined ? { captionSize: String(parsed.data.captionSize) } : {}),
+    ...(parsed.data.zoomLevel   !== undefined ? { zoomLevel:   String(parsed.data.zoomLevel)   } : {}),
+  };
   const [highlight] = await db
     .update(highlightsTable)
-    .set(parsed.data)
+    .set(updateData)
     .where(eq(highlightsTable.id, params.data.id))
     .returning();
 

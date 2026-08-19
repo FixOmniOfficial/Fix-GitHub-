@@ -91,7 +91,7 @@ router.get("/admin/screen-visibility", requireAuth, requireAdmin, async (_req, r
 
 // ── SUPER ADMIN: toggle a screen on/off ──────────────────────────────────────
 router.patch("/admin/screen-visibility/:key", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
-  const { key } = req.params;
+  const key = String(req.params.key);
   const { isEnabled } = req.body as { isEnabled: boolean };
 
   if (typeof isEnabled !== "boolean") {
@@ -122,7 +122,7 @@ router.get("/admin/feature-modules", requireAuth, requireAdmin, async (_req, res
 
 // ── SUPER ADMIN: update module status ────────────────────────────────────────
 router.patch("/admin/feature-modules/:key", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
-  const { key } = req.params;
+  const key = String(req.params.key);
   const { status } = req.body as { status: string };
 
   if (!["draft", "published"].includes(status)) {
@@ -184,7 +184,7 @@ router.post("/admin/form-options", requireAuth, requireSuperAdmin, async (req, r
 
 // ── SUPER ADMIN: edit a form option ──────────────────────────────────────────
 router.patch("/admin/form-options/:id", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const { label, value, icon, optionType, sortOrder, isActive } = req.body as Record<string, unknown>;
@@ -199,7 +199,8 @@ router.patch("/admin/form-options/:id", requireAuth, requireSuperAdmin, async (r
 
   const [updated] = await db
     .update(formOptionsTable)
-    .set(updateData as Parameters<typeof db.update>[0] extends infer T ? T : never)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .set(updateData as any)
     .where(eq(formOptionsTable.id, id))
     .returning();
 
@@ -209,7 +210,7 @@ router.patch("/admin/form-options/:id", requireAuth, requireSuperAdmin, async (r
 
 // ── SUPER ADMIN: delete a form option ────────────────────────────────────────
 router.delete("/admin/form-options/:id", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   await db.delete(formOptionsTable).where(eq(formOptionsTable.id, id));

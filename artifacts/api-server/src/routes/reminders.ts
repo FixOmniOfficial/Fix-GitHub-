@@ -65,7 +65,11 @@ router.post("/reminders", async (req, res): Promise<void> => {
     return;
   }
 
-  const [reminder] = await db.insert(remindersTable).values(parsed.data).returning();
+  const reminderInsert = {
+    ...parsed.data,
+    reminderAt: new Date(parsed.data.reminderAt),
+  };
+  const [reminder] = await db.insert(remindersTable).values(reminderInsert).returning();
   res.status(201).json(CreateReminderResponse.parse(serializeReminder(reminder)));
 });
 
@@ -82,9 +86,14 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const { reminderAt: _rat, ...updateRest } = parsed.data;
+  const reminderUpdate = {
+    ...updateRest,
+    ...(parsed.data.reminderAt !== undefined ? { reminderAt: new Date(parsed.data.reminderAt) } : {}),
+  };
   const [reminder] = await db
     .update(remindersTable)
-    .set(parsed.data)
+    .set(reminderUpdate)
     .where(eq(remindersTable.id, params.data.id))
     .returning();
 

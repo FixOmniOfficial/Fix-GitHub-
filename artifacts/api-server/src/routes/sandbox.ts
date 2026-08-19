@@ -10,20 +10,9 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { professionalsTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { requireAuth } from "../middlewares/requireAuth";
-import { clerkClient, getAuth } from "@clerk/express";
+import { requireAuth, requireSuperAdmin } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
-
-// ── Super-admin guard ─────────────────────────────────────────────────────────
-async function requireSuperAdminSandbox(req: Request, res: Response, next: () => void) {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: "Login required" }); return; }
-  const user = await clerkClient.users.getUser(userId);
-  const role = (user.publicMetadata as any)?.role ?? "user";
-  if (role !== "super_admin") { res.status(403).json({ error: "Super admin only" }); return; }
-  next();
-}
 
 // ── Fake data pools ───────────────────────────────────────────────────────────
 const FAKE_TECH_NAMES = [
@@ -68,7 +57,7 @@ async function nextCustCode(): Promise<string> {
 }
 
 // ── POST /api/admin/sandbox/generate — fake technicians ───────────────────────
-router.post("/admin/sandbox/generate", requireAuth, requireSuperAdminSandbox,
+router.post("/admin/sandbox/generate", requireAuth, requireSuperAdmin,
   async (req: Request, res: Response): Promise<void> => {
     try {
       const count = Math.min(Math.max(parseInt((req.body?.count as string) ?? "1"), 1), 10);
@@ -92,7 +81,7 @@ router.post("/admin/sandbox/generate", requireAuth, requireSuperAdminSandbox,
 );
 
 // ── POST /api/admin/sandbox/generate-customers — fake customers ───────────────
-router.post("/admin/sandbox/generate-customers", requireAuth, requireSuperAdminSandbox,
+router.post("/admin/sandbox/generate-customers", requireAuth, requireSuperAdmin,
   async (req: Request, res: Response): Promise<void> => {
     try {
       const count = Math.min(Math.max(parseInt((req.body?.count as string) ?? "1"), 1), 10);
@@ -118,7 +107,7 @@ router.post("/admin/sandbox/generate-customers", requireAuth, requireSuperAdminS
 );
 
 // ── GET /api/admin/sandbox/data — list technicians + customers ────────────────
-router.get("/admin/sandbox/data", requireAuth, requireSuperAdminSandbox,
+router.get("/admin/sandbox/data", requireAuth, requireSuperAdmin,
   async (_req: Request, res: Response): Promise<void> => {
     try {
       const technicians = await db.select().from(professionalsTable)
@@ -139,7 +128,7 @@ router.get("/admin/sandbox/data", requireAuth, requireSuperAdminSandbox,
 );
 
 // ── DELETE /api/admin/sandbox/clear ──────────────────────────────────────────
-router.delete("/admin/sandbox/clear", requireAuth, requireSuperAdminSandbox,
+router.delete("/admin/sandbox/clear", requireAuth, requireSuperAdmin,
   async (_req: Request, res: Response): Promise<void> => {
     try {
       await db.execute(

@@ -1,18 +1,19 @@
 import { Router, type IRouter, type Request, type Response } from 'express';
-import { getAuth, clerkClient } from '@clerk/express';
 import { eq, count, avg, isNotNull } from 'drizzle-orm';
 import {
   db, customersTable, professionalsTable, bookingsTable, serviceCategoriesTable, appSettingsTable,
+  authProfilesTable,
 } from '@workspace/db';
 import { sql } from 'drizzle-orm';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middlewares/requireAuth';
 import { sendOtpEmail } from '../lib/email';
+import { supabaseAdmin } from '../lib/supabase';
 import bcrypt from 'bcryptjs';
 
 const router: IRouter = Router();
 
 // ─── Router-level auth safety net ─────────────────────────────────────────────
-// Every /admin/* route requires at minimum a valid Clerk session.
+// Every /admin/* route requires at minimum a valid Supabase session.
 // Path-scoped so this does NOT bleed into other routers mounted after this one.
 // Individual routes add requireAdmin / requireSuperAdmin on top of this.
 router.use('/admin', requireAuth);
@@ -48,37 +49,43 @@ function canMutate(callerRole: string, targetRole: string): boolean {
   return false;
 }
 
-/** Count how many Clerk users currently hold super_admin (exhaustive paginated scan). */
+/** Count how many auth_profiles currently hold super_admin role. */
 async function countSuperAdmins(): Promise<number> {
-  let count = 0, offset = 0;
-  const PAGE = 100;
-  while (true) {
-    const { data, totalCount } = await clerkClient.users.getUserList({ limit: PAGE, offset });
-    count += data.filter((u) => (u.publicMetadata as any)?.role === 'super_admin').length;
-    offset += PAGE;
-    if (offset >= totalCount) break;
-  }
-  return count;
+  const rows = await db
+    .select({ value: count() })
+    .from(authProfilesTable)
+    .where(eq(authProfilesTable.role, 'super_admin'));
+  return Number(rows[0]?.value ?? 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CLERK USERS (existing admin panel)
+// USERS (admin panel)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** GET /api/admin/users — list all Clerk users with roles */
+/** GET /api/admin/users — list all users with roles from auth_profiles */
 router.get('/admin/users', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
   try {
-    const response = await clerkClient.users.getUserList({ limit: 100 });
-    const users = response.data.map((u) => ({
-      id: u.id,
-      name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.emailAddresses[0]?.emailAddress || 'Unknown',
-      email: u.emailAddresses[0]?.emailAddress ?? null,
-      role: (u.publicMetadata as any)?.role ?? 'user',
-      permissions: (u.publicMetadata as any)?.permissions ?? [],
-      banned: u.banned,
-      createdAt: u.createdAt,
-      lastSignInAt: u.lastSignInAt,
-      imageUrl: u.imageUrl,
+    const profiles = await db.select().from(authProfilesTable);
+    // Fetch email from Supabase auth for each profile
+    const users = await Promise.all(profiles.map(async (p) => {
+      const { data } = await supabaseAdmin.auth.admin.getUserById(p.id);
+      const user = data?.user;
+      const email = user?.email ?? null;
+      const createdAt = user?.created_at ?? p.createdAt.toISOString();
+      const lastSignInAt = user?.last_sign_in_at ?? null;
+      const name = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? email ?? 'Unknown';
+      const imageUrl = user?.user_metadata?.avatar_url ?? null;
+      return {
+        id: p.id,
+        name,
+        email,
+        role: p.role,
+        permissions: p.permissions,
+        banned: !p.isActive,
+        createdAt,
+        lastSignInAt,
+        imageUrl,
+      };
     }));
     res.json(users);
   } catch {
@@ -94,8 +101,9 @@ router.patch('/admin/users/:id/role', requireAuth, requireAdmin, async (req: Req
     res.status(400).json({ error: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
     return;
   }
-  const { userId } = getAuth(req);
-  const callerRole = String((req as any).clerkUserRole ?? '');
+  const callerCtx = req.supabaseContext!;
+  const userId = callerCtx.supabaseUserId;
+  const callerRole = callerCtx.supabaseRole;
 
   // Self-demotion guard
   if (id === userId && role !== 'admin' && role !== 'super_admin') {
@@ -108,8 +116,12 @@ router.patch('/admin/users/:id/role', requireAuth, requireAdmin, async (req: Req
     return;
   }
   try {
-    const target = await clerkClient.users.getUser(id);
-    const targetRole = String((target.publicMetadata as any)?.role ?? 'user');
+    const [target] = await db.select().from(authProfilesTable).where(eq(authProfilesTable.id, id)).limit(1);
+    if (!target) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const targetRole = target.role;
     // Hierarchy check: admin cannot mutate super_admin accounts
     if (!canMutate(callerRole, targetRole)) {
       res.status(403).json({ error: 'Insufficient privilege to change this user\'s role' });
@@ -123,7 +135,10 @@ router.patch('/admin/users/:id/role', requireAuth, requireAdmin, async (req: Req
         return;
       }
     }
-    await clerkClient.users.updateUserMetadata(id, { publicMetadata: { role } });
+    await db
+      .update(authProfilesTable)
+      .set({ role })
+      .where(eq(authProfilesTable.id, id));
     res.json({ success: true, role });
   } catch {
     res.status(500).json({ error: 'Failed to update role' });
@@ -134,15 +149,19 @@ router.patch('/admin/users/:id/role', requireAuth, requireAdmin, async (req: Req
 router.post('/admin/users/:id/ban', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const id = String(req.params['id']);
   const { ban } = req.body as { ban?: boolean };
-  const { userId } = getAuth(req);
+  const userId = req.supabaseContext!.supabaseUserId;
+  const callerRole = req.supabaseContext!.supabaseRole;
   if (id === userId) {
     res.status(400).json({ error: 'Cannot ban yourself' });
     return;
   }
-  const callerRole = String((req as any).clerkUserRole ?? '');
   try {
-    const target = await clerkClient.users.getUser(id);
-    const targetRole = String((target.publicMetadata as any)?.role ?? 'user');
+    const [target] = await db.select().from(authProfilesTable).where(eq(authProfilesTable.id, id)).limit(1);
+    if (!target) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const targetRole = target.role;
     // Hierarchy check: admin cannot ban super_admin accounts
     if (!canMutate(callerRole, targetRole)) {
       res.status(403).json({ error: 'Insufficient privilege to ban this user' });
@@ -156,10 +175,20 @@ router.post('/admin/users/:id/ban', requireAuth, requireAdmin, async (req: Reque
         return;
       }
     }
+    // Update auth_profiles is_active
+    await db
+      .update(authProfilesTable)
+      .set({ isActive: !ban })
+      .where(eq(authProfilesTable.id, id));
+    // Update Supabase auth ban duration
     if (ban) {
-      await clerkClient.users.banUser(id);
+      await supabaseAdmin.auth.admin.updateUserById(id, {
+        ban_duration: '876600h', // ~100 years
+      });
     } else {
-      await clerkClient.users.unbanUser(id);
+      await supabaseAdmin.auth.admin.updateUserById(id, {
+        ban_duration: 'none',
+      });
     }
     res.json({ success: true, banned: !!ban });
   } catch {
@@ -192,22 +221,21 @@ router.patch('/admin/panel-toggle', requireAuth, requireSuperAdmin, async (req: 
  * Safely bootstraps the first super_admin with three guarantees:
  *
  * 1. BACKWARD-COMPATIBLE: On existing deployments that already have an
- *    admin/super_admin in Clerk, a sentinel ('__seeded__') is written to
+ *    admin/super_admin in auth_profiles, a sentinel ('__seeded__') is written to
  *    first_admin_claimed_by so no ordinary user can claim the slot on a
- *    subsequent login. This Clerk scan happens BEFORE any promotion attempt.
+ *    subsequent login. This scan happens BEFORE any promotion attempt.
  *
  * 2. ATOMIC: The DB UPDATE WHERE id=1 AND first_admin_claimed_by IS NULL is
  *    evaluated by PostgreSQL against the singleton row with a row-level write
  *    lock; only one concurrent caller can flip NULL → non-NULL. All others
  *    receive empty RETURNING and skip promotion.
  *
- * 3. VERIFY-AFTER-CLAIM: After winning the DB race, we re-verify Clerk before
- *    promoting. If an admin appeared between our scan and our claim win, we
- *    relinquish by writing the sentinel — the caller is NOT promoted.
+ * 3. VERIFY-AFTER-CLAIM: After winning the DB race, we re-verify auth_profiles
+ *    before promoting. If an admin appeared between our scan and our claim win,
+ *    we relinquish by writing the sentinel — the caller is NOT promoted.
  */
 router.post('/admin/ensure-first-admin', requireAuth, async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
-  if (!userId) { res.status(401).json({ error: 'Login required' }); return; }
+  const userId = req.supabaseContext!.supabaseUserId;
   try {
     // ── PHASE 0: ensure the singleton settings row exists (id=1) ─────────────
     await db
@@ -221,27 +249,20 @@ router.post('/admin/ensure-first-admin', requireAuth, async (req: Request, res: 
       .from(appSettingsTable)
       .where(sql`id = 1`);
     if (current?.firstAdminClaimedBy != null) {
-      const me = await clerkClient.users.getUser(userId);
-      const role = (me.publicMetadata as any)?.role ?? 'user';
+      const [myProfile] = await db.select().from(authProfilesTable).where(eq(authProfilesTable.id, userId)).limit(1);
+      const role = myProfile?.role ?? 'user';
       res.json({ promoted: false, role });
       return;
     }
 
-    // ── PHASE 2: backward-compat scan (exhaustive paginated Clerk check) ──────
-    // If ANY admin/super_admin already exists in Clerk we seed the sentinel so
+    // ── PHASE 2: backward-compat scan (check auth_profiles for existing admins)
+    // If ANY admin/super_admin already exists we seed the sentinel so
     // no future caller can claim the slot, then return without promoting.
-    let hasExistingAdmin = false;
-    let offset = 0;
-    const PAGE = 100;
-    outer: while (true) {
-      const { data: page, totalCount } = await clerkClient.users.getUserList({ limit: PAGE, offset });
-      for (const u of page) {
-        const r = (u.publicMetadata as any)?.role as string | undefined;
-        if (r === 'admin' || r === 'super_admin') { hasExistingAdmin = true; break outer; }
-      }
-      offset += PAGE;
-      if (offset >= totalCount) break;
-    }
+    const existingAdmins = await db
+      .select({ value: count() })
+      .from(authProfilesTable)
+      .where(sql`${authProfilesTable.role} IN ('admin', 'super_admin')`);
+    const hasExistingAdmin = Number(existingAdmins[0]?.value ?? 0) > 0;
 
     if (hasExistingAdmin) {
       // Seed sentinel so this path is never re-entered on subsequent logins
@@ -249,8 +270,8 @@ router.post('/admin/ensure-first-admin', requireAuth, async (req: Request, res: 
         .update(appSettingsTable)
         .set({ firstAdminClaimedBy: '__seeded__' })
         .where(sql`id = 1 AND first_admin_claimed_by IS NULL`);
-      const me = await clerkClient.users.getUser(userId);
-      const role = (me.publicMetadata as any)?.role ?? 'user';
+      const [myProfile] = await db.select().from(authProfilesTable).where(eq(authProfilesTable.id, userId)).limit(1);
+      const role = myProfile?.role ?? 'user';
       res.json({ promoted: false, role });
       return;
     }
@@ -264,25 +285,18 @@ router.post('/admin/ensure-first-admin', requireAuth, async (req: Request, res: 
 
     if (claimed.length === 0) {
       // Lost the race — another concurrent request claimed the slot
-      const me = await clerkClient.users.getUser(userId);
-      const role = (me.publicMetadata as any)?.role ?? 'user';
+      const [myProfile] = await db.select().from(authProfilesTable).where(eq(authProfilesTable.id, userId)).limit(1);
+      const role = myProfile?.role ?? 'user';
       res.json({ promoted: false, role });
       return;
     }
 
     // ── PHASE 4: verify-after-claim (admin may have appeared between phases 2-3)
-    let adminAppearedAfterClaim = false;
-    offset = 0;
-    outer2: while (true) {
-      const { data: page, totalCount } = await clerkClient.users.getUserList({ limit: PAGE, offset });
-      for (const u of page) {
-        if (u.id === userId) continue; // ignore ourselves (not yet promoted)
-        const r = (u.publicMetadata as any)?.role as string | undefined;
-        if (r === 'admin' || r === 'super_admin') { adminAppearedAfterClaim = true; break outer2; }
-      }
-      offset += PAGE;
-      if (offset >= totalCount) break;
-    }
+    const adminsAfterClaim = await db
+      .select({ value: count() })
+      .from(authProfilesTable)
+      .where(sql`${authProfilesTable.role} IN ('admin', 'super_admin') AND ${authProfilesTable.id} != ${userId}`);
+    const adminAppearedAfterClaim = Number(adminsAfterClaim[0]?.value ?? 0) > 0;
 
     if (adminAppearedAfterClaim) {
       // An admin appeared between our scan and our claim — relinquish
@@ -290,23 +304,24 @@ router.post('/admin/ensure-first-admin', requireAuth, async (req: Request, res: 
         .update(appSettingsTable)
         .set({ firstAdminClaimedBy: '__seeded__' })
         .where(sql`id = 1`);
-      const me = await clerkClient.users.getUser(userId);
-      const role = (me.publicMetadata as any)?.role ?? 'user';
+      const [myProfile] = await db.select().from(authProfilesTable).where(eq(authProfilesTable.id, userId)).limit(1);
+      const role = myProfile?.role ?? 'user';
       res.json({ promoted: false, role });
       return;
     }
 
-    // ── PHASE 5: promote — on Clerk failure, compensate by releasing the claim
+    // ── PHASE 5: promote — on DB failure, compensate by releasing the claim
     try {
-      await clerkClient.users.updateUserMetadata(userId, {
-        publicMetadata: { role: 'super_admin' },
-      });
-    } catch (clerkErr) {
+      await db
+        .update(authProfilesTable)
+        .set({ role: 'super_admin' })
+        .where(eq(authProfilesTable.id, userId));
+    } catch (dbErr) {
       await db
         .update(appSettingsTable)
         .set({ firstAdminClaimedBy: null })
         .where(sql`id = 1`);
-      throw clerkErr;
+      throw dbErr;
     }
 
     res.json({ promoted: true, role: 'super_admin' });
@@ -319,33 +334,39 @@ router.post('/admin/ensure-first-admin', requireAuth, async (req: Request, res: 
 // STAFF / SUB-ADMIN MANAGEMENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** GET /api/admin/staff — list all staff Clerk users */
+/** GET /api/admin/staff — list all staff users from auth_profiles */
 router.get('/admin/staff', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
   try {
-    const { data: allUsers } = await clerkClient.users.getUserList({ limit: 200 });
-    const staff = allUsers
-      .filter((u) => {
-        const r = (u.publicMetadata as any)?.role;
-        return r === 'staff' || r === 'sub_admin';
-      })
-      .map((u) => ({
-        id: u.id,
-        name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.emailAddresses[0]?.emailAddress || 'Unknown',
-        email: u.emailAddresses[0]?.emailAddress ?? null,
-        role: (u.publicMetadata as any)?.role ?? 'staff',
-        permissions: ((u.publicMetadata as any)?.permissions ?? []) as string[],
-        banned: u.banned,
-        createdAt: u.createdAt,
-        lastSignInAt: u.lastSignInAt,
-        imageUrl: u.imageUrl,
-      }));
+    const profiles = await db
+      .select()
+      .from(authProfilesTable)
+      .where(sql`${authProfilesTable.role} IN ('staff', 'sub_admin')`);
+
+    const staff = await Promise.all(profiles.map(async (p) => {
+      const { data } = await supabaseAdmin.auth.admin.getUserById(p.id);
+      const user = data?.user;
+      const email = user?.email ?? null;
+      const name = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? email ?? 'Unknown';
+      const imageUrl = user?.user_metadata?.avatar_url ?? null;
+      return {
+        id: p.id,
+        name,
+        email,
+        role: p.role,
+        permissions: p.permissions,
+        banned: !p.isActive,
+        createdAt: p.createdAt.toISOString(),
+        lastSignInAt: user?.last_sign_in_at ?? null,
+        imageUrl,
+      };
+    }));
     res.json(staff);
   } catch {
     res.status(500).json({ error: 'Failed to fetch staff' });
   }
 });
 
-/** POST /api/admin/staff — create a new staff Clerk account */
+/** POST /api/admin/staff — create a new staff account via Supabase admin */
 router.post('/admin/staff', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const { firstName, lastName, email, password, permissions = [] } = req.body as {
     firstName?: string; lastName?: string; email?: string; password?: string; permissions?: string[];
@@ -356,22 +377,44 @@ router.post('/admin/staff', requireAuth, requireSuperAdmin, async (req: Request,
   }
   const validPerms = (permissions as string[]).filter((p) => STAFF_PERMISSIONS.includes(p));
   try {
-    const created = await clerkClient.users.createUser({
-      emailAddress: [email],
+    // Create Supabase auth user
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
       password,
-      firstName: firstName || '',
-      lastName: lastName || '',
-      publicMetadata: { role: 'staff', permissions: validPerms },
+      email_confirm: true,
+      user_metadata: {
+        full_name: [firstName, lastName].filter(Boolean).join(' ') || email,
+      },
     });
+    if (error || !data.user) {
+      res.status(400).json({ error: error?.message ?? 'Failed to create staff account' });
+      return;
+    }
+    const newUserId = data.user.id;
+    // Update or insert auth_profiles with staff role/permissions
+    await db
+      .insert(authProfilesTable)
+      .values({
+        id: newUserId,
+        role: 'staff',
+        permissions: validPerms,
+        userType: 'admin',
+        isActive: true,
+      })
+      .onConflictDoUpdate({
+        target: authProfilesTable.id,
+        set: { role: 'staff', permissions: validPerms, userType: 'admin', isActive: true },
+      });
+    const name = [firstName, lastName].filter(Boolean).join(' ') || email;
     res.json({
-      id: created.id,
-      name: [created.firstName, created.lastName].filter(Boolean).join(' ') || email,
+      id: newUserId,
+      name,
       email,
       role: 'staff',
       permissions: validPerms,
     });
   } catch (e: any) {
-    const msg = e?.errors?.[0]?.message || 'Failed to create staff account';
+    const msg = e?.message || 'Failed to create staff account';
     res.status(400).json({ error: msg });
   }
 });
@@ -386,16 +429,21 @@ router.patch('/admin/staff/:id/permissions', requireAuth, requireAdmin, async (r
   }
   const validPerms = permissions.filter((p) => STAFF_PERMISSIONS.includes(p));
   try {
-    const user = await clerkClient.users.getUser(id);
-    const currentRole = (user.publicMetadata as any)?.role as string | undefined;
+    const [profile] = await db.select().from(authProfilesTable).where(eq(authProfilesTable.id, id)).limit(1);
+    if (!profile) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const currentRole = profile.role;
     // Guard: only allow mutation on staff/sub_admin accounts
-    if (!currentRole || !STAFF_ROLES.has(currentRole)) {
+    if (!STAFF_ROLES.has(currentRole)) {
       res.status(403).json({ error: 'Target user is not a staff account' });
       return;
     }
-    await clerkClient.users.updateUserMetadata(id, {
-      publicMetadata: { role: currentRole, permissions: validPerms },
-    });
+    await db
+      .update(authProfilesTable)
+      .set({ permissions: validPerms })
+      .where(eq(authProfilesTable.id, id));
     res.json({ success: true, permissions: validPerms });
   } catch {
     res.status(500).json({ error: 'Failed to update permissions' });
@@ -405,17 +453,23 @@ router.patch('/admin/staff/:id/permissions', requireAuth, requireAdmin, async (r
 /** DELETE /api/admin/staff/:id — remove staff account (only staff/sub_admin targets) */
 router.delete('/admin/staff/:id', requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const id = String(req.params['id']);
-  const { userId } = getAuth(req);
+  const userId = req.supabaseContext!.supabaseUserId;
   if (id === userId) { res.status(400).json({ error: 'Cannot delete yourself' }); return; }
   try {
-    const target = await clerkClient.users.getUser(id);
-    const targetRole = (target.publicMetadata as any)?.role as string | undefined;
+    const [target] = await db.select().from(authProfilesTable).where(eq(authProfilesTable.id, id)).limit(1);
+    if (!target) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const targetRole = target.role;
     // Guard: only allow deletion of staff/sub_admin accounts through this endpoint
-    if (!targetRole || !STAFF_ROLES.has(targetRole)) {
+    if (!STAFF_ROLES.has(targetRole)) {
       res.status(403).json({ error: 'Target user is not a staff account' });
       return;
     }
-    await clerkClient.users.deleteUser(id);
+    // Delete from auth_profiles first, then from Supabase auth
+    await db.delete(authProfilesTable).where(eq(authProfilesTable.id, id));
+    await supabaseAdmin.auth.admin.deleteUser(id);
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: 'Failed to delete staff account' });
@@ -737,7 +791,7 @@ router.get('/admin/analytics', requireAuth, requireAdmin, async (_req, res) => {
     const [
       customersResult,
       techniciansResult,
-      allStaffUsers,
+      staffResult,
       bookingsResult,
       ratingsCountResult,
       avgRatingResult,
@@ -745,18 +799,15 @@ router.get('/admin/analytics', requireAuth, requireAdmin, async (_req, res) => {
     ] = await Promise.all([
       db.select({ value: count() }).from(customersTable),
       db.select({ value: count() }).from(professionalsTable),
-      clerkClient.users.getUserList({ limit: 200 }),
+      db.select({ value: count() }).from(authProfilesTable)
+        .where(sql`${authProfilesTable.role} IN ('staff', 'sub_admin')`),
       db.select({ value: count() }).from(bookingsTable),
       db.select({ value: count() }).from(bookingsTable).where(isNotNull(bookingsTable.rating)),
       db.execute(sql`SELECT COALESCE(AVG(CAST(rating AS NUMERIC)), 0) AS value FROM bookings WHERE rating IS NOT NULL AND rating ~ '^[0-9]+(\.[0-9]+)?$'`),
       db.select({ value: count() }).from(serviceCategoriesTable).where(eq(serviceCategoriesTable.isActive, true)),
     ]);
 
-    const staffCount = allStaffUsers.data.filter((u) => {
-      const r = (u.publicMetadata as any)?.role;
-      return r === 'staff' || r === 'sub_admin';
-    }).length;
-
+    const staffCount = Number(staffResult[0]?.value ?? 0);
     const avgRatingRaw = (avgRatingResult as any)?.rows?.[0]?.value ?? (avgRatingResult as any)?.[0]?.value;
 
     res.json({

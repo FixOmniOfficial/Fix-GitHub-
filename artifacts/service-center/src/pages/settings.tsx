@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { cn } from '@/lib/utils';
 import { useRole } from '@/lib/use-role';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 type SettingsForm = {
   theme: string;
@@ -43,8 +44,6 @@ const LANG_OPTIONS = [
   { value: 'both', label: 'Both',    sub: 'Hindi + English' },
 ];
 
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
-
 export default function Settings() {
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useGetSettings();
@@ -58,7 +57,7 @@ export default function Settings() {
   // Fetch panel status on mount (super_admin only)
   React.useEffect(() => {
     if (!isSuperAdmin) return;
-    fetch(`${BASE}/api/settings`, { credentials: 'include' })
+    authenticatedFetch('/api/settings')
       .then(r => r.json())
       .then(d => setPanelEnabled(d?.panelEnabled ?? true))
       .catch(() => setPanelEnabled(true));
@@ -69,7 +68,7 @@ export default function Settings() {
   const [otpToggling, setOtpToggling] = React.useState(false);
 
   React.useEffect(() => {
-    fetch(`${BASE}/api/admin/otp-mode`, { credentials: 'include' })
+    authenticatedFetch('/api/admin/otp-mode')
       .then(r => r.ok ? r.json() : null)
       .then(d => d && setOtpMode(d.otpMode ?? 'EMAIL'))
       .catch(() => setOtpMode('EMAIL'));
@@ -78,9 +77,8 @@ export default function Settings() {
   const handleOtpModeToggle = async (mode: 'EMAIL' | 'SMS') => {
     setOtpToggling(true);
     try {
-      const r = await fetch(`${BASE}/api/admin/otp-mode`, {
+      const r = await authenticatedFetch('/api/admin/otp-mode', {
         method: 'PATCH',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode }),
       });
@@ -95,9 +93,8 @@ export default function Settings() {
   const handlePanelToggle = async (enable: boolean) => {
     setPanelToggling(true);
     try {
-      const r = await fetch(`${BASE}/api/admin/panel-toggle`, {
+      const r = await authenticatedFetch('/api/admin/panel-toggle', {
         method: 'PATCH',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: enable }),
       });

@@ -21,8 +21,7 @@ import {
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
 import { format } from 'date-fns';
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 interface Technician {
   id: number;
@@ -76,8 +75,8 @@ export default function TechniciansPage() {
 
   const sendOtpMut = useMutation({
     mutationFn: async (id: number) => {
-      const r = await fetch(`${BASE}/api/admin/technicians/${id}/send-otp`, {
-        method: 'POST', credentials: 'include',
+      const r = await authenticatedFetch(`/api/admin/technicians/${id}/send-otp`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
       if (!r.ok) throw new Error((await r.json()).error ?? 'Send OTP failed');
@@ -95,8 +94,8 @@ export default function TechniciansPage() {
 
   const tempPasscodeMut = useMutation({
     mutationFn: async (id: number) => {
-      const r = await fetch(`${BASE}/api/admin/technicians/${id}/temp-passcode`, {
-        method: 'POST', credentials: 'include',
+      const r = await authenticatedFetch(`/api/admin/technicians/${id}/temp-passcode`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
       if (!r.ok) throw new Error((await r.json()).error ?? 'Failed');
@@ -110,7 +109,7 @@ export default function TechniciansPage() {
 
   const recallTechIdMut = useMutation({
     mutationFn: async (id: number) => {
-      const r = await fetch(`${BASE}/api/admin/technicians/${id}/tech-id`, { credentials: 'include' });
+      const r = await authenticatedFetch(`/api/admin/technicians/${id}/tech-id`);
       if (!r.ok) throw new Error('Failed');
       return r.json();
     },
@@ -123,7 +122,7 @@ export default function TechniciansPage() {
   const { data: techs = [], isLoading } = useQuery<Technician[]>({
     queryKey: ['admin-technicians'],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/admin/technicians`, { credentials: 'include' });
+      const r = await authenticatedFetch('/api/admin/technicians');
       if (!r.ok) throw new Error('Failed to fetch');
       return r.json();
     },
@@ -132,8 +131,8 @@ export default function TechniciansPage() {
 
   const createMut = useMutation({
     mutationFn: async (data: typeof EMPTY_FORM) => {
-      const r = await fetch(`${BASE}/api/admin/technicians`, {
-        method: 'POST', credentials: 'include',
+      const r = await authenticatedFetch('/api/admin/technicians', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...data,
@@ -154,8 +153,8 @@ export default function TechniciansPage() {
 
   const updateMut = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: typeof EMPTY_FORM }) => {
-      const r = await fetch(`${BASE}/api/admin/technicians/${id}`, {
-        method: 'PATCH', credentials: 'include',
+      const r = await authenticatedFetch(`/api/admin/technicians/${id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...data,
@@ -176,8 +175,8 @@ export default function TechniciansPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: number) => {
-      const r = await fetch(`${BASE}/api/admin/technicians/${id}`, {
-        method: 'DELETE', credentials: 'include',
+      const r = await authenticatedFetch(`/api/admin/technicians/${id}`, {
+        method: 'DELETE',
       });
       if (!r.ok) throw new Error('Delete failed');
     },

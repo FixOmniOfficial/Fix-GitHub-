@@ -1,76 +1,69 @@
-import { useCallback, useEffect, useState } from 'react';
+/**
+ * useAuth — thin compatibility shim over AuthContext.
+ *
+ * Existing callers that imported useAuth / AppUser / authApi continue to work.
+ * Cookie-based login/logout functions are stubs that delegate to Supabase now
+ * (signIn / signOut are on the context; OTP/reset paths go via the API).
+ */
+import { useAuthContext, type MeUser } from '@/contexts/AuthContext';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
-export interface AppUser {
-  id: number;
-  name: string;
-  username: string | null;
-  email: string | null;
-  phone: string | null;
-  role: string;
-}
+export type AppUser = MeUser;
 
-interface AuthState {
+export interface AuthState {
   user: AppUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   refetch: () => void;
 }
 
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
-
 export function useAuth(): AuthState {
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    fetch(`${BASE}/api/auth/user`, { credentials: 'include' })
-      .then(r => r.json())
-      .then((data: { user: AppUser | null }) => {
-        if (!cancelled) { setUser(data.user ?? null); setIsLoading(false); }
-      })
-      .catch(() => { if (!cancelled) { setUser(null); setIsLoading(false); } });
-    return () => { cancelled = true; };
-  }, [tick]);
-
-  const refetch = useCallback(() => setTick(t => t + 1), []);
-
-  return { user, isLoading, isAuthenticated: !!user, refetch };
+  const { meUser, isLoading, isSignedIn, refreshMe } = useAuthContext();
+  return {
+    user: meUser,
+    isLoading,
+    isAuthenticated: isSignedIn,
+    refetch: refreshMe,
+  };
 }
 
-// Standalone API calls
+// ---------------------------------------------------------------------------
+// Standalone API calls (kept for any pages that still import authApi)
+// ---------------------------------------------------------------------------
 export const authApi = {
-  login: (login: string, password: string) =>
-    fetch(`${BASE}/api/auth/login`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login, password }),
-    }).then(r => r.json()),
+  /** Deprecated: sign-in now goes through Supabase directly via AuthContext.signIn */
+  login: (_login: string, _password: string): Promise<unknown> =>
+    Promise.reject(new Error('Use AuthContext.signIn instead of authApi.login')),
 
   logout: () =>
-    fetch(`${BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' })
+    authenticatedFetch('/api/auth/logout', { method: 'POST' })
       .then(r => r.json()),
 
   sendOtp: (login: string) =>
-    fetch(`${BASE}/api/auth/send-otp`, {
-      method: 'POST', credentials: 'include',
+    authenticatedFetch('/api/auth/send-otp', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ login }),
     }).then(r => r.json()),
 
   verifyOtp: (userId: number, otp: string) =>
-    fetch(`${BASE}/api/auth/verify-otp`, {
-      method: 'POST', credentials: 'include',
+    authenticatedFetch('/api/auth/verify-otp', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, otp }),
     }).then(r => r.json()),
 
   resetPassword: (userId: number, newPassword: string) =>
-    fetch(`${BASE}/api/auth/reset-password`, {
-      method: 'POST', credentials: 'include',
+    authenticatedFetch('/api/auth/reset-password', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, newPassword }),
+    }).then(r => r.json()),
+
+  sendPasswordReset: (email: string, redirectTo?: string) =>
+    authenticatedFetch('/api/auth/send-password-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, redirectTo }),
     }).then(r => r.json()),
 };

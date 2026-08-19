@@ -14,8 +14,7 @@ import {
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
 import { format } from 'date-fns';
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 interface KycEntry {
   id: number;
@@ -47,7 +46,7 @@ const STATUS_CONFIG = {
 };
 
 async function fetchKyc(status: string): Promise<KycEntry[]> {
-  const r = await fetch(`${BASE}/api/admin/kyc?status=${status}`, { credentials: 'include' });
+  const r = await authenticatedFetch(`/api/admin/kyc?status=${status}`);
   if (!r.ok) throw new Error('Failed to fetch KYC list');
   return r.json();
 }
@@ -83,9 +82,8 @@ export default function KycReviewPage() {
 
   const reviewMutation = useMutation({
     mutationFn: async ({ id, action, notes }: { id: number; action: string; notes: string }) => {
-      const r = await fetch(`${BASE}/api/admin/kyc/${id}/review`, {
+      const r = await authenticatedFetch(`/api/admin/kyc/${id}/review`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, notes }),
       });

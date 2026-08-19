@@ -5,7 +5,7 @@
  *   GET  /api/kyc/status           — check own KYC status
  *   POST /api/kyc/submit           — submit / re-submit KYC
  *
- * Admin-facing (Clerk auth, requires kyc_review permission):
+ * Admin-facing (Supabase auth, requires kyc_review permission):
  *   GET    /api/admin/kyc          — list all KYC submissions
  *   GET    /api/admin/kyc/:id      — get one submission
  *   PATCH  /api/admin/kyc/:id/review — approve or reject
@@ -14,7 +14,6 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, kycDocumentsTable, professionalsTable } from "@workspace/db";
 import { requireAuth, requireKycReview } from "../middlewares/requireAuth";
-import { getAuth, clerkClient } from "@clerk/express";
 
 const router: IRouter = Router();
 
@@ -28,13 +27,6 @@ async function resolveTechnician(req: Request): Promise<typeof professionalsTabl
     .from(professionalsTable)
     .where(eq(professionalsTable.uniqueCode, code));
   return prof ?? null;
-}
-
-// ── KYC permission helper ─────────────────────────────────────────────────────
-function hasKycPermission(req: Request): boolean {
-  const perms: string[] = (req as any).clerkPermissions ?? [];
-  const role: string = (req as any).clerkUserRole ?? "";
-  return role === "super_admin" || role === "admin" || perms.includes("kyc_review");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -191,22 +183,17 @@ router.patch("/admin/kyc/:id/review", requireAuth, requireKycReview, async (req:
     return;
   }
 
-  const { userId } = getAuth(req);
-  let reviewerName = "Admin";
-  try {
-    const me = await clerkClient.users.getUser(userId!);
-    reviewerName =
-      [me.firstName, me.lastName].filter(Boolean).join(" ") ||
-      me.emailAddresses[0]?.emailAddress ||
-      "Admin";
-  } catch { /* ignore */ }
+  // Use Supabase context for reviewer identity — no Clerk needed
+  const ctx = req.supabaseContext!;
+  const userId = ctx.supabaseUserId;
+  const reviewerName = ctx.supabaseEmail ?? "Admin";
 
   try {
     const [updated] = await db
       .update(kycDocumentsTable)
       .set({
         status:       action,
-        reviewedBy:   userId ?? null,
+        reviewedBy:   userId,
         reviewerName,
         reviewNotes:  notes?.trim() || null,
         reviewedAt:   new Date(),
@@ -240,7 +227,7 @@ router.post("/kyc/revoke", async (req: Request, res: Response): Promise<void> =>
   try {
     await db
       .update(kycDocumentsTable)
-      .set({ status: "not_submitted", reviewNotes: "Auto-revoked: name changed by technician", reviewedAt: new Date() })
+      .set({ status: "pending" as any, reviewNotes: "Auto-revoked: name changed by technician (status: not_submitted)", reviewedAt: new Date() })
       .where(eq(kycDocumentsTable.professionalId, prof.id));
     res.json({ success: true, status: "not_submitted" });
   } catch {

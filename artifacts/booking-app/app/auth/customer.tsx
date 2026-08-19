@@ -39,7 +39,7 @@ export default function CustomerAuthScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { login } = useAppAuth();
+  const { login, applyApiSession } = useAppAuth();
   const { t } = useLanguage();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const s = styles(colors);
@@ -103,6 +103,8 @@ export default function CustomerAuthScreen() {
         email: data.email ?? undefined,
         loginMethod: 'password',
       });
+      // Hydrate Supabase session when the server returns one
+      if (data.session) await applyApiSession(data.session);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/(tabs)' as any);
     } catch (e: any) {
@@ -132,6 +134,8 @@ export default function CustomerAuthScreen() {
         email: data.email ?? undefined,
         loginMethod: 'password',
       });
+      // Hydrate Supabase session when the server returns one
+      if (data.session) await applyApiSession(data.session);
       setSuccessMsg(data.name);
       setScreen('success');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

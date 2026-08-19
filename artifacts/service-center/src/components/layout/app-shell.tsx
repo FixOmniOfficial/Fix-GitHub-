@@ -10,9 +10,9 @@ import {
 import { useGetSettings, useListReminders } from '@workspace/api-client-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { useUser, useClerk } from '@clerk/react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 // All nav items — label = Hindi, subtitle = English
 const NAV_ITEMS = [
@@ -99,8 +99,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [logoZoomOpen, setLogoZoomOpen] = useState(false);
   const { data: settings }  = useGetSettings();
   const { data: reminders } = useListReminders({ isActive: true });
-  const { user } = useUser();
-  const { signOut } = useClerk();
+  const { meUser: user, signOut: sbSignOut } = useAuthContext();
   const { isAdmin, isStaff, hasPermission, isSuperAdmin } = useRole();
 
   // Cast to extended type that includes our extra fields
@@ -220,19 +219,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-800/50">
               <div className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
                 <span className="text-[10px] font-bold text-amber-400">
-                  {(user.firstName || user.emailAddresses?.[0]?.emailAddress || 'U').slice(0, 1).toUpperCase()}
+                  {(user.name || user.email || 'U').slice(0, 1).toUpperCase()}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium text-slate-300 truncate">
-                  {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.emailAddresses?.[0]?.emailAddress}
+                  {user.name || user.email}
                 </div>
-                <div className="text-[10px] text-slate-600 truncate">{user.emailAddresses?.[0]?.emailAddress}</div>
+                <div className="text-[10px] text-slate-600 truncate">{user.email}</div>
               </div>
             </div>
           )}
           <button
-            onClick={() => signOut({ redirectUrl: import.meta.env.BASE_URL || '/' })}
+            onClick={() => sbSignOut().then(() => { window.location.href = import.meta.env.BASE_URL || '/'; })}
             className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all text-xs"
           >
             <LogOut className="w-3.5 h-3.5" />

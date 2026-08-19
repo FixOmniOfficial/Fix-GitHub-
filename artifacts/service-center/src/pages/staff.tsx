@@ -12,8 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { UserCog, Plus, Trash2, Shield, Users, BookOpen, BarChart3, ShieldCheck, Fingerprint } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 interface StaffMember {
   id: string;
@@ -62,7 +61,7 @@ const PERMISSION_CONFIG = [
 ] as const;
 
 async function fetchStaff(): Promise<StaffMember[]> {
-  const r = await fetch(`${BASE}/api/admin/staff`, { credentials: 'include' });
+  const r = await authenticatedFetch('/api/admin/staff');
   if (!r.ok) throw new Error('Failed to fetch staff');
   return r.json();
 }
@@ -70,8 +69,8 @@ async function fetchStaff(): Promise<StaffMember[]> {
 async function createStaff(data: {
   firstName: string; lastName: string; email: string; password: string; permissions: string[];
 }) {
-  const r = await fetch(`${BASE}/api/admin/staff`, {
-    method: 'POST', credentials: 'include',
+  const r = await authenticatedFetch('/api/admin/staff', {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
@@ -80,8 +79,8 @@ async function createStaff(data: {
 }
 
 async function updatePermissions(id: string, permissions: string[]) {
-  const r = await fetch(`${BASE}/api/admin/staff/${id}/permissions`, {
-    method: 'PATCH', credentials: 'include',
+  const r = await authenticatedFetch(`/api/admin/staff/${id}/permissions`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ permissions }),
   });
@@ -90,8 +89,8 @@ async function updatePermissions(id: string, permissions: string[]) {
 }
 
 async function deleteStaff(id: string) {
-  const r = await fetch(`${BASE}/api/admin/staff/${id}`, {
-    method: 'DELETE', credentials: 'include',
+  const r = await authenticatedFetch(`/api/admin/staff/${id}`, {
+    method: 'DELETE',
   });
   if (!r.ok) { const e = await r.json(); throw new Error(e.error); }
   return r.json();

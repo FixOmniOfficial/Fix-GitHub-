@@ -14,8 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface ScreenRow {
@@ -48,7 +47,7 @@ interface FormOption {
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  const r = await fetch(`${BASE}${path}`, { credentials: 'include', ...opts });
+  const r = await authenticatedFetch(path, opts);
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'Request failed'); }
   return r.json();
 }

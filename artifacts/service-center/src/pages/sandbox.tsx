@@ -21,8 +21,7 @@ import { useRole } from '@/lib/use-role';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { useTestImpersonation } from '@/contexts/TestImpersonationContext';
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 // ── Booking-app web URL construction ─────────────────────────────────────────
 // Both apps share the same origin; booking app lives at /booking-app/
@@ -65,7 +64,7 @@ async function fetchSandboxData(): Promise<{
   customers: TestCustomer[];
   total: number;
 }> {
-  const r = await fetch(`${BASE}/api/admin/sandbox/data`, { credentials: 'include' });
+  const r = await authenticatedFetch('/api/admin/sandbox/data');
   if (!r.ok) throw new Error('Failed to fetch sandbox data');
   return r.json();
 }
@@ -337,8 +336,8 @@ export default function SandboxPage() {
 
   const generateMutation = useMutation({
     mutationFn: async (count: number) => {
-      const r = await fetch(`${BASE}/api/admin/sandbox/generate`, {
-        method: 'POST', credentials: 'include',
+      const r = await authenticatedFetch('/api/admin/sandbox/generate', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count }),
       });
@@ -354,8 +353,8 @@ export default function SandboxPage() {
 
   const generateCustMutation = useMutation({
     mutationFn: async (count: number) => {
-      const r = await fetch(`${BASE}/api/admin/sandbox/generate-customers`, {
-        method: 'POST', credentials: 'include',
+      const r = await authenticatedFetch('/api/admin/sandbox/generate-customers', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count }),
       });
@@ -371,8 +370,8 @@ export default function SandboxPage() {
 
   const clearMutation = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/admin/sandbox/clear`, {
-        method: 'DELETE', credentials: 'include',
+      const r = await authenticatedFetch('/api/admin/sandbox/clear', {
+        method: 'DELETE',
       });
       if (!r.ok) throw new Error((await r.json()).error ?? 'Clear failed');
       return r.json();

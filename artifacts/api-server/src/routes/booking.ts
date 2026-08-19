@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, asc, inArray, sql } from "drizzle-orm";
-import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable, techPaymentEntriesTable, appSettingsTable } from "@workspace/db";
+import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable, techPaymentEntriesTable, appSettingsTable, authProfilesTable } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { sendOtpEmail } from "../lib/email";
+import { supabaseAdmin, signInAndGetSession } from "../lib/supabase";
 
 // OTP helper — generates 6-digit code, returns plain text (demo: returned to client)
 function genOtp(): string {
@@ -15,6 +16,32 @@ function genCode(prefix: string): string {
   let s = prefix + '-';
   for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
   return s;
+}
+
+/**
+ * Keep the retained legacy bcrypt hash in step with Supabase Auth during the
+ * transition. Profiles may be absent for an untouched legacy account; that
+ * account is linked on its next successful password login instead.
+ */
+async function syncSupabasePassword(
+  link: { appCustomerId?: number; professionalId?: number },
+  password: string,
+): Promise<void> {
+  const column = link.appCustomerId
+    ? authProfilesTable.appCustomerId
+    : authProfilesTable.professionalId;
+  const value = link.appCustomerId ?? link.professionalId;
+  if (!value) return;
+
+  const [profile] = await db
+    .select({ id: authProfilesTable.id })
+    .from(authProfilesTable)
+    .where(eq(column, value))
+    .limit(1);
+  if (!profile) return;
+
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(profile.id, { password });
+  if (error) throw new Error(error.message);
 }
 
 const router: IRouter = Router();
@@ -509,7 +536,11 @@ router.post("/booking/customer/verify-otp", async (req, res): Promise<void> => {
 // ── Customer Auth v2 (password-based + email OTP recovery) ─────────────────
 
 // POST /booking/customer/register — name + phone (unique) + email (unique) + password
+// Creates a Supabase Auth user, links it to the domain record via auth_profiles,
+// and returns a Supabase session alongside the domain fields so the mobile client
+// can call supabase.auth.setSession() immediately after.
 router.post("/booking/customer/register", async (req, res): Promise<void> => {
+  let supabaseUid: string | null = null;
   try {
     const { name, phone, email, password } = req.body;
     if (!name?.trim())    { res.status(400).json({ error: "नाम जरूरी है" }); return; }
@@ -537,6 +568,24 @@ router.post("/booking/customer/register", async (req, res): Promise<void> => {
       res.status(409).json({ error: "यह email पहले से registered है। Login करें।" }); return;
     }
 
+    // ── Step 1: Create Supabase Auth user ────────────────────────────────
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: normEmail,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: name.trim(), phone: cleanPhone, userType: "customer" },
+    });
+    if (authError || !authData.user) {
+      // Duplicate Supabase user = already registered
+      const msg = authError?.message ?? "Registration failed";
+      if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("duplicate")) {
+        res.status(409).json({ error: "यह email पहले से registered है। Login करें।" }); return;
+      }
+      res.status(500).json({ error: msg }); return;
+    }
+    supabaseUid = authData.user.id;
+
+    // ── Step 2: Create domain record ─────────────────────────────────────
     const passwordHash = await bcrypt.hash(password, 10);
     let uniqueCode: string;
     for (;;) {
@@ -547,8 +596,29 @@ router.post("/booking/customer/register", async (req, res): Promise<void> => {
     const [row] = await db.insert(appCustomersTable).values({
       name: name.trim(), phone: cleanPhone, email: normEmail, passwordHash, uniqueCode,
     }).returning();
-    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+
+    // ── Step 3: Link via auth_profiles ───────────────────────────────────
+    await db.insert(authProfilesTable).values({
+      id: supabaseUid,
+      role: "user",
+      permissions: [],
+      userType: "customer",
+      appCustomerId: row.id,
+      isActive: true,
+    }).onConflictDoUpdate({
+      target: authProfilesTable.id,
+      set: { appCustomerId: row.id, userType: "customer", isActive: true },
+    });
+
+    // ── Step 4: Sign in to get a session for the mobile client ───────────
+    const session = await signInAndGetSession(normEmail, password);
+
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), session });
   } catch (err: any) {
+    // Compensate: delete the newly-created Supabase user if domain work failed
+    if (supabaseUid) {
+      await supabaseAdmin.auth.admin.deleteUser(supabaseUid).catch(() => {});
+    }
     if (err?.code === '23505') {
       res.status(409).json({ error: "यह mobile या email पहले से registered है।" }); return;
     }
@@ -557,6 +627,8 @@ router.post("/booking/customer/register", async (req, res): Promise<void> => {
 });
 
 // POST /booking/customer/login-v2 — mobileOrEmail + password
+// Validates credentials against the domain table, then issues a Supabase
+// session so the mobile caller can call supabase.auth.setSession().
 router.post("/booking/customer/login-v2", async (req, res): Promise<void> => {
   try {
     const { mobileOrEmail, password } = req.body;
@@ -581,7 +653,38 @@ router.post("/booking/customer/login-v2", async (req, res): Promise<void> => {
     }
     const match = await bcrypt.compare(password, row.passwordHash);
     if (!match) { res.status(401).json({ error: "Mobile/Email या Password गलत है" }); return; }
-    res.json({ ...row, createdAt: row.createdAt.toISOString() });
+
+    // Attempt to obtain a Supabase session for this user.
+    // For legacy accounts that predate Supabase migration there may be no
+    // auth.users record yet — in that case we create one now and link it.
+    let session = row.email ? await signInAndGetSession(row.email, password) : null;
+
+    if (!session && row.email) {
+      // User exists in domain table but not yet in Supabase — migrate lazily
+      const { data: authData } = await supabaseAdmin.auth.admin.createUser({
+        email: row.email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: row.name, phone: row.phone, userType: "customer" },
+      });
+      if (authData?.user) {
+        // Upsert auth_profiles link
+        await db.insert(authProfilesTable).values({
+          id: authData.user.id,
+          role: "user",
+          permissions: [],
+          userType: "customer",
+          appCustomerId: row.id,
+          isActive: true,
+        }).onConflictDoUpdate({
+          target: authProfilesTable.id,
+          set: { appCustomerId: row.id, userType: "customer", isActive: true },
+        });
+        session = await signInAndGetSession(row.email, password);
+      }
+    }
+
+    res.json({ ...row, createdAt: row.createdAt.toISOString(), session });
   } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
@@ -648,6 +751,7 @@ router.post("/booking/customer/reset-password", async (req, res): Promise<void> 
     }
     if (row.otpCode !== otp.trim()) { res.status(401).json({ error: "OTP गलत है" }); return; }
 
+    await syncSupabasePassword({ appCustomerId: row.id }, newPassword);
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await db.update(appCustomersTable)
       .set({ passwordHash, otpCode: null, otpExpiresAt: null, otpAttempts: 0 } as any)
@@ -659,7 +763,10 @@ router.post("/booking/customer/reset-password", async (req, res): Promise<void> 
 // ── Technician Auth v2 (password-based + email OTP recovery) ───────────────
 
 // POST /booking/technician/register — name, phone, email, password, professionType → TECH code
+// Creates a Supabase Auth user, links it to the professionals record via auth_profiles,
+// and returns a Supabase session alongside the domain fields.
 router.post("/booking/technician/register", async (req, res): Promise<void> => {
+  let supabaseUid: string | null = null;
   try {
     const { name, phone, email, password, professionType, avatarEmoji } = req.body;
     if (!name?.trim())         { res.status(400).json({ error: "नाम जरूरी है" }); return; }
@@ -687,6 +794,23 @@ router.post("/booking/technician/register", async (req, res): Promise<void> => {
       res.status(409).json({ error: "यह email पहले से registered है।" }); return;
     }
 
+    // ── Step 1: Create Supabase Auth user ────────────────────────────────
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: normEmail,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: name.trim(), phone: cleanPhone, userType: "technician", professionType: professionType.trim() },
+    });
+    if (authError || !authData.user) {
+      const msg = authError?.message ?? "Registration failed";
+      if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("duplicate")) {
+        res.status(409).json({ error: "यह email पहले से registered है।" }); return;
+      }
+      res.status(500).json({ error: msg }); return;
+    }
+    supabaseUid = authData.user.id;
+
+    // ── Step 2: Create domain record ─────────────────────────────────────
     const passwordHash = await bcrypt.hash(password, 10);
     let uniqueCode: string;
     for (;;) {
@@ -700,8 +824,34 @@ router.post("/booking/technician/register", async (req, res): Promise<void> => {
       avatarEmoji: avatarEmoji?.trim() || '🔧',
       uniqueCode,
     } as any).returning();
-    res.status(201).json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString() });
+
+    // ── Step 3: Link via auth_profiles ───────────────────────────────────
+    await db.insert(authProfilesTable).values({
+      id: supabaseUid,
+      role: "user",
+      permissions: [],
+      userType: "technician",
+      professionalId: row.id,
+      isActive: true,
+    }).onConflictDoUpdate({
+      target: authProfilesTable.id,
+      set: { professionalId: row.id, userType: "technician", isActive: true },
+    });
+
+    // ── Step 4: Sign in to get a session for the mobile client ───────────
+    const session = await signInAndGetSession(normEmail, password);
+
+    res.status(201).json({
+      ...row,
+      visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null,
+      createdAt: row.createdAt.toISOString(),
+      session,
+    });
   } catch (err: any) {
+    // Compensate: delete the newly-created Supabase user if domain work failed
+    if (supabaseUid) {
+      await supabaseAdmin.auth.admin.deleteUser(supabaseUid).catch(() => {});
+    }
     if (err?.code === '23505') {
       res.status(409).json({ error: "यह mobile या email पहले से registered है।" }); return;
     }
@@ -711,6 +861,7 @@ router.post("/booking/technician/register", async (req, res): Promise<void> => {
 
 // POST /booking/technician/login-v2 — mobileOrEmail + techId + password (all 3 mandatory)
 // Returns field-specific error codes so the frontend can highlight the exact wrong field.
+// After successful validation also returns a Supabase session for the mobile caller.
 router.post("/booking/technician/login-v2", async (req, res): Promise<void> => {
   try {
     const { mobileOrEmail, techId, password } = req.body;
@@ -756,7 +907,39 @@ router.post("/booking/technician/login-v2", async (req, res): Promise<void> => {
       res.status(401).json({ error: "Wrong Password / पासवर्ड गलत है", field: "password" }); return;
     }
 
-    res.json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString() });
+    // Attempt to get a Supabase session; lazily migrate legacy accounts
+    let session = row.email ? await signInAndGetSession(row.email, password) : null;
+
+    if (!session && row.email) {
+      // Account exists in domain table but not yet in Supabase — migrate lazily
+      const { data: authData } = await supabaseAdmin.auth.admin.createUser({
+        email: row.email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: row.name, phone: row.phone, userType: "technician", professionType: row.professionType },
+      });
+      if (authData?.user) {
+        await db.insert(authProfilesTable).values({
+          id: authData.user.id,
+          role: "user",
+          permissions: [],
+          userType: "technician",
+          professionalId: row.id,
+          isActive: true,
+        }).onConflictDoUpdate({
+          target: authProfilesTable.id,
+          set: { professionalId: row.id, userType: "technician", isActive: true },
+        });
+        session = await signInAndGetSession(row.email, password);
+      }
+    }
+
+    res.json({
+      ...row,
+      visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null,
+      createdAt: row.createdAt.toISOString(),
+      session,
+    });
   } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
@@ -872,6 +1055,7 @@ router.post("/booking/technician/reset-password", async (req, res): Promise<void
     }
     if (row.otpCode !== otp.trim()) { res.status(401).json({ error: "OTP गलत है" }); return; }
 
+    await syncSupabasePassword({ professionalId: row.id }, newPassword);
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await db.update(professionalsTable)
       .set({ passwordHash, otpCode: null, otpExpiresAt: null, otpAttempts: 0 } as any)

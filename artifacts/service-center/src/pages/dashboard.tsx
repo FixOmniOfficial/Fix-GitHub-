@@ -11,8 +11,7 @@ import { Link } from 'wouter';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useRole } from '@/lib/use-role';
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 interface Analytics {
   totalCustomers: number;
@@ -25,7 +24,7 @@ interface Analytics {
 }
 
 async function fetchAnalytics(): Promise<Analytics> {
-  const r = await fetch(`${BASE}/api/admin/analytics`, { credentials: 'include' });
+  const r = await authenticatedFetch('/api/admin/analytics');
   if (!r.ok) throw new Error('Failed to fetch analytics');
   return r.json();
 }

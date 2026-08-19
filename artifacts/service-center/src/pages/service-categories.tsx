@@ -12,8 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Trash2, Pencil, Shield, ChevronUp, ChevronDown, ToggleLeft, Layers, Image as ImageIcon, Type } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 // ── Common Feather icon names available in the mobile app ─────────────────────
 const FEATHER_ICONS = [
@@ -43,14 +42,14 @@ interface ServiceCategory {
 type MediaMode = 'icon' | 'image';
 
 async function fetchCategories(): Promise<ServiceCategory[]> {
-  const r = await fetch(`${BASE}/api/admin/service-categories`, { credentials: 'include' });
+  const r = await authenticatedFetch('/api/admin/service-categories');
   if (!r.ok) throw new Error('Failed to fetch categories');
   return r.json();
 }
 
 async function createCategory(data: Partial<ServiceCategory>) {
-  const r = await fetch(`${BASE}/api/admin/service-categories`, {
-    method: 'POST', credentials: 'include',
+  const r = await authenticatedFetch('/api/admin/service-categories', {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
@@ -59,8 +58,8 @@ async function createCategory(data: Partial<ServiceCategory>) {
 }
 
 async function updateCategory(id: number, data: Partial<ServiceCategory>) {
-  const r = await fetch(`${BASE}/api/admin/service-categories/${id}`, {
-    method: 'PATCH', credentials: 'include',
+  const r = await authenticatedFetch(`/api/admin/service-categories/${id}`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
@@ -69,8 +68,8 @@ async function updateCategory(id: number, data: Partial<ServiceCategory>) {
 }
 
 async function deleteCategory(id: number) {
-  const r = await fetch(`${BASE}/api/admin/service-categories/${id}`, {
-    method: 'DELETE', credentials: 'include',
+  const r = await authenticatedFetch(`/api/admin/service-categories/${id}`, {
+    method: 'DELETE',
   });
   if (!r.ok) { const e = await r.json(); throw new Error(e.error); }
   return r.json();

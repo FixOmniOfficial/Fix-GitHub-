@@ -8,9 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { UserCircle, Shield, Ban, CheckCircle2, Clock, Crown, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/use-role';
-import { useUser } from '@clerk/react';
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 interface ClerkUser {
   id: string;
@@ -24,14 +23,14 @@ interface ClerkUser {
 }
 
 async function fetchAdminUsers(): Promise<ClerkUser[]> {
-  const r = await fetch(`${BASE}/api/admin/users`, { credentials: 'include' });
+  const r = await authenticatedFetch('/api/admin/users');
   if (!r.ok) throw new Error('Failed to fetch users');
   return r.json();
 }
 
 async function setRole(id: string, role: string) {
-  const r = await fetch(`${BASE}/api/admin/users/${id}/role`, {
-    method: 'PATCH', credentials: 'include',
+  const r = await authenticatedFetch(`/api/admin/users/${id}/role`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ role }),
   });
@@ -40,8 +39,8 @@ async function setRole(id: string, role: string) {
 }
 
 async function setBan(id: string, ban: boolean) {
-  const r = await fetch(`${BASE}/api/admin/users/${id}/ban`, {
-    method: 'POST', credentials: 'include',
+  const r = await authenticatedFetch(`/api/admin/users/${id}/ban`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ban }),
   });
@@ -60,7 +59,7 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; icon: React.El
 
 export default function Users() {
   const { isAdmin } = useRole();
-  const { user: me } = useUser();
+  const { meUser: me } = useAuthContext();
   const qc = useQueryClient();
 
   const { data: users, isLoading, error } = useQuery({

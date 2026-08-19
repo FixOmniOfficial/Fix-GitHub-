@@ -5,7 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { AppAuthProvider } from '@/contexts/AppAuthContext';
+import { AppAuthProvider, useAppAuth } from '@/contexts/AppAuthContext';
 import { TestModeProvider } from '@/contexts/TestModeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { ScreenVisibilityProvider } from '@/contexts/ScreenVisibilityContext';
@@ -19,10 +19,17 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { setBaseUrl } from '@workspace/api-client-react';
+import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
+import { getSupabaseAccessToken } from '@/lib/supabase';
 
 // Set base URL for all API calls — must be at module level
 setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+
+// Wire the bearer-token getter so every customFetch call automatically
+// includes the Supabase access token when the user is authenticated via
+// Supabase OAuth.  For users authenticated via the legacy password flow the
+// getter returns null and no Authorization header is added.
+setAuthTokenGetter(getSupabaseAccessToken);
 
 SplashScreen.preventAutoHideAsync();
 

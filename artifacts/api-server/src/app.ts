@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
+import * as pinoHttpModule from "pino-http";
+import type { IncomingMessage, ServerResponse } from "http";
 import {
   globalLimiter,
   authLimiter,
@@ -20,13 +21,13 @@ app.set("trust proxy", 1);
 
 // ── Request logging ────────────────────────────────────────────────────────────
 app.use(
-  pinoHttp({
+  pinoHttpModule.default({
     logger,
     serializers: {
-      req(req) {
+      req(req: IncomingMessage) {
         return { id: req.id, method: req.method, url: req.url?.split("?")[0] };
       },
-      res(res) {
+      res(res: ServerResponse) {
         return { statusCode: res.statusCode };
       },
     },

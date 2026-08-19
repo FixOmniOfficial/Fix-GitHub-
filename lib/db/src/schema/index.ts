@@ -6,6 +6,7 @@ export * from "./reminders";
 export * from "./users";
 export * from "./settings";
 export * from "./auth";
+export * from "./auth-profiles";
 export * from "./professionals";
 export * from "./bookings";
 export * from "./market-rates";

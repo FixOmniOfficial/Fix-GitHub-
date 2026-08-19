@@ -1,13 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
-import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
-import {
-  CLERK_PROXY_PATH,
-  clerkProxyMiddleware,
-  getClerkProxyHost,
-} from "./middlewares/clerkProxyMiddleware";
 import {
   globalLimiter,
   authLimiter,
@@ -53,9 +46,6 @@ app.use((_req, res, next) => {
   next();
 });
 
-// ── Clerk proxy MUST come before body parsers (streams raw bytes) ──────────────
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-
 // ── CORS ───────────────────────────────────────────────────────────────────────
 app.use(cors({ credentials: true, origin: true }));
 
@@ -65,16 +55,6 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // ── Input sanitization (after body parse, before routes) ─────────────────────
 app.use(sanitizeInputs);
-
-// ── Clerk session ──────────────────────────────────────────────────────────────
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
-);
 
 // ── Rate limiters (applied before routes) ─────────────────────────────────────
 

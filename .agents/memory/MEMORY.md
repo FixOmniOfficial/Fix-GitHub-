@@ -8,3 +8,4 @@
 - [Public Form Token System](public-form-token.md) — Customer form URL uses appCustomersTable.uniqueCode (TECH-XXXX), NOT customersTable.shareToken.
 - [Table Separation](table-separation.md) — Mobile technicians are in professionalsTable (TECH-XXXX code); appCustomersTable stores CUST-XXXX codes (different concept). Previous note had this backwards.
 - [Test Mode Context Pattern](test-mode-pattern.md) — Enter test mode by calling login(testUser); existing route guards pass automatically — no guard edits needed.
+- [Supabase Project URL](supabase-project-url.md) — Supabase Auth clients require the project root URL; pasted REST URLs must be normalized before client creation.

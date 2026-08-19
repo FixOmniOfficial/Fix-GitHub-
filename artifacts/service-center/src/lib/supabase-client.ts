@@ -4,6 +4,18 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
 
 let _client: SupabaseClient | null = null;
 
+function normalizeSupabaseUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.pathname = url.pathname.replace(/\/(?:rest\/v1|auth\/v1)\/?$/, '');
+    url.search = '';
+    url.hash = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return value.replace(/\/(?:rest\/v1|auth\/v1)\/?$/, '');
+  }
+}
+
 /**
  * Returns a cached Supabase client.  If VITE env vars are present they are
  * used directly; otherwise the runtime config endpoint is consulted once and
@@ -16,7 +28,7 @@ export async function getSupabaseClient(): Promise<SupabaseClient> {
   const viteKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
   if (viteUrl && viteKey) {
-    _client = createClient(viteUrl, viteKey);
+    _client = createClient(normalizeSupabaseUrl(viteUrl), viteKey);
     return _client;
   }
 
@@ -24,7 +36,7 @@ export async function getSupabaseClient(): Promise<SupabaseClient> {
   const resp = await fetch(`${BASE}/api/auth/config`);
   if (!resp.ok) throw new Error('Supabase configuration is unavailable.');
   const config = (await resp.json()) as { url: string; anonKey: string };
-  _client = createClient(config.url, config.anonKey);
+  _client = createClient(normalizeSupabaseUrl(config.url), config.anonKey);
   return _client;
 }
 

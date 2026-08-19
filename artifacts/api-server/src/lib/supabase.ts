@@ -1,6 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
+/**
+ * SUPABASE_URL must be the project root, not a REST resource URL such as
+ * https://project.supabase.co/rest/v1/. Normalize the common pasted forms so
+ * Auth requests are built against /auth/v1/... rather than /rest/v1/auth/v1.
+ */
+export function normalizeSupabaseUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.pathname = url.pathname.replace(/\/(?:rest\/v1|auth\/v1)\/?$/, "");
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return value.replace(/\/(?:rest\/v1|auth\/v1)\/?$/, "");
+  }
+}
+
+const supabaseUrl = process.env.SUPABASE_URL
+  ? normalizeSupabaseUrl(process.env.SUPABASE_URL)
+  : undefined;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.SUPABASE_ANON_KEY;
 

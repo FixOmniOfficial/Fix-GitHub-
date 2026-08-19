@@ -2,14 +2,14 @@ import { db, appUsersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { requireAuth } from "../middlewares/requireAuth";
-import { supabaseAdmin } from "../lib/supabase";
+import { normalizeSupabaseUrl, supabaseAdmin } from "../lib/supabase";
 
 const router: IRouter = Router();
 
 function publicConfig(): { url: string; anonKey: string } | null {
   const url = process.env.SUPABASE_URL;
   const anonKey = process.env.SUPABASE_ANON_KEY;
-  return url && anonKey ? { url, anonKey } : null;
+  return url && anonKey ? { url: normalizeSupabaseUrl(url), anonKey } : null;
 }
 
 /**

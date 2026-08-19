@@ -16,6 +16,7 @@ import kycRouter from "./kyc";
 import storageRouter from "./storage";
 import sandboxRouter from "./sandbox";
 import superAdminRouter from "./super-admin";
+import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -24,6 +25,13 @@ router.use(authRouter);
 router.use(adminRouter);
 router.use(publicFormRouter); // public — no auth required
 router.use(bookingRouter);   // public — booking system
+// The service-center UI consumes these full-domain CRUD routes. They must not
+// be reachable by a merely authenticated customer or a direct API caller.
+router.use(
+  ["/customers", "/appliances", "/jobs", "/highlights", "/reminders", "/users", "/settings", "/dashboard", "/reports"],
+  requireAuth,
+  requireAdmin,
+);
 router.use(customersRouter);
 router.use(appliancesRouter);
 router.use(jobsRouter);

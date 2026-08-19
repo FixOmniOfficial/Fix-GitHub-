@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useAppAuth } from '@/contexts/AppAuthContext';
+import { getSupabaseAccessToken } from '@/lib/supabase';
 
 const API = process.env.EXPO_PUBLIC_API_URL ?? '';
 
@@ -42,14 +42,20 @@ const STATUS_CONFIG: Record<KycStatus, { label: string; labelHi: string; color: 
 };
 
 // ── Upload a photo to the API server (multipart) ──────────────────────────────
-async function uploadPhoto(uri: string, techCode: string): Promise<string> {
+async function getAuthorizationHeader(): Promise<Record<string, string>> {
+  const accessToken = await getSupabaseAccessToken();
+  if (!accessToken) throw new Error('Your session has expired. Please sign in again.');
+  return { Authorization: `Bearer ${accessToken}` };
+}
+
+async function uploadPhoto(uri: string): Promise<string> {
   const ext  = uri.split('.').pop() ?? 'jpg';
   const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
   const form = new FormData();
   form.append('file', { uri, name: `kyc-${Date.now()}.${ext}`, type: mime } as any);
   const r = await fetch(`${API}/api/storage/uploads/multipart`, {
     method: 'POST',
-    headers: { 'X-Tech-Code': techCode },
+    headers: await getAuthorizationHeader(),
     body: form,
   });
   if (!r.ok) {
@@ -78,8 +84,6 @@ async function pickImage(source: 'camera' | 'gallery'): Promise<string | null> {
 export default function KycScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user } = useAppAuth();
-  const techCode = (user as any)?.uniqueCode ?? '';
 
   const [status,   setStatus]   = useState<KycStatus>('not_submitted');
   const [kycDoc,   setKycDoc]   = useState<KycDoc | null>(null);
@@ -97,12 +101,12 @@ export default function KycScreen() {
 
   // ── Load existing KYC status ────────────────────────────────────────────────
   const loadStatus = useCallback(async () => {
-    if (!techCode) return;
     setLoading(true);
     try {
       const r = await fetch(`${API}/api/kyc/status`, {
-        headers: { 'X-Tech-Code': techCode },
+        headers: await getAuthorizationHeader(),
       });
+      if (!r.ok) throw new Error('Could not load KYC status');
       const data = await r.json();
       setStatus(data.status === 'not_submitted' ? 'not_submitted' : data.status);
       if (data.kycDoc) {
@@ -114,7 +118,7 @@ export default function KycScreen() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [techCode]);
+  }, []);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
@@ -135,12 +139,12 @@ export default function KycScreen() {
       }},
       { text: 'Cancel', style: 'cancel' },
     ]);
-  }, [techCode]);
+  }, []);
 
   const handleUpload = async (which: 'pan' | 'addr', uri: string) => {
     setUploading(which);
     try {
-      const path = await uploadPhoto(uri, techCode);
+      const path = await uploadPhoto(uri);
       which === 'pan' ? setPanPath(path) : setAddrPath(path);
     } catch (e: any) {
       Alert.alert('Upload Failed', e.message ?? 'Could not upload document');
@@ -158,7 +162,7 @@ export default function KycScreen() {
     try {
       const r = await fetch(`${API}/api/kyc/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Tech-Code': techCode },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthorizationHeader()) },
         body: JSON.stringify({ fullName: fullName.trim(), email: email.trim(), panCardPath: panPath, addressProofPath: addrPath }),
       });
       if (!r.ok) throw new Error((await r.json()).error ?? 'Submission failed');

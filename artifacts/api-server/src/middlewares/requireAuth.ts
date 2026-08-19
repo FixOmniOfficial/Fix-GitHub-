@@ -45,3 +45,26 @@ export function requireSuperAdmin(req: Request, res: Response, next: NextFunctio
   }
   next();
 }
+
+/** Requires a Supabase identity linked to a technician record. */
+export function requireLinkedTechnician(req: Request, res: Response, next: NextFunction): void {
+  if (!req.supabaseContext) {
+    res.status(401).json({ error: "Login required" });
+    return;
+  }
+  if (!req.supabaseContext.supabaseProfile.professionalId) {
+    res.status(403).json({ error: "Technician account required" });
+    return;
+  }
+  next();
+}
+
+/** Allows uploads only for an administrator or a Supabase-linked technician. */
+export function requireUploadActor(req: Request, res: Response, next: NextFunction): void {
+  const role = req.supabaseContext?.supabaseRole;
+  if (role === "admin" || role === "super_admin") {
+    next();
+    return;
+  }
+  requireLinkedTechnician(req, res, next);
+}

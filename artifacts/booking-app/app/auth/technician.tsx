@@ -215,21 +215,8 @@ export default function TechnicianAuthScreen() {
 
   // ── Temp passcode login ───────────────────────────────────────────
   const handleTempLogin = async () => {
-    if (!tempTechId.trim()) { Alert.alert('', t.techId + ' is required.'); return; }
-    if (!tempPasscode.trim()) { Alert.alert('', 'Temporary Passcode is required.'); return; }
-    setLoading(true);
-    try {
-      const data = await api('/booking/technician/temp-passcode-login', {
-        techId: tempTechId.trim().toUpperCase(),
-        tempPasscode: tempPasscode.trim(),
-      });
-      // Don't fully login yet — force password change first
-      setLoggedInTech(data);
-      setScreen('set_password_forced');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (e: any) {
-      Alert.alert(t.error, e.message ?? 'Login failed');
-    } finally { setLoading(false); }
+    Alert.alert('Temporary passcodes retired', 'Please use your email or mobile number and password to sign in.');
+    setScreen('auth');
   };
 
   // ── Forced password set (after temp passcode) ─────────────────────

@@ -1,9 +1,10 @@
-import { Router, type IRouter } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { eq, desc, and, asc, inArray, sql } from "drizzle-orm";
 import { db, professionalsTable, bookingsTable, marketRatesTable, helplineMessagesTable, appRatingsTable, serviceCategoriesTable, homeConfigTable, appCustomersTable, techFormConfigsTable, techFormSubmissionsTable, techCustomersTable, techRemindersTable, techPaymentsTable, techPaymentEntriesTable, appSettingsTable, authProfilesTable } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { sendOtpEmail } from "../lib/email";
 import { supabaseAdmin, signInAndGetSession } from "../lib/supabase";
+import { requireAdmin, requireAuth, requireLinkedTechnician } from "../middlewares/requireAuth";
 
 // OTP helper — generates 6-digit code, returns plain text (demo: returned to client)
 function genOtp(): string {
@@ -44,21 +45,129 @@ async function syncSupabasePassword(
   if (error) throw new Error(error.message);
 }
 
-const router: IRouter = Router();
+const router = Router();
+
+type ScopedTechnicianRequest = Request & { scopedTechnicianCode?: string };
+
+async function requireTechnicianScope(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const professionalId = req.supabaseContext!.supabaseProfile.professionalId!;
+  const [technician] = await db
+    .select({ uniqueCode: professionalsTable.uniqueCode })
+    .from(professionalsTable)
+    .where(eq(professionalsTable.id, professionalId))
+    .limit(1);
+  const scopedCode = technician?.uniqueCode?.trim().toUpperCase();
+  if (!scopedCode) {
+    res.status(403).json({ error: "Technician identity is unavailable" });
+    return;
+  }
+
+  const submittedCodes = [
+    req.params["techCode"],
+    typeof req.query["techCode"] === "string" ? req.query["techCode"] : undefined,
+    typeof req.body?.techCode === "string" ? req.body.techCode : undefined,
+  ].filter((code): code is string => Boolean(code));
+  if (submittedCodes.some(code => code.trim().toUpperCase() !== scopedCode)) {
+    res.status(403).json({ error: "You can only access your own technician data" });
+    return;
+  }
+  (req as ScopedTechnicianRequest).scopedTechnicianCode = scopedCode;
+  next();
+}
+
+function scopedTechnicianCode(req: Request): string {
+  return (req as ScopedTechnicianRequest).scopedTechnicianCode!;
+}
+
+function routeId(req: Request): number {
+  const value = req.params["id"];
+  return Number.parseInt(Array.isArray(value) ? value[0] ?? "" : value ?? "", 10);
+}
+
+function customerAuthDto(row: typeof appCustomersTable.$inferSelect, session: unknown) {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    uniqueCode: row.uniqueCode,
+    isTestData: row.isTestData,
+    createdAt: row.createdAt.toISOString(),
+    session,
+  };
+}
+
+function technicianAuthDto(row: typeof professionalsTable.$inferSelect, session: unknown) {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    uniqueCode: row.uniqueCode,
+    professionType: row.professionType,
+    avatarEmoji: row.avatarEmoji,
+    avatarUrl: row.avatarUrl,
+    visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null,
+    isActive: row.isActive,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    session,
+  };
+}
+
+const disabledLegacyAuthPaths = new Set([
+  "/technician/signup",
+  "/technician/login",
+  "/technician/request-otp",
+  "/technician/verify-otp",
+  "/technician/temp-passcode-login",
+  "/customer/signup",
+  "/customer/login",
+  "/customer/signup-email",
+  "/customer/login-email",
+  "/customer/request-otp",
+  "/customer/verify-otp",
+]);
+
+router.use("/booking", (req: Request, res: Response, next: NextFunction): void => {
+  const normalizedPath = req.path.replace(/\/+$/, "") || "/";
+  if (disabledLegacyAuthPaths.has(normalizedPath)) {
+    res.status(410).json({
+      error: "This legacy sign-in route has been retired. Use the Supabase-backed v2 sign-in flow.",
+    });
+    return;
+  }
+  next();
+});
 
 // ── Professionals ──────────────────────────────────────────────
 
 router.get("/booking/professionals", async (req, res): Promise<void> => {
   try {
-    // Always exclude test/sandbox entries from public API
-    const conditions: any[] = [eq(professionalsTable.isTestData, false)];
+    // Public booking discovery exposes only active, non-test technician fields.
+    const conditions: any[] = [
+      eq(professionalsTable.isTestData, false),
+      eq(professionalsTable.isActive, true),
+    ];
     if (req.query.professionType)
       conditions.push(eq(professionalsTable.professionType, req.query.professionType as string));
-    if (req.query.isActive !== undefined)
-      conditions.push(eq(professionalsTable.isActive, req.query.isActive === "true"));
 
     const rows = await db
-      .select()
+      .select({
+        id: professionalsTable.id,
+        name: professionalsTable.name,
+        professionType: professionalsTable.professionType,
+        phone: professionalsTable.phone,
+        avatarEmoji: professionalsTable.avatarEmoji,
+        avatarUrl: professionalsTable.avatarUrl,
+        visitingCharge: professionalsTable.visitingCharge,
+        rating: professionalsTable.rating,
+        shopName: professionalsTable.shopName,
+        uniqueCode: professionalsTable.uniqueCode,
+        isActive: professionalsTable.isActive,
+        createdAt: professionalsTable.createdAt,
+        updatedAt: professionalsTable.updatedAt,
+      })
       .from(professionalsTable)
       .where(and(...conditions))
       .orderBy(professionalsTable.name);
@@ -69,7 +178,7 @@ router.get("/booking/professionals", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/booking/professionals", async (req, res): Promise<void> => {
+router.post("/booking/professionals", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
     const { name, professionType, phone, avatarEmoji, visitingCharge, isActive } = req.body;
     const [professional] = await db
@@ -82,9 +191,9 @@ router.post("/booking/professionals", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/booking/professionals/:id", async (req, res): Promise<void> => {
+router.patch("/booking/professionals/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = routeId(req);
     const [professional] = await db
       .update(professionalsTable)
       .set(req.body)
@@ -97,9 +206,9 @@ router.patch("/booking/professionals/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/booking/professionals/:id", async (req, res): Promise<void> => {
+router.delete("/booking/professionals/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
-    await db.delete(professionalsTable).where(eq(professionalsTable.id, parseInt(req.params.id)));
+    await db.delete(professionalsTable).where(eq(professionalsTable.id, routeId(req)));
     res.status(204).end();
   } catch {
     res.status(500).json({ error: "Failed to delete professional" });
@@ -108,7 +217,7 @@ router.delete("/booking/professionals/:id", async (req, res): Promise<void> => {
 
 // ── Bookings ──────────────────────────────────────────────
 
-router.get("/booking/bookings", async (req, res): Promise<void> => {
+router.get("/booking/bookings", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
     const conditions: any[] = [];
     if (req.query.professionalId)
@@ -210,9 +319,9 @@ router.post("/booking/bookings", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/booking/bookings/:id", async (req, res): Promise<void> => {
+router.get("/booking/bookings/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = routeId(req);
     const [row] = await db
       .select({
         id: bookingsTable.id,
@@ -252,9 +361,9 @@ router.get("/booking/bookings/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/booking/bookings/:id", async (req, res): Promise<void> => {
+router.patch("/booking/bookings/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = routeId(req);
     const { rating, notes, bookingTime, visitingCharge } = req.body;
     const updates: Record<string, unknown> = {};
     if (rating !== undefined) updates.rating = rating;
@@ -291,9 +400,9 @@ router.patch("/booking/bookings/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/booking/bookings/:id", async (req, res): Promise<void> => {
+router.delete("/booking/bookings/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
-    await db.delete(bookingsTable).where(eq(bookingsTable.id, parseInt(req.params.id)));
+    await db.delete(bookingsTable).where(eq(bookingsTable.id, routeId(req)));
     res.status(204).end();
   } catch {
     res.status(500).json({ error: "Failed to delete booking" });
@@ -613,7 +722,7 @@ router.post("/booking/customer/register", async (req, res): Promise<void> => {
     // ── Step 4: Sign in to get a session for the mobile client ───────────
     const session = await signInAndGetSession(normEmail, password);
 
-    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), session });
+    res.status(201).json(customerAuthDto(row, session));
   } catch (err: any) {
     // Compensate: delete the newly-created Supabase user if domain work failed
     if (supabaseUid) {
@@ -684,7 +793,7 @@ router.post("/booking/customer/login-v2", async (req, res): Promise<void> => {
       }
     }
 
-    res.json({ ...row, createdAt: row.createdAt.toISOString(), session });
+    res.json(customerAuthDto(row, session));
   } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
@@ -704,11 +813,11 @@ router.post("/booking/customer/forgot-password", async (req, res): Promise<void>
       .set({ otpCode: otp, otpExpiresAt: expiresAt, otpAttempts: 0 } as any)
       .where(eq(appCustomersTable.id, row.id));
 
-    const { sent, demoOtp } = await sendOtpEmail({
+    const { sent } = await sendOtpEmail({
       to: norm, recipientName: row.name, otp,
     });
 
-    res.json({ success: true, sent, ...(demoOtp ? { demoOtp } : {}) });
+    res.json({ success: true, sent });
   } catch { res.status(500).json({ error: "OTP request failed" }); }
 });
 
@@ -841,12 +950,7 @@ router.post("/booking/technician/register", async (req, res): Promise<void> => {
     // ── Step 4: Sign in to get a session for the mobile client ───────────
     const session = await signInAndGetSession(normEmail, password);
 
-    res.status(201).json({
-      ...row,
-      visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null,
-      createdAt: row.createdAt.toISOString(),
-      session,
-    });
+    res.status(201).json(technicianAuthDto(row, session));
   } catch (err: any) {
     // Compensate: delete the newly-created Supabase user if domain work failed
     if (supabaseUid) {
@@ -934,20 +1038,15 @@ router.post("/booking/technician/login-v2", async (req, res): Promise<void> => {
       }
     }
 
-    res.json({
-      ...row,
-      visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null,
-      createdAt: row.createdAt.toISOString(),
-      session,
-    });
+    res.json(technicianAuthDto(row, session));
   } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
 // PATCH /booking/technician/profile — update name and/or avatarUrl for a technician
-router.patch("/booking/technician/profile", async (req, res): Promise<void> => {
+router.patch("/booking/technician/profile", requireAuth, requireLinkedTechnician, async (req, res): Promise<void> => {
   try {
-    const { uniqueCode, name, avatarUrl } = req.body;
-    if (!uniqueCode?.trim()) { res.status(400).json({ error: "uniqueCode required" }); return; }
+    const { name, avatarUrl } = req.body;
+    const professionalId = req.supabaseContext!.supabaseProfile.professionalId!;
 
     const updates: Record<string, unknown> = {};
     if (name?.trim()) updates.name = name.trim();
@@ -956,7 +1055,7 @@ router.patch("/booking/technician/profile", async (req, res): Promise<void> => {
 
     const [updated] = await db.update(professionalsTable)
       .set(updates)
-      .where(eq(professionalsTable.uniqueCode, uniqueCode.trim().toUpperCase()))
+      .where(eq(professionalsTable.id, professionalId))
       .returning({ id: professionalsTable.id, name: professionalsTable.name, avatarUrl: professionalsTable.avatarUrl });
 
     if (!updated) { res.status(404).json({ error: "Technician not found" }); return; }
@@ -999,21 +1098,21 @@ router.post("/booking/technician/forgot-password", async (req, res): Promise<voi
       .from(appSettingsTable).where(sql`id = 1`);
     const otpMode = (settings?.otpMode ?? 'EMAIL').toUpperCase();
 
-    let sent = false; let demoOtp: string | undefined;
+    let sent = false;
     if (otpMode === 'SMS') {
       // SMS provider not yet integrated — fall back to email with a note
       // TODO: integrate SMS provider (Twilio / MSG91) here
       const r = await sendOtpEmail({ to: row.email, recipientName: row.name, otp,
         extraLines: [`🔑 Technician ID: <strong style="color:#a5b4fc;">${row.uniqueCode}</strong>`,
           `<em style="color:#f59e0b;">(SMS mode selected but not configured — OTP sent to email)</em>`] });
-      sent = r.sent; demoOtp = r.demoOtp;
+      sent = r.sent;
     } else {
       const r = await sendOtpEmail({ to: row.email, recipientName: row.name, otp,
         extraLines: [`🔑 Your Technician ID: <strong style="color:#a5b4fc;">${row.uniqueCode}</strong>`] });
-      sent = r.sent; demoOtp = r.demoOtp;
+      sent = r.sent;
     }
 
-    res.json({ success: true, sent, email: row.email, otpMode, ...(demoOtp ? { demoOtp } : {}) });
+    res.json({ success: true, sent, email: row.email, otpMode });
   } catch { res.status(500).json({ error: "OTP request failed" }); }
 });
 
@@ -1125,7 +1224,7 @@ router.get("/booking/home-config", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/booking/home-config", async (req, res): Promise<void> => {
+router.patch("/booking/home-config", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
     const { helplineNumber, helplineName, isLocked } = req.body;
     const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -1162,7 +1261,7 @@ router.get("/booking/market-rates", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/booking/market-rates", async (req, res): Promise<void> => {
+router.post("/booking/market-rates", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
     const { professionType, serviceName, rate, unit } = req.body;
     const [row] = await db.insert(marketRatesTable).values({ professionType, serviceName, rate, unit }).returning();
@@ -1172,9 +1271,9 @@ router.post("/booking/market-rates", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/booking/market-rates/:id", async (req, res): Promise<void> => {
+router.patch("/booking/market-rates/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = routeId(req);
     const [row] = await db.update(marketRatesTable).set(req.body).where(eq(marketRatesTable.id, id)).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ ...row, rate: row.rate ? parseFloat(row.rate) : null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
@@ -1183,9 +1282,9 @@ router.patch("/booking/market-rates/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/booking/market-rates/:id", async (req, res): Promise<void> => {
+router.delete("/booking/market-rates/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
-    await db.delete(marketRatesTable).where(eq(marketRatesTable.id, parseInt(req.params.id)));
+    await db.delete(marketRatesTable).where(eq(marketRatesTable.id, routeId(req)));
     res.status(204).end();
   } catch {
     res.status(500).json({ error: "Failed to delete market rate" });
@@ -1194,7 +1293,7 @@ router.delete("/booking/market-rates/:id", async (req, res): Promise<void> => {
 
 // ── Helpline ──────────────────────────────────────────────
 
-router.get("/booking/helpline", async (req, res): Promise<void> => {
+router.get("/booking/helpline", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
     const rows = await db.select().from(helplineMessagesTable).orderBy(desc(helplineMessagesTable.createdAt));
     res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
@@ -1213,9 +1312,9 @@ router.post("/booking/helpline", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/booking/helpline/:id", async (req, res): Promise<void> => {
+router.patch("/booking/helpline/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = routeId(req);
     const { isResolved, adminReply } = req.body;
     const updates: Record<string, unknown> = {};
     if (isResolved !== undefined) updates.isResolved = isResolved;
@@ -1230,7 +1329,7 @@ router.patch("/booking/helpline/:id", async (req, res): Promise<void> => {
 
 // ── App Ratings ──────────────────────────────────────────────
 
-router.get("/booking/app-ratings", async (req, res): Promise<void> => {
+router.get("/booking/app-ratings", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   try {
     const rows = await db.select().from(appRatingsTable).orderBy(desc(appRatingsTable.createdAt));
     res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
@@ -1269,82 +1368,83 @@ router.get("/booking/app-ratings/summary", async (req, res): Promise<void> => {
 
 // ── Tech Customers ────────────────────────────────────────────────────────────
 
-router.get("/booking/tech-customers", async (req, res): Promise<void> => {
+router.get("/booking/tech-customers", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const { techCode } = req.query as Record<string, string>;
-    if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+    const techCode = scopedTechnicianCode(req);
     const rows = await db.select().from(techCustomersTable).where(eq(techCustomersTable.techCode, techCode)).orderBy(desc(techCustomersTable.createdAt));
     res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })));
   } catch { res.status(500).json({ error: "Failed to fetch customers" }); }
 });
 
-router.post("/booking/tech-customers", async (req, res): Promise<void> => {
+router.post("/booking/tech-customers", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const { techCode, name, phone, address, jobType, notes } = req.body;
-    if (!techCode || !name || !phone) { res.status(400).json({ error: "techCode, name, phone required" }); return; }
+    const { name, phone, address, jobType, notes } = req.body;
+    const techCode = scopedTechnicianCode(req);
+    if (!name || !phone) { res.status(400).json({ error: "name and phone required" }); return; }
     const [row] = await db.insert(techCustomersTable).values({ techCode, name, phone, address: address ?? null, jobType: jobType ?? null, notes: notes ?? null }).returning();
     res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch { res.status(500).json({ error: "Failed to create customer" }); }
 });
 
-router.patch("/booking/tech-customers/:id", async (req, res): Promise<void> => {
+router.patch("/booking/tech-customers/:id", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const [row] = await db.update(techCustomersTable).set(req.body).where(eq(techCustomersTable.id, id)).returning();
+    const id = routeId(req);
+    const { techCode: _techCode, ...updates } = req.body;
+    const [row] = await db.update(techCustomersTable).set(updates).where(and(eq(techCustomersTable.id, id), eq(techCustomersTable.techCode, scopedTechnicianCode(req)))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch { res.status(500).json({ error: "Failed to update customer" }); }
 });
 
-router.delete("/booking/tech-customers/:id", async (req, res): Promise<void> => {
+router.delete("/booking/tech-customers/:id", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    await db.delete(techCustomersTable).where(eq(techCustomersTable.id, parseInt(req.params.id)));
+    await db.delete(techCustomersTable).where(and(eq(techCustomersTable.id, routeId(req)), eq(techCustomersTable.techCode, scopedTechnicianCode(req))));
     res.status(204).end();
   } catch { res.status(500).json({ error: "Failed to delete customer" }); }
 });
 
 // ── Tech Reminders ────────────────────────────────────────────────────────────
 
-router.get("/booking/tech-reminders", async (req, res): Promise<void> => {
+router.get("/booking/tech-reminders", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const { techCode } = req.query as Record<string, string>;
-    if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+    const techCode = scopedTechnicianCode(req);
     const rows = await db.select().from(techRemindersTable).where(eq(techRemindersTable.techCode, techCode)).orderBy(desc(techRemindersTable.createdAt));
     res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
   } catch { res.status(500).json({ error: "Failed to fetch reminders" }); }
 });
 
-router.post("/booking/tech-reminders", async (req, res): Promise<void> => {
+router.post("/booking/tech-reminders", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const { techCode, title, note, reminderAt } = req.body;
-    if (!techCode || !title) { res.status(400).json({ error: "techCode, title required" }); return; }
+    const { title, note, reminderAt } = req.body;
+    const techCode = scopedTechnicianCode(req);
+    if (!title) { res.status(400).json({ error: "title required" }); return; }
     const [row] = await db.insert(techRemindersTable).values({ techCode, title, note: note ?? null, reminderAt: reminderAt ?? null }).returning();
     res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
   } catch { res.status(500).json({ error: "Failed to create reminder" }); }
 });
 
-router.patch("/booking/tech-reminders/:id", async (req, res): Promise<void> => {
+router.patch("/booking/tech-reminders/:id", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const [row] = await db.update(techRemindersTable).set(req.body).where(eq(techRemindersTable.id, id)).returning();
+    const id = routeId(req);
+    const { techCode: _techCode, ...updates } = req.body;
+    const [row] = await db.update(techRemindersTable).set(updates).where(and(eq(techRemindersTable.id, id), eq(techRemindersTable.techCode, scopedTechnicianCode(req)))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ ...row, createdAt: row.createdAt.toISOString() });
   } catch { res.status(500).json({ error: "Failed to update reminder" }); }
 });
 
-router.delete("/booking/tech-reminders/:id", async (req, res): Promise<void> => {
+router.delete("/booking/tech-reminders/:id", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    await db.delete(techRemindersTable).where(eq(techRemindersTable.id, parseInt(req.params.id)));
+    await db.delete(techRemindersTable).where(and(eq(techRemindersTable.id, routeId(req)), eq(techRemindersTable.techCode, scopedTechnicianCode(req))));
     res.status(204).end();
   } catch { res.status(500).json({ error: "Failed to delete reminder" }); }
 });
 
 // ── Tech Payments ─────────────────────────────────────────────────────────────
 
-router.get("/booking/tech-payments", async (req, res): Promise<void> => {
+router.get("/booking/tech-payments", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const { techCode } = req.query as Record<string, string>;
-    if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+    const techCode = scopedTechnicianCode(req);
     const rows = await db.select().from(techPaymentsTable).where(eq(techPaymentsTable.techCode, techCode)).orderBy(desc(techPaymentsTable.createdAt));
     // Fetch all entries for these payment IDs in one query
     const ids = rows.map(r => r.id);
@@ -1371,10 +1471,11 @@ router.get("/booking/tech-payments", async (req, res): Promise<void> => {
   } catch { res.status(500).json({ error: "Failed to fetch payments" }); }
 });
 
-router.post("/booking/tech-payments", async (req, res): Promise<void> => {
+router.post("/booking/tech-payments", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const { techCode, customerName, customerPhone, jobDescription, amountBilled, amountReceived, status } = req.body;
-    if (!techCode || !customerName) { res.status(400).json({ error: "techCode, customerName required" }); return; }
+    const { customerName, customerPhone, jobDescription, amountBilled, amountReceived, status } = req.body;
+    const techCode = scopedTechnicianCode(req);
+    if (!customerName) { res.status(400).json({ error: "customerName required" }); return; }
     const [row] = await db.insert(techPaymentsTable).values({
       techCode, customerName, customerPhone: customerPhone ?? null, jobDescription: jobDescription ?? null,
       amountBilled: String(amountBilled ?? 0), amountReceived: String(amountReceived ?? 0), status: status ?? 'pending',
@@ -1383,21 +1484,22 @@ router.post("/booking/tech-payments", async (req, res): Promise<void> => {
   } catch { res.status(500).json({ error: "Failed to create payment" }); }
 });
 
-router.patch("/booking/tech-payments/:id", async (req, res): Promise<void> => {
+router.patch("/booking/tech-payments/:id", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = routeId(req);
     const updates: Record<string, unknown> = { ...req.body };
+    delete updates.techCode;
     if (updates.amountBilled !== undefined) updates.amountBilled = String(updates.amountBilled);
     if (updates.amountReceived !== undefined) updates.amountReceived = String(updates.amountReceived);
-    const [row] = await db.update(techPaymentsTable).set(updates).where(eq(techPaymentsTable.id, id)).returning();
+    const [row] = await db.update(techPaymentsTable).set(updates).where(and(eq(techPaymentsTable.id, id), eq(techPaymentsTable.techCode, scopedTechnicianCode(req)))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ ...row, amountBilled: parseFloat(row.amountBilled), amountReceived: parseFloat(row.amountReceived), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch { res.status(500).json({ error: "Failed to update payment" }); }
 });
 
-router.delete("/booking/tech-payments/:id", async (req, res): Promise<void> => {
+router.delete("/booking/tech-payments/:id", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    await db.delete(techPaymentsTable).where(eq(techPaymentsTable.id, parseInt(req.params.id)));
+    await db.delete(techPaymentsTable).where(and(eq(techPaymentsTable.id, routeId(req)), eq(techPaymentsTable.techCode, scopedTechnicianCode(req))));
     res.status(204).end();
   } catch { res.status(500).json({ error: "Failed to delete payment" }); }
 });
@@ -1419,10 +1521,14 @@ async function recalcPayment(paymentId: number) {
   return updated;
 }
 
-router.post("/booking/tech-payment-entries", async (req, res): Promise<void> => {
+router.post("/booking/tech-payment-entries", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
     const { paymentId, amount, paymentMethod, paidAt, note } = req.body;
     if (!paymentId || !amount || !paidAt) { res.status(400).json({ error: "paymentId, amount, paidAt required" }); return; }
+    const [payment] = await db.select({ id: techPaymentsTable.id }).from(techPaymentsTable)
+      .where(and(eq(techPaymentsTable.id, parseInt(paymentId)), eq(techPaymentsTable.techCode, scopedTechnicianCode(req))))
+      .limit(1);
+    if (!payment) { res.status(404).json({ error: "Payment not found" }); return; }
     const [entry] = await db.insert(techPaymentEntriesTable).values({
       paymentId: parseInt(paymentId),
       amount: String(amount),
@@ -1444,11 +1550,15 @@ router.post("/booking/tech-payment-entries", async (req, res): Promise<void> => 
   } catch { res.status(500).json({ error: "Failed to add entry" }); }
 });
 
-router.delete("/booking/tech-payment-entries/:id", async (req, res): Promise<void> => {
+router.delete("/booking/tech-payment-entries/:id", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = routeId(req);
     const [entry] = await db.select().from(techPaymentEntriesTable).where(eq(techPaymentEntriesTable.id, id)).limit(1);
     if (!entry) { res.status(404).json({ error: "Not found" }); return; }
+    const [payment] = await db.select({ id: techPaymentsTable.id }).from(techPaymentsTable)
+      .where(and(eq(techPaymentsTable.id, entry.paymentId), eq(techPaymentsTable.techCode, scopedTechnicianCode(req))))
+      .limit(1);
+    if (!payment) { res.status(404).json({ error: "Not found" }); return; }
     await db.delete(techPaymentEntriesTable).where(eq(techPaymentEntriesTable.id, id));
     const updatedPayment = await recalcPayment(entry.paymentId);
     res.json({
@@ -1480,10 +1590,11 @@ router.get("/booking/tech-form-config/:techCode", async (req, res): Promise<void
   }
 });
 
-router.post("/booking/tech-form-config", async (req, res): Promise<void> => {
+router.post("/booking/tech-form-config", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const { techCode, defaultVisitingCharge, customMessage } = req.body;
-    const tech = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, techCode)).limit(1);
+    const { defaultVisitingCharge, customMessage } = req.body;
+    const professionalId = req.supabaseContext!.supabaseProfile.professionalId!;
+    const tech = await db.select().from(professionalsTable).where(eq(professionalsTable.id, professionalId)).limit(1);
     if (!tech[0]) { res.status(404).json({ error: "Technician not found" }); return; }
     const existing = await db.select().from(techFormConfigsTable).where(eq(techFormConfigsTable.professionalId, tech[0].id)).limit(1);
     if (existing[0]) {
@@ -1574,10 +1685,10 @@ router.post("/booking/tech-form-submit/:techCode", async (req, res): Promise<voi
   }
 });
 
-router.get("/booking/tech-form-submissions", async (req, res): Promise<void> => {
+router.get("/booking/tech-form-submissions", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const { techCode, phone } = req.query as Record<string, string>;
-    if (!techCode) { res.status(400).json({ error: "techCode required" }); return; }
+    const { phone } = req.query as Record<string, string>;
+    const techCode = scopedTechnicianCode(req);
     const conditions: ReturnType<typeof eq>[] = [eq(techFormSubmissionsTable.techCode, techCode)];
     if (phone) conditions.push(eq(techFormSubmissionsTable.phone, phone));
     const rows = await db.select().from(techFormSubmissionsTable).where(and(...conditions)).orderBy(desc(techFormSubmissionsTable.createdAt));
@@ -1587,11 +1698,11 @@ router.get("/booking/tech-form-submissions", async (req, res): Promise<void> => 
   }
 });
 
-router.patch("/booking/tech-form-submissions/:id", async (req, res): Promise<void> => {
+router.patch("/booking/tech-form-submissions/:id", requireAuth, requireLinkedTechnician, requireTechnicianScope, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = routeId(req);
     const { status } = req.body;
-    const [row] = await db.update(techFormSubmissionsTable).set({ status }).where(eq(techFormSubmissionsTable.id, id)).returning();
+    const [row] = await db.update(techFormSubmissionsTable).set({ status }).where(and(eq(techFormSubmissionsTable.id, id), eq(techFormSubmissionsTable.techCode, scopedTechnicianCode(req)))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ ...row, visitingCharge: row.visitingCharge ? parseFloat(row.visitingCharge) : null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch {

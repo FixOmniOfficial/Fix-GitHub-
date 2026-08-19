@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cleanup.then(fn => fn?.());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchMe]);
 
   // ---------------------------------------------------------------------------
   // Actions

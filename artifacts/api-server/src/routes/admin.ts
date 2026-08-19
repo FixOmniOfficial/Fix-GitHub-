@@ -218,7 +218,7 @@ router.patch('/admin/panel-toggle', requireAuth, requireSuperAdmin, async (req: 
 /**
  * POST /api/admin/ensure-first-admin
  *
- * Safely bootstraps the first super_admin with three guarantees:
+ * Safely bootstraps the configured first super_admin with three guarantees:
  *
  * 1. BACKWARD-COMPATIBLE: On existing deployments that already have an
  *    admin/super_admin in auth_profiles, a sentinel ('__seeded__') is written to
@@ -236,6 +236,14 @@ router.patch('/admin/panel-toggle', requireAuth, requireSuperAdmin, async (req: 
  */
 router.post('/admin/ensure-first-admin', requireAuth, async (req: Request, res: Response) => {
   const userId = req.supabaseContext!.supabaseUserId;
+  const configuredOwnerEmail = process.env.SUPABASE_BOOTSTRAP_SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+  const callerEmail = req.supabaseContext!.supabaseEmail?.trim().toLowerCase();
+  if (!configuredOwnerEmail || callerEmail !== configuredOwnerEmail) {
+    res.status(403).json({
+      error: "Initial administrator setup is only available through the configured owner invitation.",
+    });
+    return;
+  }
   try {
     // ── PHASE 0: ensure the singleton settings row exists (id=1) ─────────────
     await db

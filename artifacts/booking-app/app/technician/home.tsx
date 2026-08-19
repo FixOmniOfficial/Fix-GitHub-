@@ -16,6 +16,7 @@ import { useColors } from '@/hooks/useColors';
 import { useScreenVisibility } from '@/contexts/ScreenVisibilityContext';
 import ScreenDisabled from '@/components/ScreenDisabled';
 import { useAppAuth } from '@/contexts/AppAuthContext';
+import { getSupabaseAccessToken } from '@/lib/supabase';
 import ReminderModal, { ReminderTarget } from '@/components/ReminderModal';
 import CallerIdBanner from '@/components/CallerIdBanner';
 import CallerIdPermissionSheet from '@/components/CallerIdPermissionSheet';
@@ -54,8 +55,13 @@ const confirmDelete = (message: string): Promise<boolean> => {
 
 const api = async (path: string, opts?: RequestInit) => {
   const base = process.env.EXPO_PUBLIC_API_URL ?? '';
+  const accessToken = await getSupabaseAccessToken();
   const r = await fetch(`${base}/api${path}`, {
-    headers: { 'Content-Type': 'application/json', ...((opts?.headers as Record<string,string>) ?? {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...((opts?.headers as Record<string,string>) ?? {}),
+    },
     ...opts,
   });
   if (r.status === 204) return null;          // No Content — DELETE responses
@@ -78,9 +84,10 @@ function KycStatusCard({ techCode, router }: { techCode: string; router: ReturnT
   const [status, setStatus] = React.useState<string | null>(null);
   useEffect(() => {
     if (!techCode) return;
-    fetch(`${process.env.EXPO_PUBLIC_API_URL ?? ''}/api/kyc/status`, {
-      headers: { 'X-Tech-Code': techCode },
-    })
+    getSupabaseAccessToken()
+      .then(token => token ? fetch(`${process.env.EXPO_PUBLIC_API_URL ?? ''}/api/kyc/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }) : Promise.reject(new Error('No session')))
       .then(r => r.json())
       .then(d => setStatus(d.status ?? 'not_submitted'))
       .catch(() => setStatus('not_submitted'));
@@ -145,9 +152,10 @@ export default function TechnicianHomeScreen() {
   // Fetch KYC status for verified badge
   useEffect(() => {
     if (!user?.uniqueCode) return;
-    fetch(`${process.env.EXPO_PUBLIC_API_URL ?? ''}/api/kyc/status`, {
-      headers: { 'X-Tech-Code': user.uniqueCode },
-    })
+    getSupabaseAccessToken()
+      .then(token => token ? fetch(`${process.env.EXPO_PUBLIC_API_URL ?? ''}/api/kyc/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }) : Promise.reject(new Error('No session')))
       .then(r => r.json())
       .then(d => setKycStatus(d.status ?? 'not_submitted'))
       .catch(() => setKycStatus('not_submitted'));
@@ -195,11 +203,13 @@ export default function TechnicianHomeScreen() {
 
       // 2. POST as JSON to the base64 upload endpoint
       const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
+      const accessToken = await getSupabaseAccessToken();
+      if (!accessToken) throw new Error('Your session has expired. Please sign in again.');
       const uploadRes = await fetch(`${apiBase}/api/storage/uploads/base64`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Tech-Code': user?.uniqueCode ?? '',
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ data: compressed.base64, contentType: 'image/jpeg' }),
       });
@@ -260,14 +270,16 @@ export default function TechnicianHomeScreen() {
       if (Object.keys(updates).length > 0) updateUser(updates);
       // Persist to server
       const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
-      const body: Record<string, string> = { uniqueCode: user?.uniqueCode ?? '' };
+      const accessToken = await getSupabaseAccessToken();
+      if (!accessToken) throw new Error('Your session has expired. Please sign in again.');
+      const body: Record<string, string> = {};
       if (updates.name) body.name = updates.name;
       if (pendingAvatarUrl) body.avatarUrl = pendingAvatarUrl;
       else if (updates.avatar) body.avatarUrl = updates.avatar;
-      if (Object.keys(body).length > 1) {
+      if (Object.keys(body).length > 0) {
         const res = await fetch(`${apiBase}/api/booking/technician/profile`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
           body: JSON.stringify(body),
         });
         if (res.ok) {
@@ -279,8 +291,7 @@ export default function TechnicianHomeScreen() {
       if (nameChanged && kycStatus === 'verified') {
         await fetch(`${apiBase}/api/kyc/revoke`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uniqueCode: user?.uniqueCode }),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         }).catch(() => {});
         setKycStatus('not_submitted');
       }

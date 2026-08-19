@@ -1,7 +1,7 @@
 /**
  * KYC Routes
  *
- * Technician-facing (OTP-authenticated via X-Tech-Code header):
+ * Technician-facing (Supabase Auth identity linked to the technician record):
  *   GET  /api/kyc/status           — check own KYC status
  *   POST /api/kyc/submit           — submit / re-submit KYC
  *
@@ -13,28 +13,28 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, kycDocumentsTable, professionalsTable } from "@workspace/db";
-import { requireAuth, requireKycReview } from "../middlewares/requireAuth";
+import { requireAuth, requireKycReview, requireLinkedTechnician } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
 // ── Technician auth helper ────────────────────────────────────────────────────
-// Technicians authenticate with their uniqueCode via X-Tech-Code header
+// The professional ID is loaded server-side from the verified Supabase profile.
 async function resolveTechnician(req: Request): Promise<typeof professionalsTable.$inferSelect | null> {
-  const code = (req.headers["x-tech-code"] as string | undefined)?.trim().toUpperCase();
-  if (!code) return null;
+  const professionalId = req.supabaseContext?.supabaseProfile.professionalId;
+  if (!professionalId) return null;
   const [prof] = await db
     .select()
     .from(professionalsTable)
-    .where(eq(professionalsTable.uniqueCode, code));
+    .where(eq(professionalsTable.id, professionalId));
   return prof ?? null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TECHNICIAN — GET /api/kyc/status
 // ═══════════════════════════════════════════════════════════════════════════════
-router.get("/kyc/status", async (req: Request, res: Response): Promise<void> => {
+router.get("/kyc/status", requireAuth, requireLinkedTechnician, async (req: Request, res: Response): Promise<void> => {
   const tech = await resolveTechnician(req);
-  if (!tech) { res.status(401).json({ error: "Technician code required (X-Tech-Code header)" }); return; }
+  if (!tech) { res.status(403).json({ error: "Technician identity is unavailable" }); return; }
   const [doc] = await db
     .select()
     .from(kycDocumentsTable)
@@ -64,9 +64,9 @@ router.get("/kyc/status", async (req: Request, res: Response): Promise<void> => 
 // TECHNICIAN — POST /api/kyc/submit
 // Body: { fullName, email?, panCardPath?, addressProofPath? }
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post("/kyc/submit", async (req: Request, res: Response): Promise<void> => {
+router.post("/kyc/submit", requireAuth, requireLinkedTechnician, async (req: Request, res: Response): Promise<void> => {
   const tech = await resolveTechnician(req);
-  if (!tech) { res.status(401).json({ error: "Technician code required (X-Tech-Code header)" }); return; }
+  if (!tech) { res.status(403).json({ error: "Technician identity is unavailable" }); return; }
 
   const { fullName, email, panCardPath, addressProofPath } = req.body as {
     fullName?: string; email?: string; panCardPath?: string; addressProofPath?: string;
@@ -211,24 +211,13 @@ router.patch("/admin/kyc/:id/review", requireAuth, requireKycReview, async (req:
 // TECHNICIAN — POST /api/kyc/revoke
 // Called when a verified technician changes their profile name.
 // Resets their KYC status to "not_submitted" so they must re-verify.
-// Body: { uniqueCode }
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post("/kyc/revoke", async (req: Request, res: Response): Promise<void> => {
-  const { uniqueCode } = req.body as { uniqueCode?: string };
-  if (!uniqueCode) { res.status(400).json({ error: "uniqueCode required" }); return; }
-
-  const [prof] = await db
-    .select({ id: professionalsTable.id })
-    .from(professionalsTable)
-    .where(eq(professionalsTable.uniqueCode, uniqueCode.trim().toUpperCase()));
-
-  if (!prof) { res.status(404).json({ error: "Technician not found" }); return; }
-
+router.post("/kyc/revoke", requireAuth, requireLinkedTechnician, async (req: Request, res: Response): Promise<void> => {
+  const professionalId = req.supabaseContext!.supabaseProfile.professionalId!;
   try {
     await db
-      .update(kycDocumentsTable)
-      .set({ status: "pending" as any, reviewNotes: "Auto-revoked: name changed by technician (status: not_submitted)", reviewedAt: new Date() })
-      .where(eq(kycDocumentsTable.professionalId, prof.id));
+      .delete(kycDocumentsTable)
+      .where(eq(kycDocumentsTable.professionalId, professionalId));
     res.json({ success: true, status: "not_submitted" });
   } catch {
     res.status(500).json({ error: "Failed to revoke KYC status" });

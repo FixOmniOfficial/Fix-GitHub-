@@ -7,32 +7,18 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { ObjectStorageService } from "../lib/objectStorage";
 import multer from "multer";
-import { requireAuth } from "../middlewares/requireAuth";
-import { db } from "@workspace/db";
-import { professionalsTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { requireAuth, requireUploadActor } from "../middlewares/requireAuth";
+import { db, kycDocumentsTable, professionalsTable } from "@workspace/db";
+import { and, eq, or } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-// ── Auth helper: allows Clerk OR X-Tech-Code ──────────────────────────────────
-async function requireAnyAuth(req: Request, res: Response, next: () => void): Promise<void> {
-  // Try tech-code first (mobile technicians)
-  const techCode = req.headers["x-tech-code"] as string | undefined;
-  if (techCode) {
-    const [tech] = await db.select().from(professionalsTable).where(eq(professionalsTable.uniqueCode, techCode)).limit(1);
-    if (!tech) { res.status(401).json({ error: "Invalid tech code" }); return; }
-    (req as any).techCode = techCode;
-    next(); return;
-  }
-  // Fallback to Clerk auth
-  requireAuth(req, res, next);
-}
 const storage = new ObjectStorageService();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
 // ── POST /api/storage/uploads/request-url ─────────────────────────────────────
-// Browser clients request a presigned URL, then upload directly to GCS
-router.post("/storage/uploads/request-url", requireAuth, async (req: Request, res: Response): Promise<void> => {
+// Browser clients request a presigned URL, then upload directly to GCS.
+router.post("/storage/uploads/request-url", requireAuth, requireUploadActor, async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, size, contentType } = req.body as { name?: string; size?: number; contentType?: string };
     if (!name || !contentType) {
@@ -53,10 +39,10 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
 
 // ── POST /api/storage/uploads/multipart ──────────────────────────────────────
 // Mobile/server-side upload: receives multipart form, uploads to GCS, returns objectPath
-// Accepts Clerk auth (admin panel) OR X-Tech-Code header (mobile technicians)
 router.post(
   "/storage/uploads/multipart",
-  requireAnyAuth,
+  requireAuth,
+  requireUploadActor,
   upload.single("file"),
   async (req: Request, res: Response): Promise<void> => {
     try {
@@ -90,10 +76,10 @@ router.post(
 // ── POST /api/storage/uploads/base64 ─────────────────────────────────────────
 // Mobile-friendly upload: accepts JSON { data: base64String, contentType }.
 // Avoids multipart/FormData parsing issues in React Native fetch.
-// Accepts Clerk auth OR X-Tech-Code header.
 router.post(
   "/storage/uploads/base64",
-  requireAnyAuth,
+  requireAuth,
+  requireUploadActor,
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { data, contentType } = req.body as { data?: string; contentType?: string };
@@ -137,13 +123,28 @@ router.post(
 // Uses router.use() (like objectsRouter) so req.path captures the full
 // sub-path including any "uploads/UUID" segments — avoids the /:id limitation
 // that only matches a single path segment.
-// Security: blocks ".." segments to prevent path traversal.
+// Security: blocks path traversal and serves only paths currently assigned as
+// a technician avatar. KYC documents share the object store but are never
+// eligible for this unauthenticated route.
 const publicAvatarRouter: IRouter = Router();
 publicAvatarRouter.use(async (req: Request, res: Response): Promise<void> => {
   // req.path = e.g. "/uploads/de25e075-..." after the mount point
   const subPath = req.path;
   // Block path-traversal attempts
   if (!subPath || subPath.includes("..")) { res.status(400).end(); return; }
+  const publicAvatarPath = `/api/public/avatar${subPath}`;
+  const avatarRecords = await db
+    .select({ avatarUrl: professionalsTable.avatarUrl })
+    .from(professionalsTable);
+  const isKnownAvatar = avatarRecords.some(({ avatarUrl }) => {
+    if (!avatarUrl) return false;
+    try {
+      return new URL(avatarUrl).pathname === publicAvatarPath;
+    } catch {
+      return avatarUrl === publicAvatarPath;
+    }
+  });
+  if (!isKnownAvatar) { res.status(404).end(); return; }
   const objectPath = `/objects${subPath}`;
   try {
     const file = await storage.getObjectEntityFile(objectPath);
@@ -164,13 +165,46 @@ publicAvatarRouter.use(async (req: Request, res: Response): Promise<void> => {
 router.use("/public/avatar", publicAvatarRouter);
 
 // ── GET /api/storage/objects/** ───────────────────────────────────────────────
-// Serve stored objects (KYC docs etc.) — auth required.
+// Serve stored objects (KYC docs etc.) only to a KYC reviewer/admin or the
+// technician whose KYC record references the requested object.
 // Uses router.use() to avoid path-to-regexp v8 wildcard restrictions;
 // req.path inside this sub-router gives the remainder after /storage/objects.
 const objectsRouter: IRouter = Router();
 objectsRouter.use(requireAuth, async (req: Request, res: Response): Promise<void> => {
   // req.path here is the portion after the mount point, e.g. "/uuid-abc123"
+  if (!req.path || req.path.includes("..")) {
+    res.status(400).json({ error: "Invalid object path" });
+    return;
+  }
   const objectPath = `/objects${req.path}`;
+  const context = req.supabaseContext!;
+  const canReviewKyc =
+    context.supabaseRole === "admin" ||
+    context.supabaseRole === "super_admin" ||
+    context.supabasePermissions.includes("kyc_review");
+
+  if (!canReviewKyc) {
+    const professionalId = context.supabaseProfile.professionalId;
+    if (!professionalId) {
+      res.status(403).json({ error: "You do not have access to this document" });
+      return;
+    }
+    const [ownedDocument] = await db
+      .select({ id: kycDocumentsTable.id })
+      .from(kycDocumentsTable)
+      .where(and(
+        eq(kycDocumentsTable.professionalId, professionalId),
+        or(
+          eq(kycDocumentsTable.panCardPath, objectPath),
+          eq(kycDocumentsTable.addressProofPath, objectPath),
+        ),
+      ))
+      .limit(1);
+    if (!ownedDocument) {
+      res.status(403).json({ error: "You do not have access to this document" });
+      return;
+    }
+  }
   try {
     const file = await storage.getObjectEntityFile(objectPath);
     const response = await storage.downloadObject(file, 300);

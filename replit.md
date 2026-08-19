@@ -12,6 +12,13 @@ AC, फ्रिज, वॉशिंग मशीन और अन्य अप�
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
 
+## Supabase migration / cutover runbook
+
+1. **Prepare the owner safely.** Keep the legacy `DATABASE_URL` database as the rollback source and take a backup before cutover. Store `DATABASE_URL`, `SUPABASE_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and the exact owner email in `SUPABASE_BOOTSTRAP_SUPER_ADMIN_EMAIL` as workspace secrets. Never put the service-role key in code, chat, or shell history.
+2. **Apply schema protections first.** Run `pnpm --filter @workspace/db run migrate:supabase`. It applies the ordered Supabase schema migrations with checksums, transactions, and an advisory lock. Do not use the dev-only `push` command for production.
+3. **Invite and reconcile users.** Run `SUPABASE_BOOTSTRAP_SUPER_ADMIN_EMAIL=owner@example.com pnpm --filter @workspace/api-server run reconcile:users`. It reconciles stable domain identifiers, imports bcrypt password hashes, clears legacy OTP/temp-passcode data, creates or links Supabase Auth identities, and invites the configured owner as `super_admin`.
+4. **Verify and recover.** Re-run the reconciliation command to confirm it creates no duplicate data, verify the invited owner can sign in and has the `super_admin` role, then start the API. A failed in-flight migration/reconciliation rolls back its own work; a completed cutover is reverted by restoring the pre-cutover legacy backup and prior deployment. Do not delete Auth users or drop tables as an ad-hoc rollback.
+
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9

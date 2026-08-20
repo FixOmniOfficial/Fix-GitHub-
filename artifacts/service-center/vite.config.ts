@@ -6,9 +6,7 @@ import { defineConfig } from 'vite';
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
 // Vercel के लिए सुरक्षित पोर्ट हैंडलिंग
-const rawPort = process.env.PORT?.trim();
-const port = rawPort ? Number(rawPort) : 5173;
-
+const port = Number(process.env.PORT) || 5173;
 const basePath = process.env.BASE_PATH ?? '/service-center/';
 
 export default defineConfig({

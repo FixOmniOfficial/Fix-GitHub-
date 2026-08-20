@@ -63,7 +63,7 @@ function FormOptionsTab() {
   const { data: serverOptions, isLoading } = useQuery<FormOption[]>({
     queryKey: ['admin-form-options'],
     queryFn: () => apiFetch('/api/admin/form-options'),
-    onSuccess: (data) => {
+    onSuccess: (data: FormOption[]) => {
       if (!dirty) setLocalOptions(data);
     },
   } as any);

@@ -17,6 +17,16 @@ export interface AuthState {
   refetch: () => void;
 }
 
+interface LegacyAuthResponse {
+  error?: string;
+  userId?: number;
+  otp?: string;
+}
+
+async function readLegacyAuthResponse(response: Response): Promise<LegacyAuthResponse> {
+  return response.json() as Promise<LegacyAuthResponse>;
+}
+
 export function useAuth(): AuthState {
   const { meUser, isLoading, isSignedIn, refreshMe } = useAuthContext();
   return {
@@ -32,33 +42,33 @@ export function useAuth(): AuthState {
 // ---------------------------------------------------------------------------
 export const authApi = {
   /** Deprecated: sign-in now goes through Supabase directly via AuthContext.signIn */
-  login: (_login: string, _password: string): Promise<unknown> =>
+  login: (_login: string, _password: string): Promise<LegacyAuthResponse> =>
     Promise.reject(new Error('Use AuthContext.signIn instead of authApi.login')),
 
   logout: () =>
     authenticatedFetch('/api/auth/logout', { method: 'POST' })
-      .then(r => r.json()),
+      .then(readLegacyAuthResponse),
 
   sendOtp: (login: string) =>
     authenticatedFetch('/api/auth/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ login }),
-    }).then(r => r.json()),
+    }).then(readLegacyAuthResponse),
 
   verifyOtp: (userId: number, otp: string) =>
     authenticatedFetch('/api/auth/verify-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, otp }),
-    }).then(r => r.json()),
+    }).then(readLegacyAuthResponse),
 
   resetPassword: (userId: number, newPassword: string) =>
     authenticatedFetch('/api/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, newPassword }),
-    }).then(r => r.json()),
+    }).then(readLegacyAuthResponse),
 
   sendPasswordReset: (email: string, redirectTo?: string) =>
     authenticatedFetch('/api/auth/send-password-reset', {

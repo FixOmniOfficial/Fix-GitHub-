@@ -29,7 +29,7 @@ export default function AdminProfessionalsScreen() {
   const { data: professionals, isLoading } = useListProfessionals({});
   const updateProfessional = useUpdateProfessional();
 
-  const handleToggle = (prof: { id: number; name: string; isActive: boolean }) => {
+  const handleToggle = (prof: { id: number; name: string; professionType: string; isActive: boolean }) => {
     const action = prof.isActive ? 'Block' : 'Unblock';
     Alert.alert(
       `${action} ${prof.name}?`,
@@ -43,7 +43,7 @@ export default function AdminProfessionalsScreen() {
           style: prof.isActive ? 'destructive' : 'default',
           onPress: () => {
             updateProfessional.mutate(
-              { id: prof.id, data: { isActive: !prof.isActive } },
+              { id: prof.id, data: { name: prof.name, professionType: prof.professionType, isActive: !prof.isActive } },
               {
                 onSuccess: () => {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -113,7 +113,7 @@ export default function AdminProfessionalsScreen() {
               {/* Toggle */}
               <Switch
                 value={p.isActive}
-                onValueChange={() => handleToggle({ id: p.id, name: p.name, isActive: p.isActive })}
+                onValueChange={() => handleToggle({ id: p.id, name: p.name, professionType: p.professionType, isActive: p.isActive })}
                 trackColor={{ false: '#ef444444', true: '#22c55e44' }}
                 thumbColor={p.isActive ? '#22c55e' : '#ef4444'}
                 disabled={updateProfessional.isPending}

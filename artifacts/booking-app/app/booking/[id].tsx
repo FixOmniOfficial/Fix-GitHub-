@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
-import { useGetBooking, useUpdateBooking } from '@workspace/api-client-react';
+import { useGetBooking, useUpdateBooking, getGetBookingQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
@@ -30,8 +30,9 @@ export default function BookingDetailScreen() {
   const queryClient = useQueryClient();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
-  const { data: booking, isLoading } = useGetBooking(parseInt(id ?? '0'), {
-    query: { enabled: !!id },
+  const bookingId = parseInt(id ?? '0');
+  const { data: booking, isLoading } = useGetBooking(bookingId, {
+    query: { queryKey: getGetBookingQueryKey(bookingId), enabled: !!id },
   });
   const updateBooking = useUpdateBooking();
 

@@ -150,12 +150,14 @@ export default function CustomerDetail() {
   }, [isEditOpen, customer]);
 
   const onUpdate = (data: CustomerFormData) => {
+    const customerUpdate = {
+      ...data,
+      visitingAmount: data.visitingAmount ? parseFloat(data.visitingAmount) : undefined,
+    };
+
     updateCustomer.mutate({
       id,
-      data: {
-        ...data,
-        visitingAmount: data.visitingAmount ? parseFloat(data.visitingAmount) : undefined,
-      },
+      data: customerUpdate,
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCustomerQueryKey(id) });
@@ -181,15 +183,17 @@ export default function CustomerDetail() {
   });
 
   const onNewJob = (data: z.infer<typeof jobSchema>) => {
+    const jobInput = {
+      customerId: id,
+      description: data.description || undefined,
+      applianceType: data.applianceType || undefined,
+      technicianName: data.technicianName || undefined,
+      amount: data.amount ? parseFloat(data.amount) : undefined,
+      scheduledDate: data.scheduledDate || undefined,
+    };
+
     createJob.mutate({
-      data: {
-        customerId: id,
-        description: data.description || undefined,
-        applianceType: data.applianceType || undefined,
-        technicianName: data.technicianName || undefined,
-        amount: data.amount ? parseFloat(data.amount) : undefined,
-        scheduledDate: data.scheduledDate || undefined,
-      },
+      data: jobInput,
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCustomerHistoryQueryKey(id) });

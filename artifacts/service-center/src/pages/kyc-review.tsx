@@ -16,6 +16,8 @@ import { useRole } from '@/lib/use-role';
 import { format } from 'date-fns';
 import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+
 interface KycEntry {
   id: number;
   professionalId: number;

@@ -1,4 +1,5 @@
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 const { spawn } = require('child_process');
 const { Readable } = require('stream');
@@ -7,11 +8,19 @@ const { pipeline } = require('stream/promises');
 let metroProcess = null;
 
 const projectRoot = path.resolve(__dirname, '..');
-const metroPort = Number(process.env.EXPO_BUILD_METRO_PORT || 8081);
-if (!Number.isInteger(metroPort) || metroPort <= 0 || metroPort > 65535) {
+const configuredMetroPort = process.env.EXPO_BUILD_METRO_PORT
+  ? Number(process.env.EXPO_BUILD_METRO_PORT)
+  : null;
+if (
+  configuredMetroPort !== null &&
+  (!Number.isInteger(configuredMetroPort) ||
+    configuredMetroPort <= 0 ||
+    configuredMetroPort > 65535)
+) {
   throw new Error('EXPO_BUILD_METRO_PORT must be a valid TCP port number.');
 }
-const metroBaseUrl = `http://localhost:${metroPort}`;
+let metroPort;
+let metroBaseUrl;
 
 function findWorkspaceRoot(startDir) {
   let dir = startDir;
@@ -78,6 +87,19 @@ function getDeploymentDomain() {
     'ERROR: No deployment domain found. Set REPLIT_INTERNAL_APP_DOMAIN, REPLIT_DEV_DOMAIN, or EXPO_PUBLIC_DOMAIN',
   );
   process.exit(1);
+}
+
+function findAvailablePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : null;
+      server.close((error) => (error ? reject(error) : resolve(port)));
+    });
+  });
 }
 
 function prepareDirectories(timestamp) {
@@ -539,6 +561,10 @@ async function main() {
   console.log('Building static Expo Go deployment...');
 
   setupSignalHandlers();
+
+  metroPort = configuredMetroPort ?? await findAvailablePort();
+  metroBaseUrl = `http://localhost:${metroPort}`;
+  console.log(`Using Metro build port: ${metroPort}`);
 
   const domain = getDeploymentDomain();
   const expoPublicReplId = getExpoPublicReplId();

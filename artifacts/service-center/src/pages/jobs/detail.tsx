@@ -47,7 +47,7 @@ export default function JobDetail() {
     const current = job.paymentStatus;
     const next = current === 'unpaid' ? 'partial' : current === 'partial' ? 'paid' : 'unpaid';
     
-    updatePayment.mutate({ data: { paymentStatus: next, jobId: id } }, {
+    updatePayment.mutate({ id, data: { paymentStatus: next } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
         toast.success(`Payment status updated: ${next}`);

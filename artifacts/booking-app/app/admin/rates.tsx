@@ -39,7 +39,7 @@ export default function AdminRatesScreen() {
     const val = parseFloat(newRate);
     if (isNaN(val) || val <= 0) { Alert.alert('Error', 'Please enter a valid rate'); return; }
     updateRate.mutate(
-      { id: editing.id, data: { rate: val } },
+      { id: editing.id, data: { professionType: editing.professionType, serviceName: editing.serviceName, rate: val } },
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

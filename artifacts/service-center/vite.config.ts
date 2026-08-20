@@ -5,13 +5,9 @@ import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
-const rawPort = process.env.PORT?.trim() || '5173';
-
-const port = Number(rawPort);
-
-if (!Number.isFinite(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
+// Vercel के लिए सुरक्षित पोर्ट हैंडलिंग
+const rawPort = process.env.PORT?.trim();
+const port = rawPort ? Number(rawPort) : 5173;
 
 const basePath = process.env.BASE_PATH ?? '/service-center/';
 

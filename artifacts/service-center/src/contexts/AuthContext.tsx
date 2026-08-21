@@ -51,7 +51,9 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+const BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '')
+  ?? import.meta.env.BASE_URL?.replace(/\/$/, '')
+  ?? '';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);

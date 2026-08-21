@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+const BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '')
+  ?? import.meta.env.BASE_URL?.replace(/\/$/, '')
+  ?? '';
 
 let _client: SupabaseClient | null = null;
 

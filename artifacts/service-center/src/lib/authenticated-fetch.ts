@@ -16,7 +16,9 @@
 
 import { getSupabaseClient } from '@/lib/supabase-client';
 
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
+const BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '')
+  ?? import.meta.env.BASE_URL?.replace(/\/$/, '')
+  ?? '';
 
 /**
  * Returns the active Supabase access_token, or null if the user is not signed in.

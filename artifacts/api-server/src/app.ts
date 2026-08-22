@@ -1,6 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import { pinoHttp } from "pino-http";
+import pinoHttp from "pino-http";
 import type { IncomingMessage, ServerResponse } from "http";
 import {
   globalLimiter,
@@ -51,7 +51,7 @@ app.use((_req, res, next) => {
 app.use(cors({ credentials: true, origin: true }));
 
 // ── Body parsers ───────────────────────────────────────────────────────────────
-app.use(express.json({ limit: "1mb" }));           // reject payloads > 1 MB
+app.use(express.json({ limit: "1mb" })); // reject payloads > 1 MB
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // ── Input sanitization (after body parse, before routes) ─────────────────────
@@ -63,12 +63,12 @@ app.use(sanitizeInputs);
 app.use("/api", globalLimiter);
 
 // Stricter limits on specific path prefixes
-app.use("/api/auth",            authLimiter);    // login / OTP
-app.use("/api/booking/otp",     authLimiter);    // booking OTP endpoint
-app.use("/api/booking/signup",  authLimiter);    // technician signup
-app.use("/api/admin",           adminLimiter);   // admin panel operations
-app.use("/api/admin/sandbox",   sandboxLimiter); // sandbox generate/clear (most restrictive)
-app.use("/api/book",            publicLimiter);  // public booking form
+app.use("/api/auth", authLimiter); // login / OTP
+app.use("/api/booking/otp", authLimiter); // booking OTP endpoint
+app.use("/api/booking/signup", authLimiter); // technician signup
+app.use("/api/admin", adminLimiter); // admin panel operations
+app.use("/api/admin/sandbox", sandboxLimiter); // sandbox generate/clear (most restrictive)
+app.use("/api/book", publicLimiter); // public booking form
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
 app.use("/api", router);
